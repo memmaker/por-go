@@ -174,6 +174,7 @@ func (e *Engine) CommandInput() byte {
 					// (extra) Down steps backwards (the original turns round): Move faces the way back and turns round again
 					e.facing = (e.facing + 4) % 8
 					e.ext.back = true
+					e.es.wallAhead = e.WallAt(e.posX, e.posY, e.facing) // the step scripts read it (City Hall: 0xC04E 11 is the locked door)
 					e.checkEdge()
 					done = true
 				case 'K':

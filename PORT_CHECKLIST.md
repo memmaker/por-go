@@ -82,7 +82,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] Browser build for goplay (https://ruzzoli.de/goplay/): `-import` finds the game in what the player drops, `GOPLAY_DATA` is the data dir (cmd/por/import.go)
 - [x] Context-sensitive adventure bar (engine/cmdbar.go): Cast only when the selected member has a spell to cast
 - [x] Walk on the full map (engine/walk.go): the party walks to the cursor square, stopping at text, pictures, menus, monsters, a blocked step or any key
-- [x] Down steps backwards in the 3D view, facing kept (the original turns round)
+- [x] Down steps backwards in the 3D view, facing kept (the original turns round); the step scripts see the wall behind, not the one ahead
 - [x] Help and journal boxes end above the menu row, so their bottom border shows
 - [x] Shop Buy list: opens at the top on the first usable item (the original starts on the second, top left from the last list); F1-F6 change the buyer; goods the buyer cannot ready are grey and passed over by the cursor (engine/shop.go canUseItem, ListNode.Dim)
 - [x] -import copies ITEMS (the base item table: without it every item was the wrong class)
