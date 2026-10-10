@@ -124,23 +124,6 @@ func (e *Engine) sheetEffects(c *Character) {
 	e.DisplayString(9, effectsRow, 0xA, s)
 }
 
-// showMoney = ovr20:050D: the coins, platinum first.
-func (e *Engine) showMoney() {
-	e.ClearCells(0xC, 7, 0x1A, 0xE)
-	c := e.selected()
-	y := 7
-	for i := 6; i >= 0; i-- {
-		v := wordAt(c.Raw[:], chCoins+2*i)
-		if v == 0 {
-			continue
-		}
-		n := cut(e.X.PString(0xFFA+0xB*i), 0x28)
-		e.DisplayString(0x14-len(n), y, 0xA, n)
-		e.DisplayString(0x15, y, 0xA, itoa(int(v)))
-		y++
-	}
-}
-
 // showCombatStats = ovr20:0608: AC, HP, THAC0, damage, weight, movement.
 func (e *Engine) showCombatStats() {
 	c := e.selected()
@@ -225,15 +208,10 @@ func (e *Engine) ViewCharacter() bool {
 	}
 	for key != 0 && key != 'E' && !quit {
 		c := e.viewChar()
-		spells, money := false, false
+		spells := false
 		for i := 0; i <= 0x14; i++ {
 			if c.Raw[chSpells+i] > 0 {
 				spells = true
-			}
-		}
-		for i := 0; i <= 6; i++ {
-			if wordAt(c.Raw[:], chCoins+2*i) > 0 {
-				money = true
 			}
 		}
 		menu := ""
@@ -242,13 +220,6 @@ func (e *Engine) ViewCharacter() bool {
 		}
 		if spells {
 			menu += "Spells "
-		}
-		hired := c.Raw[chPlayerFlag] >= 0x80 && c.Raw[chOkay] != 0 && c.Raw[chStatus] != 1
-		if !hired && money && e.beginFlag != 5 {
-			menu += "Trade "
-		}
-		if money {
-			menu += "Drop "
 		}
 		if !e.effectsFit(c) {
 			menu += "Magic " // extra: all of the spell effects
@@ -268,15 +239,10 @@ func (e *Engine) ViewCharacter() bool {
 		case 'S':
 			idx := -1
 			e.SpellList(0, 0, &idx, &spells)
-		case 'T':
-			e.TradeMoney()
-		case 'D':
-			e.DropMoney()
-			e.showMoney()
 		case 'M':
 			e.displayAffects("Magic", []*Character{c})
 		}
-		if !quit && (key == 'I' || key == 'S' || key == 'T' || key == 'M') {
+		if !quit && (key == 'I' || key == 'S' || key == 'M') {
 			e.CharacterSheet()
 		}
 	}
@@ -663,7 +629,7 @@ func (e *Engine) spellRec(spell byte, k int) byte {
 }
 
 // sellItem = ovr20:1CEE (item): half the value (a twentieth per piece
-// of a stack); paid in platinum and gold, the overflow to the pool.
+// of a stack), paid into the party's gold.
 func (e *Engine) sellItem(it *Item) {
 	v := wordAt(it.Raw[:], 0x3A) >> 1
 	if it.Raw[itCount] > 1 {
@@ -675,45 +641,17 @@ func (e *Engine) sellItem(it *Item) {
 		"I'll give you "+itoa(int(v))+" gold pieces for your "+it.Name())
 	if e.YesNo(0xD, 0xA, 0xF, "Is It a Deal? ") == 'Y' {
 		e.BottomMessage("Sold!")
-		c := e.selected()
-		e.RemoveItem(c, it)
-		plat, gold := v/5, v%5
-		var room uint16
-		if e.overweight(c, plat+gold, &room) {
-			e.BottomMessage("Overloaded.  Money will be put in pool.")
-			if room <= plat {
-				c.setCoins(coinPlatinum, c.coins(coinPlatinum)+room)
-				e.money[coinPlatinum] += uint32(plat - room)
-			} else {
-				c.setCoins(coinPlatinum, c.coins(coinPlatinum)+plat)
-			}
-			c.setCoins(coinGold, c.coins(coinGold)+gold)
-		} else {
-			c.setCoins(coinPlatinum, c.coins(coinPlatinum)+plat)
-			c.setCoins(coinGold, c.coins(coinGold)+gold)
-		}
+		e.RemoveItem(e.selected(), it)
+		e.purse.gold += int(v)
 	}
 	e.ClearCells(1, 0x15, 0x26, 0x16)
 }
 
-// identifyItem = ovr20:1F52 (item, redraw): 200 gp from the purse or the
-// pool shows the hidden words.
+// identifyItem = ovr20:1F52 (item, redraw): 200 gp shows the hidden words.
 func (e *Engine) identifyItem(it *Item, redraw *bool) {
-	paid := false
 	e.ItemName(e.viewChar(), it, 0, 0, false, false)
 	e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "For 200 gold pieces I'll identify your "+it.Name())
-	if e.YesNo(0xD, 0xA, 0xF, "Is It a Deal? ") == 'Y' {
-		if v := e.charMoneyValue(e.selected()); v >= 200 {
-			paid = true
-			e.setCharMoney(uint16(v - 200))
-		} else if v := e.poolValue(); v >= 200 {
-			paid = true
-			e.setPoolMoney(uint16(v - 200))
-		} else {
-			e.BottomMessage("Not Enough Money")
-		}
-	}
-	if paid {
+	if e.YesNo(0xD, 0xA, 0xF, "Is It a Deal? ") == 'Y' && e.pay(200) {
 		if it.Raw[itHidden] == 0 {
 			e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "I can't tell anything new about your "+it.Name())
 		} else {
@@ -725,103 +663,6 @@ func (e *Engine) identifyItem(it *Item, redraw *bool) {
 		e.MsgDelay()
 	}
 	e.ClearCells(1, 0x15, 0x26, 0x16)
-}
-
-// coinList builds the "    gold 123" lines for the selected character's
-// coins, jewelry first (ovr20:21CE / 24CF).
-func (e *Engine) coinList() []*ListNode {
-	c := e.selected()
-	var list []*ListNode
-	for i := 0; i <= 6; i++ {
-		if c.coins(i) == 0 {
-			continue
-		}
-		name := e.moneyName(i)
-		pad := 8 - len(name)
-		if pad < 0 {
-			pad = 0
-		}
-		s := cut(spaces(pad)+name+" "+itoa(int(c.coins(i))), 0x28)
-		list = append([]*ListNode{{Text: s}}, list...)
-	}
-	return list
-}
-
-func spaces(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = ' '
-	}
-	return string(b)
-}
-
-// TradeMoney = ovr20:2156: give coins to another member.
-func (e *Engine) TradeMoney() {
-	// bp-0x131 (done) is uninitialised: the stack garbage there is non-zero
-	// until a trade sets it.
-	done := true
-	for outer := false; !outer; {
-		to := e.SelectCharacterAfterRedraw("Trade to?", e.view.start)
-		if to == nil {
-			return
-		}
-		e.CharacterSheet()
-		for inner := false; !inner; { // ovr20:21A0
-			e.showMoney()
-			e.view.start = to
-			list := e.coinList()
-			index, redraw := 0, true
-			var sel *ListNode
-			e.ListMenu("Select type of coin", "", 0xD, 0xA, 0xF, 0xC, 7, 0x19, 0xD, list, true, &redraw, &index, &sel)
-			if sel == nil {
-				inner, outer = true, done // Exit keeps the last value of bp-0x131
-
-				continue
-			}
-			coin, name := coinFromText(sel.Text)
-			c := e.selected()
-			amount := e.inputAmount(c.coins(coin), cut("How much "+name+"will you trade? ", 0xFF), 0xA)
-			e.giveMoney(c, to, amount, coin)
-			inner, outer = true, true
-			for i := 0; i <= 6; i++ {
-				if c.coins(i) > 0 {
-					inner, outer = false, false
-				}
-			}
-			done = outer
-		}
-	}
-}
-
-// SelectCharacterAfterRedraw is the DrawMainScreen + 00BA:2C48 pair the
-// trade commands start with.
-func (e *Engine) SelectCharacterAfterRedraw(prompt string, start *Character) *Character {
-	e.DrawMainScreen()
-	return e.SelectCharacter(prompt, true, start)
-}
-
-// DropMoney = ovr20:24A7.
-func (e *Engine) DropMoney() {
-	for done := false; !done; {
-		e.showMoney()
-		list := e.coinList()
-		index, redraw := 0, true
-		var sel *ListNode
-		e.ListMenu("Select type of coin", "", 0xD, 0xA, 0xF, 0xC, 7, 0x19, 0xD, list, true, &redraw, &index, &sel)
-		if sel == nil {
-			return
-		}
-		coin, name := coinFromText(sel.Text)
-		c := e.selected()
-		amount := e.inputAmount(c.coins(coin), cut("How much "+name+"will you drop? ", 0xFF), 0xA)
-		e.dropMoney(c, amount, coin)
-		done = true
-		for i := 0; i <= 6; i++ {
-			if c.coins(i) > 0 {
-				done = false
-			}
-		}
-	}
 }
 
 // overloaded = ovr20:275B (item, char): no room for one more item.

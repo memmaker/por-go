@@ -12,20 +12,14 @@ func (e *Engine) templeNotNeeded(msg string) byte {
 	return k
 }
 
-// templePay = ovr05:00BF (cure, price): the price from the purse, or else
-// from the pool. 'Y' when paid.
+// templePay = ovr05:00BF (cure, price): the price from the party's gold.
+// 'Y' when paid.
 func (e *Engine) templePay(cure string, price uint16) byte {
 	e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, true,
 		cut(cure+" will only cost "+itoa(int(price))+" gold pieces.", 0xFF))
 	k := e.YesNo(0xD, 0xF, 0xA, "pay for cure ")
 	if k == 'Y' {
-		c := e.selected()
-		if purse := e.charMoneyValue(c); int32(price) <= purse {
-			e.setCharMoney(uint16(purse - int32(price)))
-		} else if pool := e.poolValue(); int32(price) <= pool {
-			e.setPoolMoney(uint16(pool - int32(price)))
-		} else {
-			e.BottomMessage("Not enough money.")
+		if !e.pay(int(price)) {
 			k = 'N'
 		}
 	}
@@ -235,16 +229,9 @@ func (e *Engine) Temple() {
 	e.beginFlag = 1
 	e.DrawMainScreen()
 	e.DisplayPartyList()
-	e.money = [7]uint32{}
-	e.poolHasMoney = false
 	for leave := false; !leave; {
-		money, _ := e.treasureFlags()
-		menu := "Heal View Pool Appraise Exit"
-		if money {
-			menu = "Heal View Take Pool Share Appraise Exit"
-		}
 		e.shopMoney()
-		key, extra := e.DisplayInput("", menu, 0xD, 0xA, 0xF, true, false)
+		key, extra := e.DisplayInput("", "Heal View Appraise Exit", 0xD, 0xA, 0xF, true, false)
 		appraised := false
 		switch key {
 		case 'H':
@@ -253,33 +240,14 @@ func (e *Engine) Temple() {
 			}
 		case 'V':
 			e.ViewCharacter()
-		case 'T':
-			e.TakeMoneyMenu()
-		case 'P':
-			if !extra {
-				e.PoolMoney()
-			}
-		case 'S':
-			e.ShareMoney()
 		case 'A':
 			appraised = e.Appraise()
 		case 'E':
-			if money, _ := e.treasureFlags(); money {
-				e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, true,
-					"As you leave a priest says, \"Excuse me but you have left some money here\" ")
-				e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, true, "Do you want to go back and retrieve your money?")
-				if e.MenuInput(false, 0xF, 0xA, 0xD, "~Yes ~No", "") == 1 {
-					leave = true
-				} else {
-					e.ClearBox(1, 0x11, 0x26, 0x16)
-				}
-			} else {
-				leave = true
-			}
+			leave = true
 		case 'G', 'O':
 			e.partyKeypad(key)
 		}
-		if key == 'B' || key == 'T' || key == 'A' && appraised {
+		if key == 'A' && appraised {
 			e.DrawMainScreen()
 		}
 		e.DisplayPartyList()

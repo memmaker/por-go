@@ -86,11 +86,11 @@ type Engine struct {
 	ext            extras              // convenience features (extras.go)
 	ac             afterCombat         // ovr06 globals
 	camp           campState           // ovr16/ovr21 globals
-	money          [7]uint32           // DS:67F4 treasure coins
+	purse          purse               // the party's money
+	loot           purse               // DS:67F4 money found, taken after the fight
 	animInput      bool                // animate the view picture while waiting for a key
 	resting        byte                // DS:6DDA (ovr21 rest): messages skip the box border
 	view           viewState           // ovr20 View screen
-	poolHasMoney   bool                // DS:6DC0
 	itemsRedraw    bool                // DS:6821
 	usingItem      bool                // DS:6DBF
 	usedScroll     *Item               // DS:6B80

@@ -41,16 +41,14 @@ func (e *Engine) DevScene(name string) func() {
 	case "temple":
 		return func() {
 			c := e.selected()
-			c.setCoins(coinPlatinum, 2000)
+			e.purse.gold = 10000
 			c.Raw[chHP] = 1
 			e.Temple()
 			e.DrawMainScreen()
 		}
 	case "appraise":
 		return func() {
-			c := e.selected()
-			c.setCoins(coinGems, 3)
-			c.setCoins(coinJewelry, 2)
+			e.purse.gems, e.purse.jewelry = 3, 2
 			e.Shop()
 			e.DrawMainScreen()
 		}
@@ -93,7 +91,7 @@ func (e *Engine) DevScene(name string) func() {
 			for _, t := range []byte{0x3F, 0x15, 0x49} {
 				e.run.treasure = append(e.run.treasure, e.RandomItem(t))
 			}
-			e.money = [7]uint32{30, 0, 0, 120, 7}
+			e.loot = purse{gold: 156, gems: 7}
 			e.AfterCombat()
 			e.DrawMainScreen()
 		}

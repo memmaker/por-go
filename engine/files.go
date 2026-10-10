@@ -322,7 +322,8 @@ func (e *Engine) setPartyCount(n int) {
 	binary.LittleEndian.PutUint16(e.game[gsPartyCount:], uint16(n))
 }
 
-// AddToParty = ovr18:1446 (c): append, give the lowest free order 0..7.
+// AddToParty = ovr18:1446 (c): append, give the lowest free order 0..7;
+// the newcomer's coins go to the party's purse.
 func (e *Engine) AddToParty(c *Character) {
 	c.Raw[chOrder] = 0xFF
 	e.party = append(e.party, c)
@@ -339,6 +340,7 @@ func (e *Engine) AddToParty(c *Character) {
 	}
 	c.Raw[chOrder] = byte(o)
 	e.setPartyCount(e.partyCount() + 1)
+	e.takeRecordCoins(c)
 	e.RecomputeCharacter(c) // ovr24:0000
 }
 
@@ -420,6 +422,7 @@ func (e *Engine) LoadGame() {
 	e.msgDelay = e.area[0x1F8]
 	e.setPartyCount(0)
 	e.party, e.partySel = nil, 0
+	e.purse = readPurse(b[p:])
 	for i := 0; i < count && i < 8; i++ {
 		ps := names[i*0x29:]
 		n := int(ps[0])
@@ -498,6 +501,7 @@ func (e *Engine) SaveGame() {
 		copy(names[i*0x29+1:], s)
 	}
 	b = append(b, names...)
+	b = appendPurse(b, e.purse)
 	os.MkdirAll(e.Cfg.SaveDir, 0o755)
 	if err := os.WriteFile(e.savePath("savgam"+string(key)+".dat"), b, 0o644); err != nil {
 		e.fileError("write", e.savePath("savgam"+string(key)+".dat"))

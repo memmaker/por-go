@@ -247,32 +247,6 @@ func (e *Engine) o17_4235(c *Character, mask int) int {
 	return int(total)
 }
 
-// chargeGold = ovr17:42ED (char, gold): take gold pieces from the purse,
-// coin by coin from copper up, then give change in the largest coins.
-func (e *Engine) chargeGold(c *Character, gold int32) {
-	amount := gold * 200
-	idx := 0
-	for amount > 0 && idx <= 6 { // idx is unbounded in the original
-		v := e.coinValue(idx)
-		n := int32(uint16(amount/v + 1)) // the original keeps the low word
-		if have := int32(c.coins(idx)); have < n {
-			n = have
-		}
-		amount -= n * v
-		c.setCoins(idx, c.coins(idx)-uint16(n))
-		idx++
-	}
-	if amount < 0 {
-		amount = -amount
-		for idx = 4; amount > 0 && idx >= 0; idx-- {
-			v := e.coinValue(idx)
-			n := amount / v
-			amount -= n * v
-			c.setCoins(idx, c.coins(idx)+uint16(n))
-		}
-	}
-}
-
 // TrainCharacter = ovr17:29AC: raise the classes whose experience
 // (DS:409B table) allows it and which this hall teaches (game +0x550),
 // for 1000 gp. Race level limits apply; a mage level gained offers a
@@ -283,7 +257,7 @@ func (e *Engine) TrainCharacter() {
 		e.DisplayMessageWait(0xE, "we only train conscious people")
 		return
 	}
-	if e.charMoneyValue(c) < 1000 && !e.debug { // ovr20:28BE
+	if e.purse.gold < 1000 && !e.debug {
 		e.DisplayMessageWait(0xE, "Training costs 1000 gp.")
 		return
 	}
@@ -370,7 +344,7 @@ func (e *Engine) TrainCharacter() {
 	}
 	e.BottomMessage("Congratulations...")
 	if !e.debug {
-		e.chargeGold(c, 1000)
+		e.purse.gold -= 1000
 	}
 	count := 0
 	mage := int8(c.Raw[chLevel+5])

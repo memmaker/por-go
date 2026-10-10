@@ -41,9 +41,11 @@ func (e *Engine) opOnGoto() {
 // items-0x80 random items. Each lands at the head of the DS:6810 list.
 func (e *Engine) opTreasure() {
 	e.FetchArgs(8)
-	for i := 0; i < 7; i++ {
-		e.money[i] = uint32(e.ArgValue(i + 1)) // DS:67F4
+	var coins [7]uint16
+	for i := range coins {
+		coins[i] = e.ArgValue(i + 1)
 	}
+	e.loot = coinsToPurse(coins) // DS:67F4
 	v := int(byte(e.ArgValue(8)))
 	switch {
 	case v < 0x80:

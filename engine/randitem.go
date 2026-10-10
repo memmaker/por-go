@@ -222,57 +222,53 @@ func randomItemWeight(typ byte, r []byte) uint16 {
 	return 0x28
 }
 
-const (
-	coinGems    = 5
-	coinJewelry = 6
-)
-
 // Appraise = ovr22:19B2 (var any): the shop and temple "Appraise" command.
-// Each gem or piece of jewelry is valued and sold (a fifth of the value in
-// platinum) or kept as an item. any is false when there is nothing to show.
+// Each of the party's gems and pieces of jewelry is valued and sold or kept
+// as an item. any is false when there is nothing to show.
 func (e *Engine) Appraise() (any bool) {
 	any = true
 	c := e.selected()
-	if c.coins(coinGems) == 0 && c.coins(coinJewelry) == 0 {
+	p := &e.purse
+	if p.gems == 0 && p.jewelry == 0 {
 		e.BottomMessage("No Gems or Jewelry")
 		return false
 	}
 	for done := false; !done; {
-		if c.coins(coinGems) == 0 && c.coins(coinJewelry) == 0 {
+		if p.gems == 0 && p.jewelry == 0 {
 			done = true
 			continue
 		}
-		count := func(n uint16, one, many string) string {
+		count := func(n int, one, many string) string {
 			switch n {
 			case 0:
 				return ""
 			case 1:
-				return cut(itoa(int(n))+one, 0x28)
+				return cut(itoa(n)+one, 0x28)
 			}
-			return cut(itoa(int(n))+many, 0x28)
+			return cut(itoa(n)+many, 0x28)
 		}
-		gems := count(c.coins(coinGems), " Gem", " Gems")
-		jewels := count(c.coins(coinJewelry), " piece of Jewelry", " pieces of Jewelry")
+		gems := count(p.gems, " Gem", " Gems")
+		jewels := count(p.jewelry, " piece of Jewelry", " pieces of Jewelry")
 		e.ClearBox(1, 1, 0x26, 0x16)
 		e.displayName(c, 1, 1, false) // 00BA:1816
 		e.DisplayString(1, 7, 0xF, "You have a fine collection of:")
 		e.DisplayString(1, 9, 0xF, gems)
 		e.DisplayString(1, 0xA, 0xF, jewels)
 		menu := ""
-		if c.coins(coinGems) != 0 {
+		if p.gems != 0 {
 			menu = "  Gems"
 		}
-		if c.coins(coinJewelry) != 0 {
+		if p.jewelry != 0 {
 			menu = cut(menu+"  Jewelry", 0x28)
 		}
 		menu = cut(menu+" Exit", 0x28)
 		key, _ := e.DisplayInput("Appraise : ", menu, 0xD, 0xA, 0xF, true, false)
 		switch key {
 		case 'G':
-			if c.coins(coinGems) == 0 {
+			if p.gems == 0 {
 				break
 			}
-			c.setCoins(coinGems, c.coins(coinGems)-1)
+			p.gems--
 			var v uint16
 			switch d := e.Dice(1, 100); {
 			case d <= 25:
@@ -291,10 +287,10 @@ func (e *Engine) Appraise() (any bool) {
 			e.DisplayString(1, 0xC, 0xF, cut("The Gem is Valued at "+itoa(int(v))+" gp.", 0x28))
 			e.sellOrKeep(c, v, 0x65)
 		case 'J':
-			if c.coins(coinJewelry) == 0 {
+			if p.jewelry == 0 {
 				break
 			}
-			c.setCoins(coinJewelry, c.coins(coinJewelry)-1)
+			p.jewelry--
 			var v uint16
 			switch d := e.Dice(1, 100); {
 			case d <= 10:
@@ -325,8 +321,7 @@ func (e *Engine) Appraise() (any bool) {
 // sellOrKeep is the shared tail of the gem and jewel branches of 19B2:
 // "Sell Keep" when the character can carry one more item, else only Sell.
 func (e *Engine) sellOrKeep(c *Character, v uint16, word byte) {
-	var room uint16
-	sellOnly := e.overweight(c, 1, &room) || c.Raw[chItemCount] >= 0x10
+	sellOnly := c.Raw[chItemCount] >= 0x10
 	menu := "Sell Keep"
 	if sellOnly {
 		menu = "Sell"
@@ -346,5 +341,5 @@ func (e *Engine) sellOrKeep(c *Character, v uint16, word byte) {
 		}
 		return
 	}
-	e.addPlatinum(v / 5)
+	e.purse.gold += int(v)
 }

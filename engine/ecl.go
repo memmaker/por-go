@@ -99,15 +99,15 @@ func (e *Engine) readSpecialGlobal(a int) (uint16, bool) {
 	case 0xB8:
 		return uint16(r[0x84]), true
 	case 0xBB:
-		return wordAt(r, 0x88), true
+		return e.purseCoin(0), true
 	case 0xBD:
-		return wordAt(r, 0x8A), true
+		return e.purseCoin(1), true
 	case 0xBF:
-		return wordAt(r, 0x8C), true
+		return e.purseCoin(2), true
 	case 0xC1:
-		return wordAt(r, 0x8E), true
+		return e.purseCoin(3), true
 	case 0xC3:
-		return wordAt(r, 0x90), true
+		return e.purseCoin(4), true
 	case 0xD8:
 		return uint16(int16(int8(r[0xA0]))), true
 	case 0xF7:
@@ -187,15 +187,15 @@ func (e *Engine) writeSpecialGlobal(a int, v uint16) {
 		}
 		r[0x84] = byte(v)
 	case off == 0xBB:
-		putWord(r, 0x88, v)
+		e.setPurseCoin(0, v)
 	case off == 0xBD:
-		putWord(r, 0x8A, v)
+		e.setPurseCoin(1, v)
 	case off == 0xBF:
-		putWord(r, 0x8C, v)
+		e.setPurseCoin(2, v)
 	case off == 0xC1:
-		putWord(r, 0x8E, v)
+		e.setPurseCoin(3, v)
 	case off == 0xC3:
-		putWord(r, 0x90, v)
+		e.setPurseCoin(4, v)
 	case off == 0xF7:
 		putWord(r, 0xB8, v)
 	case off == 0xF9:

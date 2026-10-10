@@ -381,7 +381,6 @@ func (e *Engine) CreateCharacter() {
 		r[0x11B] = r[0x32]
 		r[0xB1] = byte(int(r[0xB1]) / int(count))
 		e.showCombatStats() // ovr20:0608
-		e.showMoney()       // ovr20:050D
 		if q := e.ext.quick; q != nil {
 			if q.good(c) {
 				break

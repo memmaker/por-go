@@ -1,5 +1,7 @@
 package engine
 
+import "strings"
+
 // After combat, ported from ovr06: the fight's outcome, experience, the
 // hired NPCs' share and the treasure screen. ECL COMBAT without monsters
 // runs this directly, which is how scripts hand out treasure.
@@ -42,9 +44,11 @@ func (e *Engine) computeExp() int32 {
 			continue
 		}
 		e.ac.monsters = true
-		for i := 0; i <= 6; i++ {
-			e.money[i] += uint32(c.coins(i))
+		var coins [7]uint16
+		for i := range coins {
+			coins[i] = wordAt(c.Raw[:], chCoins+2*i)
 		}
+		e.loot.add(coinsToPurse(coins))
 		// the byte product is a 16-bit mul, sign-extended
 		total += int32(wordAt(c.Raw[:], 0xB8)) + int32(int16(uint16(c.Raw[0xB1])*uint16(c.Raw[0xBA])))
 		if wordAt(e.game, 0x5C6) == 1 {
@@ -60,9 +64,7 @@ func (e *Engine) computeExp() int32 {
 			}
 		}
 	}
-	m := e.money
-	total += int32(m[0])/200 + int32(m[1])/20 + int32(m[2])/2 + int32(m[3]) +
-		int32(m[4])*5 + int32(m[5])*250 + int32(m[6])*2200
+	total += int32(e.loot.gold + e.loot.gems*250 + e.loot.jewelry*2200)
 	// (the original stops at DS:5D9A, an item the combat code marks; it is
 	// never set outside a fight)
 	for _, it := range e.run.treasure {
@@ -227,19 +229,11 @@ func (e *Engine) hiredShare() {
 			parts++
 		}
 	}
-	taken := false
-	if shares > 0 {
-		for i := 0; i <= 6; i++ {
-			if int32(e.money[i]) > 0 {
-				// the original keeps the quotient in a byte and multiplies in 16 bits
-				q := byte(e.money[i] / uint32(parts))
-				e.money[i] -= uint32(int32(int16(uint16(q) * uint16(shares))))
-				taken = true
-			}
-		}
-	}
-	if !taken {
+	if shares == 0 || e.loot.empty() {
 		return
+	}
+	for _, n := range []*int{&e.loot.gold, &e.loot.gems, &e.loot.jewelry} {
+		*n -= *n / parts * shares
 	}
 	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "")
 	k := 0
@@ -278,6 +272,18 @@ func (e *Engine) showResult(exp int32) {
 	}
 	e.DisplayString(1, 5, 0xA, cut(s+itoa(int(exp)), 0xFF))
 	e.DisplayString(1, 7, 0xA, "experience points.")
+	if l := e.loot; !l.empty() {
+		var got []string
+		for _, p := range []struct {
+			n    int
+			name string
+		}{{l.gold, " gold"}, {l.gems, " gems"}, {l.jewelry, " jewelry"}} {
+			if p.n > 0 {
+				got = append(got, itoa(p.n)+p.name)
+			}
+		}
+		e.DisplayTextBlock(1, 9, 0x26, 0x16, 0xA, true, "The party takes "+strings.Join(got, ", ")+".")
+	}
 	e.DisplayInput("", "press <enter>/<return> to continue", 0xF, 0xF, 0xF, true, false)
 }
 
@@ -322,43 +328,11 @@ func (e *Engine) lootTake() {
 	e.DrawMainScreen()
 }
 
-// takeMenu = ovr06:0D38 (var money, var items).
-func (e *Engine) takeMenu(money, items *bool) {
-	switch {
-	case *money && *items:
-		for *money && *items {
-			key, _ := e.DisplayInput("Take: ", "Money Items Exit", 0xD, 0xA, 0xF, true, true) // ovr06:0D8C: anim
-			done := false
-			switch key {
-			case 'M':
-				e.TakeMoneyMenu()
-				e.DrawMainScreen()
-			case 'I':
-				e.lootTake()
-			case 'E', 0:
-				done = true
-			case 'G', 'O':
-				e.partyKeypad(key)
-			}
-			e.DisplayPartyList()
-			*money, *items = e.treasureFlags()
-			if done {
-				break
-			}
-		}
-	case !*money:
-		e.lootTake()
-	default:
-		e.TakeMoneyMenu()
-		e.DrawMainScreen()
-	}
-}
-
 // lootMenu = ovr06:0ECD: the treasure screen.
 func (e *Engine) lootMenu() {
 	e.DrawMainScreen()
 	for {
-		money, items := e.treasureFlags()
+		items := len(e.run.treasure) > 0
 		exit := " Exit"
 		detect := byte(0)
 		if items {
@@ -372,30 +346,21 @@ func (e *Engine) lootMenu() {
 				}
 			}
 		}
-		menu := "View Pool Exit"
-		if money {
-			menu = "View Take Pool Share" + exit
-		} else if items {
-			menu = "View Take Pool" + exit
+		menu := "View Exit"
+		if items {
+			menu = "View Take" + exit
 		}
-		key, extra := e.DisplayInput("", menu, 0xD, 0xA, 0xF, true, true) // ovr06:101F: anim
+		key, _ := e.DisplayInput("", menu, 0xD, 0xA, 0xF, true, true) // ovr06:101F: anim
 		switch key {
 		case 'V':
 			e.ViewCharacter()
 		case 'T':
-			e.takeMenu(&money, &items)
-		case 'P':
-			if !extra {
-				e.PoolMoney()
-			}
-		case 'S':
-			e.ShareMoney()
+			e.lootTake()
 		case 'D':
 			quit := false
 			e.CastSpell(detect, 0, 0, &quit)
 		case 'E', 0:
-			money, items = e.treasureFlags()
-			if !money && !items {
+			if len(e.run.treasure) == 0 {
 				return
 			}
 			e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, true, "There is still treasure left.  ")
@@ -421,6 +386,8 @@ func (e *Engine) AfterCombat() {
 	if !e.run.quit || e.duel() {
 		e.hiredShare()
 		e.showResult(e.ac.exp)
+		e.purse.add(e.loot)
+		e.loot = purse{}
 		e.lootMenu()
 		e.run.treasure = nil
 	} else {

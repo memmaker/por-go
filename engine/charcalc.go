@@ -185,9 +185,6 @@ func (e *Engine) ApplyItems(c *Character) {
 		}
 		r[chHands] += e.baseItem(typ, 1)
 	}
-	for i := 0; i <= 6; i++ {
-		putWord(r[:], chWeight, wordAt(r[:], chWeight)+wordAt(r[:], chCoins+2*i))
-	}
 	for i := 1; i <= 2; i++ {
 		r[0x114+i] = r[0xA2+i]
 		r[0x116+i] = r[0xA4+i]
