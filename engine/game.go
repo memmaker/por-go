@@ -65,6 +65,7 @@ func (e *Engine) GameLoop() {
 			e.RunECL(e.es.events[0])
 		}
 		if r.areaChanged {
+			e.unback() // a backward step the scripts sent elsewhere
 			e.AreaChange()
 		} else if !r.quit {
 			putWord(e.area, 0x1E0, uint16(int16(int8(e.posX))))
@@ -150,7 +151,7 @@ func (e *Engine) Encamp() {
 // command that ends input: 'E' encamp, 'L' look, or a movement key.
 func (e *Engine) CommandInput() byte {
 	putWord(e.game, 0x592, 0)
-	e.ext.back = false // a backward step the scripts sent elsewhere keeps their facing
+	e.unback() // a backward step the scripts ended
 	var key byte
 	switch {
 	case e.viewMode == 1:
@@ -171,7 +172,7 @@ func (e *Engine) CommandInput() byte {
 					e.checkEdge()
 					done = true
 				case 'P':
-					// (extra) Down steps backwards (the original turns round): Move faces the way back and turns round again
+					// (extra) Down steps backwards, facing kept (the original turns round): Move and the step scripts go the way back, the screen never shows it (viewFacing)
 					e.facing = (e.facing + 4) % 8
 					e.ext.back = true
 					e.es.wallAhead = e.WallAt(e.posX, e.posY, e.facing) // the step scripts read it (City Hall: 0xC04E 11 is the locked door)
@@ -296,6 +297,15 @@ func (e *Engine) checkEdge() {
 		e.posY = 0
 		putWord(e.game, 0x5AA, 1)
 	}
+}
+
+// viewFacing (extra) is the facing shown: a step backwards (Down) turns the
+// party round only for the move and the step scripts, never on screen.
+func (e *Engine) viewFacing() int {
+	if e.ext.back {
+		return (e.facing + 4) % 8
+	}
+	return e.facing
 }
 
 // unback (extra): after a step backwards (Down) the party faces the way it

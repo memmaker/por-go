@@ -57,7 +57,7 @@ func (e *Engine) Redraw() {
 		if wordAt(e.area, 0x1F6) != 0 {
 			e.gs.overhead = false
 		}
-		e.Draw3DView(e.posX, e.posY, e.facing)
+		e.Draw3DView(e.posX, e.posY, e.viewFacing())
 		e.viewDrawn()
 	case mode >= 2 && mode <= 4:
 		// ovr27:0250/0272: byte locals, signed clamps
@@ -142,7 +142,7 @@ func (e *Engine) StatusLine() {
 	if wordAt(e.area, 0x1F6) == 0 {
 		s = strconv.Itoa(x) + "," + strconv.Itoa(y) + " "
 	}
-	s += e.X.PString(0x25A8+3*e.facing) + " "
+	s += e.X.PString(0x25A8+3*e.viewFacing()) + " "
 	s += hh + ":" + mm
 	if e.beginFlag == 2 {
 		s += " camping"

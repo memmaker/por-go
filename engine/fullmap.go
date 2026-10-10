@@ -420,7 +420,7 @@ func (e *Engine) mapParty(ox, oy, size, r int) {
 	cx, cy := ox+e.posX*size+size/2, oy+e.posY*size+size/2
 	e.S.Fill(cx-r+1, cy-r+1, cx+r, cy+r, 12)
 	for i := r + 1; i <= r+2; i++ {
-		tx, ty := cx+i*dirDX[e.facing], cy+i*dirDY[e.facing]
+		tx, ty := cx+i*dirDX[e.viewFacing()], cy+i*dirDY[e.viewFacing()]
 		e.S.Fill(tx, ty, tx+1, ty+1, 14)
 	}
 }

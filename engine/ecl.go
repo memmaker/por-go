@@ -263,6 +263,7 @@ func (e *Engine) WriteVar(a int, v uint16) {
 			e.es.f84E6 = 1
 		case 0xE5:
 			e.facing = [4]int{0, 2, 4, 6}[v%4]
+			e.ext.back = false // the script chose the facing
 			e.es.f84E6 = 1
 		case 0xF1:
 			e.es.v6F68 = byte(v)
