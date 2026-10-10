@@ -125,7 +125,7 @@ func ParseSprite(b []byte, masked bool, maskColour byte, xor bool) []SpriteFrame
 		p += size
 		if f == 0 {
 			first = raw
-		} else if xor {
+		} else if xor && string(b[p-size-9:p-size-7]) != "AM" { // Amiga frames are imported whole
 			for i := range raw {
 				if i < len(first) {
 					raw[i] ^= first[i]
