@@ -154,10 +154,20 @@ func (s *Screen) Fill(x0, y0, x1, y1 int, c uint8) {
 func (s *Screen) RGBA(i uint8) color.RGBA {
 	if i >= AmigaBase {
 		c := Amiga[(i-AmigaBase)/16%2][i%16]
-		return color.RGBA{uint8(c>>8&15) * 17, uint8(c>>4&15) * 17, uint8(c&15) * 17, 255}
+		return saturate(float64(c>>8&15)*17, float64(c>>4&15)*17, float64(c&15)*17)
 	}
 	p := Palette[s.Pal[i&15]&15]
 	return color.RGBA{p[0], p[1], p[2], 255}
+}
+
+// AmigaSaturation scales the Amiga colours' distance from grey, to sit
+// closer to the vivid EGA set (1 = the Amiga's own values).
+var AmigaSaturation = 1.4
+
+func saturate(r, g, b float64) color.RGBA {
+	l := 0.299*r + 0.587*g + 0.114*b
+	f := func(v float64) uint8 { return uint8(max(0, min(255, l+(v-l)*AmigaSaturation)) + 0.5) }
+	return color.RGBA{f(r), f(g), f(b), 255}
 }
 
 // SetPalette remaps palette register index to EGA colour.
