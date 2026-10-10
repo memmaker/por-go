@@ -171,6 +171,9 @@ func (l *Loader) Block(name string, id int) []byte {
 	if l.amiga != nil {
 		base := strings.TrimRight(strings.TrimSuffix(strings.ToUpper(name), ".DAX"), "0123456789")
 		if b := l.amiga.Block(base, id); b != nil {
+			if base == "HEAD" { // here, not at import, so older imports get it too
+				b = centre(b, 11)
+			}
 			return b
 		}
 	}
@@ -179,4 +182,21 @@ func (l *Loader) Block(name string, id int) []byte {
 		return nil
 	}
 	return f.Block(id)
+}
+
+// centre widens a one-frame DOS-layout picture to w cells, centred. The
+// Amiga heads are 7 cells wide; the engine places them where the 11-cell
+// DOS heads go, above the 11-cell bodies.
+func centre(b []byte, w int) []byte {
+	h, old := int(b[0])|int(b[1])<<8, int(b[2])|int(b[3])<<8
+	if old >= w || b[8] != 1 {
+		return b
+	}
+	pad := (w - old) / 2 * 4 // bytes of blank pixels on the left
+	out := append(append([]byte(nil), b[:17]...), make([]byte, h*w*4)...)
+	out[2], out[3] = byte(w), byte(w>>8)
+	for y := 0; y < h; y++ {
+		copy(out[17+y*w*4+pad:], b[17+y*old*4:17+(y+1)*old*4])
+	}
+	return out
 }
