@@ -3,7 +3,6 @@ package engine
 import (
 	"embed"
 	"image"
-	"image/color"
 	_ "image/png"
 	"regexp"
 	"strconv"
@@ -100,10 +99,13 @@ func (e *Engine) journalPrinted(s string, clear bool) {
 			case strings.HasPrefix(p, "<") && strings.HasSuffix(p, ">"):
 				if im := journalPicture(p[1 : len(p)-1]); im != nil {
 					lines = append(lines, "\x01"+p[1:len(p)-1])
-					for range (im.Bounds().Dy()+7)/8 - 1 {
+					_, h := pictureSize(im)
+					for range (h+7)/8 - 1 {
 						lines = append(lines, "\x02") // rows the picture covers
 					}
 				}
+			case len(p) <= jrWidth: // as written: keeps the spacing of tables (entry 53)
+				lines = append(lines, p)
 			default:
 				lines = append(lines, wrapText(p, jrWidth)...)
 			}
@@ -151,6 +153,7 @@ func (e *Engine) showJournal(lines []string) {
 	restore := e.saveScreen()
 	pages := journalPages(lines)
 	for p, page := range pages {
+		e.setOverlays(nil)
 		e.DrawBoxTitled(1, 1, 0x26, 0x17, 0, 0xF, "Adventurer's Journal")
 		e.ClearCells(2, 2, 0x25, 0x17)
 		for i, l := range page {
@@ -172,7 +175,14 @@ func (e *Engine) showJournal(lines []string) {
 			break
 		}
 	}
+	e.setOverlays(nil)
 	restore()
+}
+
+func (e *Engine) setOverlays(o []ega.Overlay) {
+	e.S.Lock()
+	e.S.Overlays = o
+	e.S.Unlock()
 }
 
 // journalPages cuts lines into pages of at most jrRows; a page does not
@@ -198,38 +208,41 @@ func journalPages(lines []string) [][]string {
 	return pages
 }
 
-// journalPicture decodes a picture from journal/; nil if missing.
-func journalPicture(name string) *image.Paletted {
-	f, err := journalFS.Open("journal/" + name)
-	if err != nil {
-		return nil
+// journalPicture decodes a picture from journal/ once; nil if missing.
+func journalPicture(name string) image.Image {
+	if im, ok := pictures[name]; ok {
+		return im
 	}
-	defer f.Close()
-	im, _, err := image.Decode(f)
-	if err != nil {
-		return nil
+	var im image.Image
+	if f, err := journalFS.Open("journal/" + name); err == nil {
+		im, _, _ = image.Decode(f)
+		f.Close()
 	}
-	p, _ := im.(*image.Paletted)
-	return p
+	pictures[name] = im
+	return im
 }
 
-// drawPicture draws a journal picture centred on x, top at y, in the
-// ega.Photo colours.
-func (e *Engine) drawPicture(p *image.Paletted, x, y int) {
-	if p == nil {
+var pictures = map[string]image.Image{} // the engine goroutine's alone
+
+// pictureSize is the screen area a picture covers: the scans are 300 dpi,
+// shown at about 90 screen pixels an inch, at most the text width wide
+// and 19 rows high (with a title and a line it fills a page).
+func pictureSize(im image.Image) (w, h int) {
+	b := im.Bounds()
+	s := min(0.3, float64(jrWidth*8)/float64(b.Dx()), 152/float64(b.Dy()))
+	return int(float64(b.Dx()) * s), int(float64(b.Dy()) * s)
+}
+
+// drawPicture puts a journal picture centred on x, top at y: paper white
+// on the screen, the scan itself over it at the window's resolution.
+func (e *Engine) drawPicture(im image.Image, x, y int) {
+	if im == nil {
 		return
 	}
-	b := p.Bounds()
-	x -= b.Dx() / 2
+	w, h := pictureSize(im)
+	r := image.Rect(x-w/2, y, x-w/2+w, y+h)
 	e.S.Lock()
-	defer e.S.Unlock()
-	for i, c := range p.Palette[:min(len(p.Palette), 16)] {
-		r, g, bl, _ := c.RGBA()
-		ega.Photo[i] = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(bl >> 8), 255}
-	}
-	for py := range b.Dy() {
-		for px := range b.Dx() {
-			e.S.Set(x+px, y+py, ega.PhotoBase+p.ColorIndexAt(b.Min.X+px, b.Min.Y+py)&15)
-		}
-	}
+	e.S.Fill(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y, 15)
+	e.S.Overlays = append(e.S.Overlays, ega.Overlay{Img: im, At: r})
+	e.S.Unlock()
 }

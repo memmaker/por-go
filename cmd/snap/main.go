@@ -6,9 +6,11 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"por/ega"
@@ -19,6 +21,45 @@ func dump(s *ega.Screen, name string) {
 	img := image.NewRGBA(image.Rect(0, 0, ega.W, ega.H))
 	for i, c := range s.Pix {
 		img.Set(i%ega.W, i/ega.W, s.RGBA(c))
+	}
+	f, err := os.Create(name)
+	if err != nil {
+		log.Fatal(err)
+	}
+	png.Encode(f, img)
+	f.Close()
+	if len(s.Overlays) > 0 {
+		dumpHi(s, strings.TrimSuffix(name, ".png")+"_hi.png")
+	}
+}
+
+// dumpHi writes the screen 4x with its overlays at that resolution, as a
+// window that size shows them (box-averaged).
+func dumpHi(s *ega.Screen, name string) {
+	const k = 4
+	img := image.NewRGBA(image.Rect(0, 0, ega.W*k, ega.H*k))
+	for y := range ega.H * k {
+		for x := range ega.W * k {
+			img.Set(x, y, s.RGBA(s.Pix[y/k*ega.W+x/k]))
+		}
+	}
+	for _, o := range s.Overlays {
+		b := o.Img.Bounds()
+		w, h := o.At.Dx()*k, o.At.Dy()*k
+		for y := range h {
+			for x := range w {
+				x0, x1 := b.Min.X+x*b.Dx()/w, b.Min.X+max((x+1)*b.Dx()/w, x*b.Dx()/w+1)
+				y0, y1 := b.Min.Y+y*b.Dy()/h, b.Min.Y+max((y+1)*b.Dy()/h, y*b.Dy()/h+1)
+				var r, g, bl, n uint32
+				for sy := y0; sy < y1; sy++ {
+					for sx := x0; sx < x1; sx++ {
+						cr, cg, cb, _ := o.Img.At(sx, sy).RGBA()
+						r, g, bl, n = r+cr>>8, g+cg>>8, bl+cb>>8, n+1
+					}
+				}
+				img.Set(o.At.Min.X*k+x, o.At.Min.Y*k+y, color.RGBA{uint8(r / n), uint8(g / n), uint8(bl / n), 255})
+			}
+		}
 	}
 	f, err := os.Create(name)
 	if err != nil {

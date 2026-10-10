@@ -21,6 +21,7 @@ package main
 
 import (
 	"flag"
+	"image"
 	"image/color"
 	"log"
 	"math"
@@ -42,6 +43,9 @@ type game struct {
 	eng *engine.Engine
 	img *ebiten.Image
 	buf []byte
+
+	overlays []ega.Overlay                 // the engine's, copied each frame
+	scans    map[image.Image]*ebiten.Image // their GPU copies
 
 	stickDir  uint16 // left stick direction being held
 	stickHeld int    // ticks it has been held
@@ -224,6 +228,7 @@ func (g *game) Draw(dst *ebiten.Image) {
 	if time.Since(at) < 2*time.Second {
 		g.drawNote(note)
 	}
+	g.overlays = append(g.overlays[:0], g.scr.Overlays...)
 	g.scr.Unlock()
 	g.img.WritePixels(g.buf)
 	dst.Fill(color.Black)
@@ -238,6 +243,23 @@ func (g *game) Draw(dst *ebiten.Image) {
 	op.GeoM.Scale(pw/ega.W, ph/ega.H)
 	op.GeoM.Translate(g.pic.x, g.pic.y)
 	dst.DrawImage(g.img, op)
+
+	// Overlays (journal scans) at the window's own resolution.
+	for _, o := range g.overlays {
+		im := g.scans[o.Img]
+		if im == nil {
+			if g.scans == nil {
+				g.scans = map[image.Image]*ebiten.Image{}
+			}
+			im = ebiten.NewImageFromImage(o.Img)
+			g.scans[o.Img] = im
+		}
+		b := o.Img.Bounds()
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+		op.GeoM.Scale(float64(o.At.Dx())*pw/ega.W/float64(b.Dx()), float64(o.At.Dy())*ph/ega.H/float64(b.Dy()))
+		op.GeoM.Translate(g.pic.x+float64(o.At.Min.X)*pw/ega.W, g.pic.y+float64(o.At.Min.Y)*ph/ega.H)
+		dst.DrawImage(im, op)
+	}
 }
 
 // drawNote writes s into the top of the picture, white on blue in the
