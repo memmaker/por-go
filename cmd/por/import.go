@@ -122,8 +122,8 @@ func writeCover(dst string) error {
 }
 
 // amigaGfx: the Amiga Pool of Radiance graphics archives, with the palette
-// (palette 0x54080 for PIC/FINAL, which the Amiga sets before them, 0x54040
-// for the rest) each is drawn in and whether its frames pack two tiles side by side.
+// (palette 0x54080 for PIC/FINAL, which the Amiga sets before them, 0x54020
+// for the ground tile sheets, 0x54040 for the rest) each is drawn in and whether its frames pack two tiles side by side.
 // ponytail: 8X8D (the 3D-view symbols) stays DOS; the Amiga set is laid out
 // for its own wall renderer and does not match WALLDEF's symbol numbers.
 var amigaGfx = map[string]struct {
@@ -132,8 +132,8 @@ var amigaGfx = map[string]struct {
 	sprite bool // animation block (PIC/FINAL frames XORed against the first)
 }{
 	"icon": {ega.AmigaPortrait, false, false}, "comspr": {ega.AmigaPortrait, false, false}, "cpic": {ega.AmigaPortrait, false, false},
-	"bacpac": {ega.AmigaPortrait, true, false}, "sqrpaci": {ega.AmigaPortrait, true, false}, "wildcom": {ega.AmigaPortrait, true, false},
-	"dungcom": {ega.AmigaPortrait, true, false}, "randcom": {ega.AmigaPortrait, true, false},
+	"bacpac": {ega.AmigaTerrain, true, false}, "sqrpaci": {ega.AmigaTerrain, true, false}, "wildcom": {ega.AmigaTerrain, true, false},
+	"dungcom": {ega.AmigaTerrain, true, false}, "randcom": {ega.AmigaTerrain, true, false},
 	"head": {ega.AmigaPortrait, false, false}, "body": {ega.AmigaPortrait, false, false}, "chead": {ega.AmigaPortrait, false, false}, "cbody": {ega.AmigaPortrait, false, false},
 	"pic": {ega.AmigaView, false, true}, "final": {ega.AmigaView, false, true}, "sprit": {ega.AmigaPortrait, false, true},
 }

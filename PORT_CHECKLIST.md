@@ -96,6 +96,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] Map and minimap doors are light brown (Amiga palette 0xA84) instead of light cyan, which ran together with the white walls
 - [x] Icon colours recolour Amiga icons too: EGA colour numbers map one-to-one onto the Amiga icon palette slots (Amiga table 0x8B10E vs DS:3CF5), so defaults match and every step shows a new colour
 - [x] Amiga combat heads: the Amiga has one head per picture, used for both poses (the action pose took the DOS head before); chained colour changes end the same on Amiga pixels as on DOS ones
+- [x] Amiga ground tile sheets (SQRPACI, DUNGCOM, WILDCOM, RANDCOM, BACPAC): each bitplane runs through all frames, and they use the terrain palette at 0x54020 (re-import the Amiga disks to get them)
 
 ## Idiomatic Go
 - [x] Character record as a typed struct (engine/char.go charRecord): named fields in the DOS layout, read and written with encoding/binary (saves and MON*CHA blocks still load byte for byte), no Raw byte array or offset constants; checked with cmd/trace against the previous build on all scenarios plus 164 fuzz scripts (identical)

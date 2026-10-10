@@ -23,17 +23,20 @@ var Palette = [16][3]uint8{
 }
 
 // Amiga holds the Amiga Pool of Radiance palettes (12-bit RGB, from the
-// program's data at 0x54080 and 0x54040). Pixel values from AmigaBase up
+// program's data at 0x54080, 0x54040 and 0x54020). Pixel values from AmigaBase up
 // are colour AmigaBase+16*slot+index of these, drawn in their own RGB.
-var Amiga = [2][16]uint16{
+var Amiga = [3][16]uint16{
 	AmigaView:     {0x000, 0x124, 0x953, 0xb97, 0xecb, 0x710, 0xa42, 0xdb0, 0xff5, 0x074, 0x053, 0x369, 0x555, 0x777, 0xaaa, 0xfff},
 	AmigaPortrait: {0x000, 0xdb9, 0xb97, 0x964, 0x521, 0x742, 0xa84, 0xcb6, 0xff9, 0x007, 0x44b, 0x444, 0x555, 0x777, 0xaaa, 0xfff},
+	AmigaTerrain:  {0x000, 0x06b, 0x096, 0x0aa, 0x000, 0x940, 0xb44, 0xfaa, 0xfe9, 0x59f, 0x0d8, 0x5ff, 0x555, 0x777, 0xaaa, 0xfff},
 }
 
-// Amiga palette slots: PIC/FINAL pictures; everything else.
+// Amiga palette slots: PIC/FINAL pictures; icons and portraits; the
+// area map and combat ground tiles.
 const (
 	AmigaView = iota
 	AmigaPortrait
+	AmigaTerrain
 	AmigaBase = 32
 )
 
@@ -153,7 +156,7 @@ func (s *Screen) Fill(x0, y0, x1, y1 int, c uint8) {
 // RGBA returns the displayed colour of palette register i.
 func (s *Screen) RGBA(i uint8) color.RGBA {
 	if i >= AmigaBase {
-		c := Amiga[(i-AmigaBase)/16%2][i%16]
+		c := Amiga[int(i-AmigaBase)/16%len(Amiga)][i%16]
 		return saturate(float64(c>>8&15)*17, float64(c>>4&15)*17, float64(c&15)*17)
 	}
 	p := Palette[s.Pal[i&15]&15]

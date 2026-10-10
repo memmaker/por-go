@@ -91,7 +91,8 @@ func Unbytekill(src []byte) (out []byte) {
 
 // Amiga image header (BE): u16 height, u16 width cells, u16 x, u16 y,
 // u16 frame count, u16 plane size; then per frame four bitplanes of
-// height rows padded to whole 16-pixel words, plane 0 the low bit.
+// height rows padded to whole 16-pixel words, plane 0 the low bit (tile
+// sheets: plane 0 of every frame, then plane 1 of every frame, ...).
 
 // chunky converts one frame of planes to DOS packed nibbles (w cells wide).
 func chunky(src []byte, h, w, stride, plane int) []byte {
@@ -120,13 +121,18 @@ func be16(b []byte, i int) int { return int(binary.BigEndian.Uint16(b[i:])) }
 func le16(v int) []byte { return []byte{byte(v), byte(v >> 8)} }
 
 // AmigaImage converts a plain picture block to the DOS layout ParseImage
-// reads, tagged with the ega.Amiga palette slot its colours come from. split cuts each frame into its two side-by-side tiles (the Amiga symbol
-// and combat tile sheets pack two per frame).
+// reads, tagged with the ega.Amiga palette slot its colours come from.
+// split is for the tile sheets: each frame holds two side-by-side tiles,
+// and each bitplane runs through all frames before the next one starts.
 func AmigaImage(b []byte, split bool, slot byte) []byte {
 	h, w, x, y, n, plane := be16(b, 0), be16(b, 2), be16(b, 4), be16(b, 6), be16(b, 8), be16(b, 10)
 	var frames [][]byte
 	for f := 0; f < n && 12+(f+1)*4*plane <= len(b); f++ {
-		px := chunky(b[12+f*4*plane:], h, w, (w+1)/2*2, plane)
+		off, step := 12+f*4*plane, plane
+		if split {
+			off, step = 12+f*plane, plane*n
+		}
+		px := chunky(b[off:], h, w, (w+1)/2*2, step)
 		if !split {
 			frames = append(frames, px)
 			continue
