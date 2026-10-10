@@ -90,6 +90,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] Memorize list: each spell shows how many are chosen (xN); Clear (shown while any are chosen) drops the whole selection
 - [x] Rest menu "Heal Memorize Wait Night|Day Exit" replaces the days/hours/minutes editor: Heal works like the later games' Fix (clerics cast their Cure Light Wounds, memorize more in every first-level slot and rest to learn them while that helps, then relearn their own spells; natural rest, 1 HP a day, does the rest), Memorize the party's study time, Wait 1 hour (timed script events), Night/Day until 20:00/6:00
 - [x] Day sky from 6:00 to 20:00 (the scripts' own check is hour < 14; patched in opCompare)
+- [x] Item names end in Angband-style base stats: "(1d8)" weapon damage, "[7]" armour class given (shop names stop before the price)
 
 ## Idiomatic Go
 - [x] Character record as a typed struct (engine/char.go charRecord): named fields in the DOS layout, read and written with encoding/binary (saves and MON*CHA blocks still load byte for byte), no Raw byte array or offset constants; checked with cmd/trace against the previous build on all scenarios plus 164 fuzz scripts (identical)

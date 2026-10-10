@@ -74,10 +74,35 @@ func (e *Engine) ItemName(c *Character, it *Item, x, y int, readied, display boo
 		}
 		name = cut(name+s, 0x28)
 	}
-	it.setName(name)
+	it.setName(name + e.itemStats(it.Type))
 	if display {
 		e.DisplayString(x, y, 0xA, it.Name())
 	}
+}
+
+// itemStats (extra): Angband-style base stats after the name, "(1d8) "
+// for weapon damage, "[6] " for the armour class it gives; magic pluses
+// stay in the name.
+func (e *Engine) itemStats(typ byte) string {
+	s := ""
+	if n, d := e.baseItem(typ, 9), e.baseItem(typ, 0xA); n > 0 && d > 0 {
+		s = "(" + itoa(int(n)) + "d" + itoa(int(d))
+		if b := int8(e.baseItem(typ, 0xB)); b > 0 {
+			s += "+" + itoa(int(b))
+		} else if b < 0 {
+			s += itoa(int(b))
+		}
+		s += ") "
+	}
+	if v := int(e.baseItem(typ, 6)); v > 0x80 {
+		if v &= 0x7F; v >= 50 {
+			v -= 50 // body armour counts up from AC 10 = 50
+		}
+		if v > 0 {
+			s += "[" + itoa(v) + "] "
+		}
+	}
+	return s
 }
 
 // RemoveItem = 00BA:1509 (char, item): unlinks the item and frees it.

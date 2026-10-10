@@ -19,7 +19,7 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 		}
 		line := []byte(strings.Repeat(" ", 0x1E))
 		copy(line[0x1E-len(price):], price)
-		copy(line, it.Name()) // (a name longer than 30 is cut off)
+		copy(line, cut(it.Name(), 0x1D-len(price))) // extra: the name stops before the price
 		list[i] = &ListNode{Text: string(line)}
 		list[i].Dim = !e.canUseItem(e.selected(), it) // extra: what the buyer cannot use is grey and passed over
 	}
