@@ -7,6 +7,11 @@ package engine
 // [6] minimum 1 flag, [7] targeting kind, [8] save mode, [9] save type,
 // [0xA] affect type.
 
+import (
+	"bytes"
+	"fmt"
+)
+
 // tgt / setTgt = DS:6C91 + 4*i: the spell target list (1-based). Slot 1 is
 // DS:6C95, kept in e.spellTarget.
 func (e *Engine) tgt(i int) *Character {
@@ -37,6 +42,9 @@ func (e *Engine) spellMenu(mode int, index *int) byte {
 		menu = "Cast"
 	case 2:
 		menu = "Memorize"
+		if hasPending(e.selected()) { // extra
+			menu += " Clear"
+		}
 	case 3:
 		menu = "Scribe"
 	case 4:
@@ -57,7 +65,7 @@ func (e *Engine) spellMenu(mode int, index *int) byte {
 		redraw = true
 		*index = 0
 	}
-	if mode == 4 || mode == 1 {
+	if mode == 4 || mode == 1 || mode == 2 { // extra: 2, the counts of the chosen spells change
 		redraw = true
 	}
 	var sel *ListNode
@@ -79,6 +87,7 @@ func (e *Engine) spellMenu(mode int, index *int) byte {
 			idx++
 		}
 	}
+	e.spellMenuKey = key
 	var res byte
 	if key != 0 && key != 'E' { // set {0, 'E'} at cs:006A
 		if idx < len(e.spellIDs) {
@@ -173,6 +182,11 @@ func (e *Engine) buildSpellList(kind int) bool {
 		for i := 1; i <= 0x37; i++ {
 			if c.SpellBook[i-1] != 0 {
 				e.addSpellLine(byte(i))
+				// extra: how many are chosen to be memorized
+				if n := bytes.Count(c.Memorized[:], []byte{byte(i) | 0x80}); n > 0 {
+					l := e.spellList[len(e.spellList)-1]
+					l.Text = cut(fmt.Sprintf("%-30s x%d", l.Text, n), 0x25)
+				}
 			}
 		}
 	case 2:

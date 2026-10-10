@@ -60,6 +60,11 @@ func (e *Engine) studyTime(c *Character) int {
 }
 
 // clearMemorize = ovr16:0159 (char): forget the spells still to be memorised.
+// hasPending: spells are chosen to be memorized.
+func hasPending(c *Character) bool {
+	return slices.ContainsFunc(c.Memorized[:], func(v byte) bool { return v > 0x7F })
+}
+
 func clearMemorize(c *Character) {
 	for i := 0; i <= 0x14; i++ {
 		if c.Memorized[i] > 0x7F {
@@ -267,6 +272,10 @@ func (e *Engine) memorizeMenu() {
 		}
 		spell := e.SpellList(1, 2, &index, &any)
 		drew = true
+		if e.spellMenuKey == 'C' { // extra: Clear drops the chosen spells
+			clearMemorize(e.selected())
+			continue
+		}
 		if spell == 0 {
 			done = true
 			continue
