@@ -309,7 +309,7 @@ func (e *Engine) ItemsMenu() bool {
 		menu := "Ready"
 		if c.Okay != 0 && wordAt(e.area, 0x1CA) == 0 &&
 			(e.beginFlag == 2 || e.beginFlag == 3 || e.beginFlag == 4 ||
-				e.beginFlag == 5 && c.Combat != nil && c.Combat.Raw[2] != 0) {
+				e.beginFlag == 5 && c.Combat != nil && c.Combat.CanUse != 0) {
 			menu += " Use"
 		}
 		if !hired && e.beginFlag != 5 {

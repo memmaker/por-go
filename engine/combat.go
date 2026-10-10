@@ -39,7 +39,7 @@ func (e *Engine) nextActor() *Character {
 	var who *Character
 	for _, c := range e.party {
 		r := byte(e.Dice(1, 100))
-		ini := c.Combat.Raw[3]
+		ini := c.Combat.Delay
 		if ini > best {
 			bestRoll = r
 		}
@@ -55,21 +55,21 @@ func (e *Engine) nextActor() *Character {
 
 // takeTurn = ovr09:01F6 (char).
 func (e *Engine) takeTurn(c *Character) {
-	ci := &c.Combat.Raw
-	ci[0xF], ci[0x12], ci[7] = 0, 0, 0
+	ci := c.Combat
+	ci.Attackers, ci.Flank, ci.Guarding = 0, 0, 0
 	e.affectGroup(c, 7)
-	if int8(ci[3]) <= 0 {
+	if int8(ci.Delay) <= 0 {
 		return // no cursor erase when the turn is skipped
 	}
-	if ci[3] == 0x14 {
-		ci[3] = 0x13
+	if ci.Delay == 0x14 {
+		ci.Delay = 0x13
 	}
 	e.selectChar(c)
 	e.combatRedrawChar(c, 2, 1)
 	e.ApplyItems(c)
 	e.combatPanel(c)
 	e.affectGroup(c, 0xF)
-	if int8(ci[3]) > 0 {
+	if int8(ci.Delay) > 0 {
 		if c.Auto != 0 {
 			e.o10_000F(c)
 		} else {
@@ -102,10 +102,10 @@ func (e *Engine) playerTurn(c *Character) {
 		e.clearCombatInfo(c)
 		return
 	}
-	ci := &c.Combat.Raw
-	if ci[0] > 0 {
-		s := ci[0]
-		ci[0] = 0
+	ci := c.Combat
+	if ci.Spell > 0 {
+		s := ci.Spell
+		ci.Spell = 0
 		var quit bool
 		e.CastSpell(s, 0, 1, &quit)
 		e.clearCombatInfo(c)
@@ -163,7 +163,7 @@ func (e *Engine) playerTurn(c *Character) {
 				}
 			}
 		case 0x10:
-			ci[3] = 0x14
+			ci.Delay = 0x14
 			for _, p := range e.party {
 				e.quickOne(p)
 			}
@@ -188,9 +188,9 @@ func (e *Engine) playerTurn(c *Character) {
 // combatMenu = ovr09:0666 (char, var key): the main combat menu.
 func (e *Engine) combatMenu(c *Character) byte {
 	e.affectGroup(c, 0xF)
-	ci := &c.Combat.Raw
+	ci := c.Combat
 	m := ""
-	if ci[6] > 0 {
+	if ci.Moves > 0 {
 		m += "Move "
 	}
 	m += "View Aim "
@@ -203,10 +203,10 @@ func (e *Engine) combatMenu(c *Character) byte {
 			spells = true
 		}
 	}
-	if spells && ci[1] != 0 && wordAt(e.area, 0x1CA) == 0 {
+	if spells && ci.CanCast != 0 && wordAt(e.area, 0x1CA) == 0 {
 		m += "Cast "
 	}
-	if int8(c.Levels[clsCleric]) > 0 && ci[0x11] == 0 {
+	if int8(c.Levels[clsCleric]) > 0 && ci.TurnUsed == 0 {
 		m += "Turn "
 	}
 	m += "Quick Done"
@@ -231,8 +231,8 @@ func (e *Engine) endRound(done *bool) {
 		e.affectGroup(c, 0x13)
 		e.stinkingCloud(c)
 		if c.Status == 5 {
-			c.Combat.Raw[0xE]++
-			if c.Combat.Raw[0xE] > 9 {
+			c.Combat.Dying++
+			if c.Combat.Dying > 9 {
 				c.Status = 6
 			}
 		}
@@ -256,8 +256,8 @@ func (e *Engine) endRound(done *bool) {
 // stepping into someone attacks, off the map flees. Escape undoes the
 // moves of this menu.
 func (e *Engine) moveAttack(c *Character, done *int) {
-	ci := &c.Combat.Raw
-	moves, face := ci[6], ci[9]
+	ci := c.Combat
+	moves, face := ci.Moves, ci.Facing
 	x, y := e.combatX(c), e.combatY(c)
 	key := byte(0x20)
 	*done = 0
@@ -283,17 +283,17 @@ func (e *Engine) moveAttack(c *Character, done *int) {
 			return 0
 		}})
 	}
-	for ci[6] > 1 && key != 0 && key != 0xD {
+	for ci.Moves > 1 && key != 0 && key != 0xD {
 		e.ClearCells(0x18, 0x18, 0x27, 0x18)
-		key, _ = e.DisplayInput("Move/Attack, Move Left = "+itoa(int(ci[6]>>1))+" ", "", 0xA, 0xA, 0xF, true, false)
+		key, _ = e.DisplayInput("Move/Attack, Move Left = "+itoa(int(ci.Moves>>1))+" ", "", 0xA, 0xA, 0xF, true, false)
 		d := 8
 		switch key {
 		case 0:
-			ci[6] = moves
+			ci.Moves = moves
 			e.combatClearIcon(0, 0, e.combatIndex(c))
 			*done = b2i(!e.combatSquareFree(c, x, y, false))
 			e.combatCentre(e.combatX(c), e.combatY(c), 0, 8)
-			ci[9] = face
+			ci.Facing = face
 		case 'H':
 			d = 0
 		case 'I':
@@ -326,7 +326,7 @@ func (e *Engine) moveAttack(c *Character, done *int) {
 			case 'N':
 				*done = 0
 			}
-		case e.groundInfo(g)[0] > ci[6]:
+		case e.groundInfo(g)[0] > ci.Moves:
 			e.BottomMessage("Blocked")
 		default:
 			e.o14_08B2(c, d)
@@ -344,8 +344,8 @@ func (e *Engine) moveAttack(c *Character, done *int) {
 			}
 		}
 	}
-	if ci[6] < 2 {
-		ci[6] = 0
+	if ci.Moves < 2 {
+		ci.Moves = 0
 	}
 }
 
@@ -422,7 +422,7 @@ func (e *Engine) otherMenu(c *Character, done *int) {
 		case 'G':
 			*done = b2i(e.guard(c))
 		case 'D':
-			c.Combat.Raw[3] = 1
+			c.Combat.Delay = 1
 			*done = 1
 		case 'Q':
 			*done = b2i(e.clearCombatInfo(c))
@@ -438,7 +438,7 @@ func (e *Engine) otherMenu(c *Character, done *int) {
 // guard = 00BA:2686 (char): end the turn on guard.
 func (e *Engine) guard(c *Character) bool {
 	r := e.clearCombatInfo(c)
-	c.Combat.Raw[7] = 1
+	c.Combat.Guarding = 1
 	e.BottomMessage("Guarding")
 	return r
 }
@@ -448,11 +448,11 @@ func (e *Engine) guard(c *Character) bool {
 func (e *Engine) bandage(doIt bool) bool {
 	found := false
 	for _, c := range e.party {
-		if c.Combat.Raw[0x13] == 0 && c.Side == 0 && c.Status == 5 {
+		if c.Combat.Extra == 0 && c.Side == 0 && c.Status == 5 {
 			found = true
 			if doIt {
 				c.Status = 4
-				c.Combat.Raw[0xE] = 0
+				c.Combat.Dying = 0
 				e.CharMessage(c, "is bandaged", 0xA, true)
 				doIt = false
 			}

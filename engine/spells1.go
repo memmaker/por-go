@@ -395,8 +395,8 @@ func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
 				e.flyMissile(x, y, e.tgtX, e.tgtY, 4, 0x1E)
 				e.soundWait(0xA)
 				if e.combatOnScreen(caster, false) {
-					e.combatTurn(caster, caster.Combat.Raw[9], 1, true)
-					e.combatTurn(caster, caster.Combat.Raw[9], 0, false)
+					e.combatTurn(caster, caster.Combat.Facing, 1, true)
+					e.combatTurn(caster, caster.Combat.Facing, 0, false)
 				}
 			}
 			e.removeInvisibility(caster)

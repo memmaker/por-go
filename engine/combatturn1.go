@@ -9,29 +9,29 @@ func (e *Engine) ds2(ofs int) int { return int(wordAt(e.X.Bytes(ofs, 2), 0)) }
 
 // turnSetup = ovr14:0000 (char): fill the combat block for a new round.
 func (e *Engine) o14_0000(c *Character) {
-	cb := &c.Combat.Raw
-	cb[0], cb[1], cb[2], cb[8], cb[4] = 0, 1, 1, 0, 2
+	cb := c.Combat
+	cb.Spell, cb.CanCast, cb.CanUse, cb.Attacked, cb.AttackSlot = 0, 1, 1, 0, 2
 	e.o14_0D23(c)
 	e.v681A = c.BaseAttack[1]
 	e.v681D = 0
 	e.affectGroup(c, 0x12)
 	c.Attacks[1] = byte(e.o14_0E52(e.v681A))
-	cb[5] = c.FightLevel
+	cb.Sweeps = c.FightLevel
 	if c.Okay != 0 {
-		cb[3] = byte(int(dexMissile(c.Stats[statDex])) + e.Dice(1, 6))
-		if int8(cb[3]) < 1 {
-			cb[3] = 1
+		cb.Delay = byte(int(dexMissile(c.Stats[statDex])) + e.Dice(1, 6))
+		if int8(cb.Delay) < 1 {
+			cb.Delay = 1
 		}
 		if byte((int(int8(c.Side))+1)&int(wordAt(e.game, 0x596))) != 0 { // only the low byte is tested
-			cb[3] -= 6
+			cb.Delay -= 6
 		}
-		if int8(cb[3]) < 0 || int8(cb[3]) > 0x14 {
-			cb[3] = 0
+		if int8(cb.Delay) < 0 || int8(cb.Delay) > 0x14 {
+			cb.Delay = 0
 		}
 	} else {
-		cb[3] = 0
+		cb.Delay = 0
 	}
-	cb[6] = byte(e.o14_0123(c))
+	cb.Moves = byte(e.o14_0123(c))
 }
 
 // o14_0123 (char): movement rate of the turn (half of it is kept in +0x113
@@ -106,12 +106,12 @@ func (e *Engine) o14_02F9(a, b *Character, kind, damage, shown, hit int) {
 	e.DisplayTextBlock(0x17, row, 0x26, row+3, 0xA, true, s)
 	row = e.msgRow + 1
 	if damage&0xFF > 0 {
-		b.Combat.Raw[1] = 0
-		if b.Combat.Raw[0] > 0 {
+		b.Combat.CanCast = 0
+		if b.Combat.Spell > 0 {
 			e.MsgDelay()
 			e.CharMessage(b, "lost a spell", 0xC, true)
-			e.forgetSpell(b.Combat.Raw[0])
-			b.Combat.Raw[0] = 0
+			e.forgetSpell(b.Combat.Spell)
+			b.Combat.Spell = 0
 		} else {
 			e.MsgDelay()
 		}
@@ -147,11 +147,11 @@ func (e *Engine) o14_0627(c *Character) {
 			continue
 		}
 		t := e.combatant(e.targets[i])
-		if t.Combat.Raw[7] == 0 || e.hasAffect286B(t) {
+		if t.Combat.Guarding == 0 || e.hasAffect286B(t) {
 			continue
 		}
 		e.combatCentre(e.combatX(c), e.combatY(c), 2, 8)
-		t.Combat.Raw[7] = 0
+		t.Combat.Guarding = 0
 		e.o14_17F6(t, c)
 		var junk int // (var result of the attack, unused)
 		e.o14_1884(t, c, 0, nil, &junk)
@@ -160,16 +160,16 @@ func (e *Engine) o14_0627(c *Character) {
 
 // o14_0712 (dir, char): step one square (2 movement points, 3 diagonally).
 func (e *Engine) o14_0712(c *Character, dir int) {
-	cb := &c.Combat.Raw
+	cb := c.Combat
 	cost := byte(2)
 	if dir&1 != 0 {
 		cost = 3
 	}
-	if cost > cb[6] {
-		cb[6] = 0
+	if cost > cb.Moves {
+		cb.Moves = 0
 		return
 	}
-	cb[6] -= cost
+	cb.Moves -= cost
 	idx := e.combatIndex(c)
 	ox, oy := e.cpos[idx].x, e.cpos[idx].y
 	nx := ox + byte(int8(e.X.Bytes(0x2736+dir, 1)[0]))
@@ -185,11 +185,11 @@ func (e *Engine) o14_0712(c *Character, dir int) {
 	e.cpos[idx].x, e.cpos[idx].y = nx, ny
 	e.combatRedrawMap()
 	e.combatCentre(int(nx), int(ny), margin, 8)
-	cb[0xF], cb[0x12] = 0, 0
+	cb.Attackers, cb.Flank = 0, 0
 	e.PlaySound(e.ds2(0x2628))
 	e.o14_0627(c)
 	if c.Okay == 0 || e.hasAffect286B(c) {
-		cb[6] = 0
+		cb.Moves = 0
 	}
 }
 
@@ -234,12 +234,12 @@ func (e *Engine) o14_08B2(c *Character, dir int) {
 			continue
 		}
 		attacked := false
-		tcb := &t.Combat.Raw
-		for k := int(tcb[9]) + 6; k <= int(tcb[9])+10; k++ {
+		tcb := t.Combat
+		for k := int(tcb.Facing) + 6; k <= int(tcb.Facing)+10; k++ {
 			if attacked {
 				continue
 			}
-			if int8(tcb[3]) <= 0 && tcb[0xF] != 0 {
+			if int8(tcb.Delay) <= 0 && tcb.Attackers != 0 {
 				if !e.inArc(e.combatX(t), e.combatY(t), e.combatX(c), e.combatY(c), k%8) {
 					continue
 				}
@@ -256,7 +256,7 @@ func (e *Engine) o14_08B2(c *Character, dir int) {
 			if t.Attacks[w-1] == 0 {
 				t.Attacks[w-1] = 1
 			}
-			tcb[4] = byte(w)
+			tcb.AttackSlot = byte(w)
 			saved := t.Combat.Target
 			e.o14_1884(t, c, 1, nil, &e.v6E31)
 			attacked = true
@@ -322,8 +322,8 @@ func (e *Engine) o14_0D23(c *Character) {
 			r = w
 		}
 	}
-	cb := &c.Combat.Raw
-	if cb[8] != 0 && r >= old && (int(r) >= int(old)*2 || flag) {
+	cb := c.Combat
+	if cb.Attacked != 0 && r >= old && (int(r) >= int(old)*2 || flag) {
 		return
 	}
 	c.Attacks[0] = r
@@ -342,8 +342,8 @@ func (e *Engine) o14_0E52(v byte) int {
 // several adjacent weak enemies, one attack each.
 func (e *Engine) o14_0E82(a, b *Character) bool {
 	res := false
-	acb := &a.Combat.Raw
-	if a.Attacks[0] < acb[5] && b.MaxLevel == 0 && e.rangeTo(a, b) == 1 {
+	acb := a.Combat
+	if a.Attacks[0] < acb.Sweeps && b.MaxLevel == 0 && e.rangeTo(a, b) == 1 {
 		n := e.nearEnemies(a, 1)
 		cnt := 0
 		bi := 0
@@ -357,8 +357,8 @@ func (e *Engine) o14_0E82(a, b *Character) bool {
 			}
 		}
 		if byte(cnt) > a.Attacks[0] {
-			if byte(cnt) > acb[5] {
-				cnt = int(acb[5])
+			if byte(cnt) > acb.Sweeps {
+				cnt = int(acb.Sweeps)
 			}
 			e.CharMessage(a, "sweeps", 0xA, true)
 			if e.combatant(e.targets[1]) != b {
@@ -408,7 +408,7 @@ func (e *Engine) o14_116A(c *Character) {
 	e.ClearRow24()
 	e.MsgDelay()
 	any, stop := false, false
-	c.Combat.Raw[0x11] = 1
+	c.Combat.TurnUsed = 1
 	limit := 6
 	hd := e.Dice(1, 0xC)
 	roll := e.Dice(1, 0x14)
@@ -436,7 +436,7 @@ func (e *Engine) o14_116A(c *Character) {
 		e.combatRedrawChar(t, 3, 0)
 		e.combatPanel(t)
 		if x > 0 {
-			t.Combat.Raw[0x10] = 1
+			t.Combat.Turned = 1
 			e.hitMessage(t, true, "is turned")
 		} else {
 			e.CharMessage(t, "Is destroyed", 0xA, false)
@@ -470,7 +470,7 @@ func (e *Engine) o14_1351(c *Character, out **Character) bool {
 	found := false
 	for i := 1; i <= n; i++ {
 		t := e.combatant(e.targets[i])
-		if t.Combat.Raw[0x10] == 0 && int8(t.Undead) > 0 && int8(t.Undead) < best {
+		if t.Combat.Turned == 0 && int8(t.Undead) > 0 && int8(t.Undead) < best {
 			best = int8(t.Undead)
 			*out = t
 			found = true
@@ -482,19 +482,19 @@ func (e *Engine) o14_1351(c *Character, out **Character) bool {
 // o14_1406 (att, vic, w, var done): the attacker's attack slots against the
 // victim; done is 1 when the attacker has used all its attacks.
 func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
-	acb := &a.Combat.Raw
+	acb := a.Combat
 	*done = 0
 	e.hits6822[1], e.hits6822[2] = 0, 0
 	e.shots6E2C[1], e.shots6E2C[2] = 0, 0
 	any, stop := false, false
 	e.rv.damage = 0
-	acb[8] = 1
+	acb.Attacked = 1
 	if e.hasAffect286B(b) {
 		e.PlaySound(e.ds2(0x2622))
-		for acb[4] > 0 && a.Attacks[acb[4]-1] == 0 {
-			acb[4]--
+		for acb.AttackSlot > 0 && a.Attacks[acb.AttackSlot-1] == 0 {
+			acb.AttackSlot--
 		}
-		e.shots6E2C[acb[4]]++
+		e.shots6E2C[acb.AttackSlot]++
 		e.o14_02F9(a, b, 3, (int(b.HP)+5)&0xFF, 1, 1)
 		e.removeInvisibility(a)
 		for s := 1; s <= 2; s++ {
@@ -516,7 +516,7 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 		if e.rangedFacing(a, b) {
 			need = b.AC[1] - 2
 		} else {
-			if b.Combat.Raw[0xF] > 1 && byte(e.o14_263D(a, b)) == b.Combat.Raw[9] && b.Combat.Raw[0x12] > 4 {
+			if b.Combat.Attackers > 1 && byte(e.o14_263D(a, b)) == b.Combat.Facing && b.Combat.Flank > 4 {
 				w = 1
 			}
 			if w != 0 {
@@ -534,10 +534,10 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 		if e.rangedFacing(a, b) {
 			mode = 2
 		}
-		for s := int(acb[4]); s >= 1; s-- {
+		for s := int(acb.AttackSlot); s >= 1; s-- {
 			for a.Attacks[s-1] != 0 && !stop {
 				a.Attacks[s-1]--
-				acb[4] = byte(s)
+				acb.AttackSlot = byte(s)
 				e.shots6E2C[s]++
 				if e.AttackHits(a, b, int(need)) || e.hasAffect286B(b) {
 					e.hits6822[s]++
@@ -564,7 +564,7 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 				*done = 0
 			}
 		}
-		acb[5] = 0
+		acb.Sweeps = 0
 	}
 	if *done != 0 {
 		*done = b2i(e.clearCombatInfo(a))
@@ -574,25 +574,25 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 // o14_17F6 (att, vic): the victim counts one more attack and turns towards
 // the attacker (the turned amount accumulates in +0x12).
 func (e *Engine) o14_17F6(att, vic *Character) {
-	cb := &vic.Combat.Raw
-	cb[0xF]++
-	d := (e.o14_263D(vic, att) - int(cb[9]) + 8) % 8
+	cb := vic.Combat
+	cb.Attackers++
+	d := (e.o14_263D(vic, att) - int(cb.Facing) + 8) % 8
 	if d > 4 {
 		d = 8 - d
 	}
-	cb[0x12] = byte((int(cb[0x12]) + d) % 8)
+	cb.Flank = byte((int(cb.Flank) + d) % 8)
 }
 
 // o14_1884 (att, vic, flag, item, var done): a full attack of att on vic
 // (turning both, then the slots of o14_1406). item is a thrown item that is
 // spent; done is set when the attacker's turn ends.
 func (e *Engine) o14_1884(a, b *Character, flag int, it *Item, done *int) {
-	if b.Combat.Raw[0xF] < 3 && flag == 0 {
+	if b.Combat.Attackers < 3 && flag == 0 {
 		dir := byte(e.o14_263D(b, a))
 		if e.combatOnScreen(b, false) {
 			e.combatTurn(b, dir, 0, false)
 		} else {
-			b.Combat.Raw[9] = dir
+			b.Combat.Facing = dir
 		}
 	}
 	dir := byte(e.o14_263D(a, b))
@@ -639,8 +639,8 @@ func (e *Engine) o14_1884(a, b *Character, flag int, it *Item, done *int) {
 		*done = b2i(e.clearCombatInfo(a))
 	}
 	if e.combatOnScreen(a, false) {
-		e.combatTurn(a, a.Combat.Raw[9], 1, true)
-		e.combatTurn(a, a.Combat.Raw[9], 0, false)
+		e.combatTurn(a, a.Combat.Facing, 1, true)
+		e.combatTurn(a, a.Combat.Facing, 0, false)
 	}
 }
 

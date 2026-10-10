@@ -330,11 +330,11 @@ func (e *Engine) o13_06E4(c *Character, a *Affect, flag byte) {
 // o13_070F: "is silenced" (the spell being cast is lost).
 func (e *Engine) o13_070F(c *Character, a *Affect, flag byte) {
 	ci := combatInfo(c)
-	if ci.Raw[2] != 0 {
+	if ci.CanUse != 0 {
 		e.CharMessage(c, "is silenced", 0xA, true)
 	}
-	ci.Raw[2] = 0
-	ci.Raw[1] = 0
+	ci.CanUse = 0
+	ci.CanCast = 0
 }
 
 // o13_0775: poison ends; death by poison when the poison was still in.
@@ -409,11 +409,11 @@ func (e *Engine) o13_0A3D(c *Character, a *Affect, flag byte) {
 // o13_0A65: "is coughing" ends; armour class drops.
 func (e *Engine) o13_0A65(c *Character, a *Affect, flag byte) {
 	ci := combatInfo(c)
-	if ci.Raw[2] != 0 {
+	if ci.CanUse != 0 {
 		e.CharMessage(c, "is coughing", 0xA, true)
 	}
-	ci.Raw[2] = 0
-	ci.Raw[1] = 0
+	ci.CanUse = 0
+	ci.CanCast = 0
 	e.ApplyItems(c)
 	if c.AC[1] > 0x34 {
 		c.AC[1] -= 2
@@ -471,7 +471,7 @@ func (e *Engine) o13_0C15(c *Character, a *Affect, flag byte) {
 
 // o13_0C26: DS:681E and the attack always misses.
 func (e *Engine) o13_0C26(c *Character, a *Affect, flag byte) {
-	if int8(combatInfo(c).Raw[3]) > 0 {
+	if int8(combatInfo(c).Delay) > 0 {
 		e.v681E = 1
 		e.rv.hitRoll = -1
 	}
@@ -650,7 +650,7 @@ func (e *Engine) o13_1399(c *Character, a *Affect, flag byte) {
 
 // o13_1452: the combat block loses +6; DS:681A cleared when DS:681D is set.
 func (e *Engine) o13_1452(c *Character, a *Affect, flag byte) {
-	combatInfo(c).Raw[6] = 0
+	combatInfo(c).Moves = 0
 	if e.v681D != 0 {
 		e.v681A = 0
 	}
@@ -735,7 +735,7 @@ func (e *Engine) o13_176F(c *Character, a *Affect, flag byte) {
 			e.RemoveAffect(c, 0x4B, a)
 		}
 		if c.Okay != 0 && t.Okay != 0 {
-			combatInfo(c).Raw[0x10] = 1
+			combatInfo(c).Turned = 1
 		}
 		return
 	}

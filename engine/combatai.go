@@ -13,7 +13,7 @@ func (e *Engine) o10_000F(c *Character) {
 		done = e.clearCombatInfo(c)
 	}
 	ci := c.Combat
-	d := ci.Raw[0x15]
+	d := ci.Pattern
 	if d == 0 || d > 4 || e.Dice(1, 4) == 1 {
 		d = byte(e.Dice(1, 8))
 		if d == 8 {
@@ -22,11 +22,11 @@ func (e *Engine) o10_000F(c *Character) {
 			d = byte(e.Dice(1, 4)) // the first roll is thrown away
 		}
 	}
-	ci.Raw[0x15] = d
+	ci.Pattern = d
 	if !done {
 		done = e.aiFleeCheck(c)
 	}
-	if ci.Raw[0x14] != 0 && ci.Raw[0x10] == 0 {
+	if ci.Fleeing != 0 && ci.Turned == 0 {
 		e.CharMessage(c, "flees in panic", 10, true)
 	}
 	if done {
@@ -36,8 +36,8 @@ func (e *Engine) o10_000F(c *Character) {
 		done = e.clearCombatInfo(c)
 		return
 	}
-	if ci.Raw[0] > 0 {
-		e.CastSpell(ci.Raw[0], 1, 1, &done)
+	if ci.Spell > 0 {
+		e.CastSpell(ci.Spell, 1, 1, &done)
 		done = e.clearCombatInfo(c)
 		return
 	}
@@ -51,7 +51,7 @@ func (e *Engine) o10_000F(c *Character) {
 	e.aiPickWeapon(c)
 	done = e.aiKeys(c)
 	for !done {
-		if e.o14_37E4(c, 0xFF, 1, 0) && int8(ci.Raw[3]) > 0 {
+		if e.o14_37E4(c, 0xFF, 1, 0) && int8(ci.Delay) > 0 {
 			done = e.aiAttackLoop(c)
 		} else {
 			done = e.aiGiveUp(c)
@@ -63,7 +63,7 @@ func (e *Engine) o10_000F(c *Character) {
 // (o14_1351) casts it.
 func (e *Engine) aiTryCast(c *Character) bool {
 	r := false // uninitialised in the original when the test fails: 0
-	if c.Combat.Raw[0x11] == 0 && int8(c.Levels[clsCleric]) > 0 {
+	if c.Combat.TurnUsed == 0 && int8(c.Levels[clsCleric]) > 0 {
 		var t *Character
 		if e.o14_1351(c, &t) {
 			r = true
@@ -125,7 +125,7 @@ func (e *Engine) aiCastFromItem(c *Character) bool {
 	var found *Item
 	lvl := 7
 	rounds := e.Dice(1, 7)
-	if c.Combat.Raw[2] == 0 || e.rv.side[b2i(isParty(c))] == 0 || wordAt(e.area, 0x1CA) != 0 {
+	if c.Combat.CanUse == 0 || e.rv.side[b2i(isParty(c))] == 0 || wordAt(e.area, 0x1CA) != 0 {
 		return false
 	}
 	for k := 1; k <= rounds; k++ {
@@ -158,7 +158,7 @@ func (e *Engine) aiCastFromItem(c *Character) bool {
 func (e *Engine) aiCastKnown(c *Character) bool {
 	var arr [21]byte // the original has 20 bytes: the 21st write lands on a spare local
 	n := 0
-	if c.Combat.Raw[1] != 0 {
+	if c.Combat.CanCast != 0 {
 		for i := 0; i <= 0x14; i++ {
 			if c.Memorized[i] > 0 {
 				arr[n] = c.Memorized[i]
@@ -195,7 +195,7 @@ func (e *Engine) aiCanStep(c *Character, i, dir int, blocked *bool) bool {
 	ci := c.Combat
 	*blocked = false
 	r := false
-	t := int(e.X.Bytes(0x2AE+int(ci.Raw[0x15])*5+i, 1)[0])
+	t := int(e.X.Bytes(0x2AE+int(ci.Pattern)*5+i, 1)[0])
 	d := (t + dir) % 8
 	who, ground := e.groundAt(c, d)
 	if ground == 0 {
@@ -206,7 +206,7 @@ func (e *Engine) aiCanStep(c *Character, i, dir int, blocked *bool) bool {
 		return false
 	}
 	gc := e.X.Bytes(0x2744+int(ground)*4, 1)[0]
-	if gc >= ci.Raw[6] {
+	if gc >= ci.Moves {
 		return false
 	}
 	cost := 2
@@ -217,10 +217,10 @@ func (e *Engine) aiCanStep(c *Character, i, dir int, blocked *bool) bool {
 	if ground == 0x1E {
 		if e.FindAffect(c, 0x20) == nil && e.FindAffect(c, 0x1E) == nil &&
 			e.FindAffect(c, 0x6F) == nil && e.FindAffect(c, 0x7D) == nil {
-			cost = int(byte(ci.Raw[6] + 1))
+			cost = int(byte(ci.Moves + 1))
 		}
 	}
-	if int(ci.Raw[6]) >= cost {
+	if int(ci.Moves) >= cost {
 		r = true
 	}
 	return r
@@ -230,19 +230,19 @@ func (e *Engine) aiCanStep(c *Character, i, dir int, blocked *bool) bool {
 // step towards the target (or a wandering direction when fleeing).
 func (e *Engine) aiMoveStep(c *Character) {
 	ci := c.Combat
-	e.DisplayString(0, 0x18, 0xA, "Move/Attack, Move Left = "+itoa(int(ci.Raw[6]>>1))+" ")
+	e.DisplayString(0, 0x18, 0xA, "Move/Attack, Move Left = "+itoa(int(ci.Moves>>1))+" ")
 	if e.aiKeys(c) {
 		return
 	}
-	if ci.Raw[6]>>1 <= 0 || int8(ci.Raw[3]) <= 0 || (ci.Raw[0x14] == 0 && c.Class == 5) {
+	if ci.Moves>>1 <= 0 || int8(ci.Delay) <= 0 || (ci.Fleeing == 0 && c.Class == 5) {
 		e.aiGiveUp(c)
 		return
 	}
 	var dir int
-	if ci.Raw[0x14] == 0 {
+	if ci.Fleeing == 0 {
 		dir = e.o14_263D(c, ci.Target)
 	} else {
-		ci.Raw[0x15] = byte(e.Dice(1, 2))
+		ci.Pattern = byte(e.Dice(1, 2))
 		f := int(e.facing)
 		dir = f - ((f+2)%4)>>1
 		if c.Side == 0 {
@@ -257,7 +257,7 @@ func (e *Engine) aiMoveStep(c *Character) {
 		if e.aiCanStep(c, i, dir, &blocked) {
 			break
 		}
-		if ci.Raw[0x14] != 0 && blocked {
+		if ci.Fleeing != 0 && blocked {
 			done = e.o14_0C6A(c)
 		} else {
 			i++
@@ -265,18 +265,18 @@ func (e *Engine) aiMoveStep(c *Character) {
 	}
 	var d int
 	if done {
-		ci.Raw[6] = 0
-		ci.Raw[0x14] = 0
+		ci.Moves = 0
+		ci.Fleeing = 0
 		done = e.clearCombatInfo(c)
 	} else {
-		d = (int(e.X.Bytes(0x2AE+int(ci.Raw[0x15])*5+i, 1)[0]) + dir) % 8
+		d = (int(e.X.Bytes(0x2AE+int(ci.Pattern)*5+i, 1)[0]) + dir) % 8
 		if i == 6 || int(e.v443C) == (d+4)%8 {
 			e.v443D++
-			ci.Raw[0x15] = byte(int(ci.Raw[0x15])%6 + 1)
+			ci.Pattern = byte(int(ci.Pattern)%6 + 1)
 			if e.v443D > 1 {
 				ci.Target = nil
 				if e.v443D > 2 {
-					ci.Raw[6] = 0
+					ci.Moves = 0
 					done = true
 				} else if !e.o14_37E4(c, 0xFF, 1, 0) {
 					done = e.aiGiveUp(c)
@@ -293,12 +293,12 @@ func (e *Engine) aiMoveStep(c *Character) {
 		return
 	}
 	e.combatTurn(c, byte(d), 0, false)
-	e.o14_08B2(c, int(ci.Raw[9]))
+	e.o14_08B2(c, int(ci.Facing))
 	if c.Okay == 0 {
 		done = e.clearCombatInfo(c)
 		return
 	}
-	e.o14_0712(c, int(ci.Raw[9]))
+	e.o14_0712(c, int(ci.Facing))
 	if c.Okay == 0 {
 		done = e.clearCombatInfo(c)
 	}
@@ -313,14 +313,14 @@ func (e *Engine) aiAttackLoop(c *Character) bool {
 	iter := 0
 	cont, stop := true, false
 	e.affectGroup(c, 0xE)
-	if ci.Raw[3] == 0 {
+	if ci.Delay == 0 {
 		cont = false
 	}
 	for !stop && cont {
-		for ci.Raw[0x14] != 0 && ci.Raw[6] > 0 && int8(ci.Raw[3]) > 0 && int8(ci.Raw[3]) < 0x14 {
+		for ci.Fleeing != 0 && ci.Moves > 0 && int8(ci.Delay) > 0 && int8(ci.Delay) < 0x14 {
 			e.aiMoveStep(c)
 		}
-		if ci.Raw[3] == 0 || ci.Raw[3] == 0x14 {
+		if ci.Delay == 0 || ci.Delay == 0x14 {
 			cont = false
 		} else {
 			stop = false
@@ -407,7 +407,7 @@ func (e *Engine) aiAttackLoop(c *Character) bool {
 // on is cleared, otherwise 00BA:2686 finishes it.
 func (e *Engine) aiGiveUp(c *Character) bool {
 	e.ClearMessageArea()
-	if e.hasAffect286B(c) || e.rangedWeapon(c) || c.Combat.Raw[3] == 0 {
+	if e.hasAffect286B(c) || e.rangedWeapon(c) || c.Combat.Delay == 0 {
 		return e.clearCombatInfo(c)
 	}
 	return e.guard(c)
@@ -437,7 +437,7 @@ func (e *Engine) aiKeys(c *Character) bool {
 				}
 			}
 			if c.Auto == 0 {
-				c.Combat.Raw[3] = 0x14
+				c.Combat.Delay = 0x14
 				r = true
 			}
 		case 0x2D:
@@ -453,10 +453,10 @@ func (e *Engine) aiKeys(c *Character) bool {
 func (e *Engine) aiFleeCheck(c *Character) bool {
 	ci := c.Combat
 	r := false
-	ci.Raw[0x14] = 0
+	ci.Fleeing = 0
 	e.removeAffects4A(c)
-	if ci.Raw[0x10] != 0 {
-		ci.Raw[0x14] = 1
+	if ci.Turned != 0 {
+		ci.Fleeing = 1
 		e.CharMessage(c, "is forced to flee", 10, true)
 		return r
 	}
@@ -480,7 +480,7 @@ func (e *Engine) aiFleeCheck(c *Character) bool {
 	}
 	a := e.o14_2908(c)
 	if a <= e.o14_0123(c)>>1 {
-		ci.Raw[0x14] = 1
+		ci.Fleeing = 1
 		e.RemoveAffect(c, 0x4A, nil)
 		e.RemoveAffect(c, 0x4B, nil)
 		return r

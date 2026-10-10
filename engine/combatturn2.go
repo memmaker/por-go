@@ -204,11 +204,11 @@ func (e *Engine) o14_2414(spell, a int, quit *bool) {
 		} else {
 			*quit = true
 			e.CharMessage(sel, "Begins Casting", 0xA, true)
-			sel.Combat.Raw[0] = byte(spell)
-			if int(int8(sel.Combat.Raw[3])) > delay {
-				sel.Combat.Raw[3] -= byte(delay)
+			sel.Combat.Spell = byte(spell)
+			if int(int8(sel.Combat.Delay)) > delay {
+				sel.Combat.Delay -= byte(delay)
 			} else {
-				sel.Combat.Raw[3] = 1
+				sel.Combat.Delay = 1
 			}
 		}
 	}
@@ -229,7 +229,7 @@ func (e *Engine) rangedFacing(c, target *Character) bool {
 			flag = true
 		}
 	}
-	return flag && target.Combat.Raw[0xF] > 1 && byte(e.o14_263D(c, target)) == target.Combat.Raw[9]
+	return flag && target.Combat.Attackers > 1 && byte(e.o14_263D(c, target)) == target.Combat.Facing
 }
 
 // o14_263D = ovr14:263D (from, to): the direction 0..7 (8 when none fits)
@@ -690,7 +690,7 @@ func (e *Engine) o14_37E4(c *Character, rng, a, b int) bool {
 func (e *Engine) o14_39D2(c *Character, a *Affect, flag byte) {
 	var res bool
 	if e.hits6822[1] == 2 && c.Combat.Target != nil && c.Combat.Target.Okay != 0 {
-		c.Combat.Raw[4] = 2
+		c.Combat.AttackSlot = 2
 		c.Attacks[1], c.Dice[1], c.Sides[1], c.Attacks[0] = 2, 2, 4, 0
 		e.CharMessage(c, "Rakes...", 0xA, true)
 		d := b2i(res)

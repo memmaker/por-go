@@ -68,14 +68,14 @@ func (e *Engine) combatBlocks() {
 		e.ApplyItems(c) // 00BA:0BB8
 		c.Combat = &CombatInfo{}
 		if i+1 > int(wordAt(e.game, gsPartyCount)) {
-			c.Combat.Raw[0x13] = 1
+			c.Combat.Extra = 1
 		}
-		c.Combat.Raw[9] = e.X.Bytes(0x2F2+e.facing/2, 1)[0]
+		c.Combat.Facing = e.X.Bytes(0x2F2+e.facing/2, 1)[0]
 		if c.Side == 1 {
-			c.Combat.Raw[9] = (c.Combat.Raw[9] + 4) % 8
+			c.Combat.Facing = (c.Combat.Facing + 4) % 8
 		}
 		m := c.Control & 0x7F
-		if c.Side == 0 && c.Combat.Raw[3] == 1 && (m == 0 || m > 0x66) {
+		if c.Side == 0 && c.Combat.Delay == 1 && (m == 0 || m > 0x66) {
 			c.Control = byte(wordAt(e.game, 0x58C) + 0x80)
 		}
 	}
@@ -532,7 +532,7 @@ func (e *Engine) placeCombatants() {
 		if e.placeOne(idx) {
 			if c.Okay == 0 {
 				e.cpos[idx].size = 0
-				if e.run.f84D4 == 0 && c.Combat.Raw[0x13] == 0 {
+				if e.run.f84D4 == 0 && c.Combat.Extra == 0 {
 					x, y := e.cpos[idx].x, e.cpos[idx].y
 					e.nbodies++
 					e.bodies[e.nbodies] = body{c: c, x: x, y: y, ground: e.cmap.ground[y][x]}
@@ -546,7 +546,7 @@ func (e *Engine) placeCombatants() {
 			continue
 		}
 		e.cpos[idx].size = 0
-		if c.Combat.Raw[0x13] == 1 { // no room: the extra leaves
+		if c.Combat.Extra == 1 { // no room: the extra leaves
 			e.combatants[idx-1] = nil
 			e.partySel = i
 			e.RemoveSelected(true, false)

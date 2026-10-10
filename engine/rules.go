@@ -5,16 +5,26 @@ package engine
 
 // CombatInfo is the 0x16-byte block at char+0x108 (allocated by ovr11).
 type CombatInfo struct {
-	Raw    [0x16]byte
-	Target *Character // +0x0A
+	Spell      byte       // +0x00 spell being cast (lost when hit)
+	CanCast    byte       // +0x01
+	CanUse     byte       // +0x02 may use an item
+	Delay      byte       // +0x03 signed initiative; 0x14 = delayed
+	AttackSlot byte       // +0x04 attack slot in use (1, 2)
+	Sweeps     byte       // +0x05 sweeps left against weak foes
+	Moves      byte       // +0x06 half squares left
+	Guarding   byte       // +0x07
+	Attacked   byte       // +0x08 has attacked this turn
+	Facing     byte       // +0x09 0..7
+	Target     *Character // +0x0A
+	Dying      byte       // +0x0E rounds of bleeding left
+	Attackers  byte       // +0x0F times attacked this round
+	Turned     byte       // +0x10 turned by a cleric
+	TurnUsed   byte       // +0x11 has tried to turn undead
+	Flank      byte       // +0x12 accumulated turn from attackers
+	Extra      byte       // +0x13 not one of the saved party
+	Fleeing    byte       // +0x14
+	Pattern    byte       // +0x15 AI move pattern, row of DS:02AE
 }
-
-const (
-	ciSpell = 0x00 // spell being cast (lost when hit)
-	ciMoved = 0x01
-	ciDown  = 0x03
-	ciDying = 0x0E // rounds of bleeding left
-)
 
 // Rule globals (DS:6816..682A).
 type ruleVars struct {
@@ -404,11 +414,11 @@ func (e *Engine) Damage(c *Character, dmg int, mode byte, saved bool) {
 	e.hitMessage(c, false, msg)
 	e.ApplyDamage(c, int(e.rv.damage))
 	if e.beginFlag == 5 && c.Combat != nil {
-		c.Combat.Raw[ciMoved] = 0
-		if c.Combat.Raw[ciSpell] > 0 {
+		c.Combat.CanCast = 0
+		if c.Combat.Spell > 0 {
 			e.CharMessage(c, "lost a spell", 0xC, true)
-			e.forgetSpell(c.Combat.Raw[ciSpell])
-			c.Combat.Raw[ciSpell] = 0
+			e.forgetSpell(c.Combat.Spell)
+			c.Combat.Spell = 0
 		}
 	}
 	if c.Okay == 0 {
@@ -600,7 +610,7 @@ func (e *Engine) ApplyDamage(c *Character, dmg int) {
 	case over > 0:
 		c.Status = 5
 		if e.beginFlag == 5 && c.Combat != nil {
-			c.Combat.Raw[ciDying] = byte(over)
+			c.Combat.Dying = byte(over)
 		}
 	case left == 0:
 		c.Status = 4
@@ -614,7 +624,7 @@ func (e *Engine) ApplyDamage(c *Character, dmg int) {
 	if e.beginFlag == 5 {
 		e.rv.side[int8(c.Side)&1]--
 		if c.Combat != nil {
-			c.Combat.Raw[ciDown] = 0
+			c.Combat.Delay = 0
 		}
 	}
 }
@@ -659,8 +669,8 @@ func (e *Engine) countSides() {
 // clearCombatInfo = 00BA:2637 (char): reset the combat block; always true.
 func (e *Engine) clearCombatInfo(c *Character) bool {
 	if c.Combat != nil {
-		ci := &c.Combat.Raw
-		ci[ciDown], ci[ciSpell], ci[7], ci[6] = 0, 0, 0, 0
+		ci := c.Combat
+		ci.Delay, ci.Spell, ci.Guarding, ci.Moves = 0, 0, 0, 0
 	}
 	return true
 }

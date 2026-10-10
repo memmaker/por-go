@@ -90,3 +90,4 @@ original. Ticked items are ported and checked in a headless run
 ## Idiomatic Go
 - [x] Character record as a typed struct (engine/char.go charRecord): named fields in the DOS layout, read and written with encoding/binary (saves and MON*CHA blocks still load byte for byte), no Raw byte array or offset constants; checked with cmd/trace against the previous build on all scenarios plus 164 fuzz scripts (identical)
 - [x] Item and Affect records as typed structs (Item, affectRecord in engine/files.go): readRecords/writeRecords for .itm/.spc, MON ITM/SPC and ECL ITEM blocks, no Raw arrays or it*/af* constants; cmd/trace identical to the previous build on all scenarios plus fuzz scripts
+- [x] CombatInfo as named fields (Spell, Delay, Moves, Facing, Fleeing, ...) instead of a Raw [0x16]byte with ci* offsets; cmd/trace identical

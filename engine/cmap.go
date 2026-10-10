@@ -302,7 +302,7 @@ func (e *Engine) drawOccupant(x, y int) {
 	}
 	c := e.combatant(idx)
 	if c != nil && e.combatOnScreen(c, false) {
-		e.drawIcon(int(e.combatScreenX[idx]), int(e.combatScreenY[idx]), c.Combat.Raw[9], 0, c.Order)
+		e.drawIcon(int(e.combatScreenX[idx]), int(e.combatScreenY[idx]), c.Combat.Facing, 0, c.Order)
 	}
 }
 
@@ -446,7 +446,7 @@ func (e *Engine) combatCentre(x, y, r, dir int) {
 		for i := 1; i <= e.ncomb; i++ {
 			c := e.combatant(byte(i))
 			if c != nil && c.Okay != 0 && e.cpos[i].size > 0 && e.combatOnScreen(c, false) {
-				e.drawIcon(int(e.combatScreenX[i]), int(e.combatScreenY[i]), c.Combat.Raw[9], 0, c.Order)
+				e.drawIcon(int(e.combatScreenX[i]), int(e.combatScreenY[i]), c.Combat.Facing, 0, c.Order)
 			}
 		}
 	}
@@ -466,10 +466,10 @@ func (e *Engine) combatTurn(c *Character, dir, pose byte, hide bool) {
 	if !e.combatOnScreen(c, true) {
 		e.combatCentre(e.combatX(c), e.combatY(c), 3, 8)
 	}
-	if dir>>2 != c.Combat.Raw[9]>>2 || pose != 0 || hide {
+	if dir>>2 != c.Combat.Facing>>2 || pose != 0 || hide {
 		e.combatClearIcon(0, 0, idx)
 	}
-	c.Combat.Raw[9] = dir
+	c.Combat.Facing = dir
 	if !hide && e.combatOnScreen(c, true) {
 		e.drawIcon(int(e.combatScreenX[idx]), int(e.combatScreenY[idx]), dir, pose, c.Order)
 		e.Flip()
@@ -549,7 +549,7 @@ func (e *Engine) combatRemoveFromMap(c *Character) {
 		}
 	}
 	e.Flip()
-	if c.Combat.Raw[0x13] == 0 && e.nbodies+1 < len(e.bodies) {
+	if c.Combat.Extra == 0 && e.nbodies+1 < len(e.bodies) {
 		e.nbodies++
 		b := &e.bodies[e.nbodies]
 		b.ground = e.cmap.ground[y][x]
@@ -564,8 +564,8 @@ func (e *Engine) combatRemoveFromMap(c *Character) {
 	e.cpos[idx].size = 0
 	e.combatRedrawMap()
 	e.combatCentre(e.cmap.viewX+3, e.cmap.viewY+3, 3, 8)
-	ci := &c.Combat.Raw
-	ci[3], ci[6], ci[0], ci[7] = 0, 0, 0, 0
+	ci := c.Combat
+	ci.Delay, ci.Moves, ci.Spell, ci.Guarding = 0, 0, 0, 0
 	e.soundWait(0xA)
 }
 
@@ -585,7 +585,7 @@ func (e *Engine) combatSquareFree(c *Character, x, y int, uncover bool) bool {
 		p.size = 0
 		return false
 	}
-	if uncover && c.Combat.Raw[0x13] == 0 {
+	if uncover && c.Combat.Extra == 0 {
 		for k := 1; k <= e.nbodies; k++ {
 			if e.bodies[k].c == c {
 				if e.bodies[k].ground != 0x1F {

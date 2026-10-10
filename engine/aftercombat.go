@@ -22,7 +22,7 @@ func (e *Engine) duel() bool { return e.run.f84D4 != 0 }
 // (Combat +0x13 = 1).
 func (e *Engine) combatParty() []*Character {
 	for i, c := range e.party {
-		if c.Combat != nil && c.Combat.Raw[0x13] == 1 {
+		if c.Combat != nil && c.Combat.Extra == 1 {
 			return e.party[:i]
 		}
 	}
@@ -201,7 +201,7 @@ func (e *Engine) cleanupCombatants() {
 	putWord(e.game, 0x590, 0)
 	for i := 0; i < len(e.party); {
 		c := e.party[i]
-		monster := c.Combat != nil && c.Combat.Raw[0x13] == 1
+		monster := c.Combat != nil && c.Combat.Extra == 1
 		if monster || c.Side == 1 {
 			if c.Okay != 1 {
 				putWord(e.game, 0x590, wordAt(e.game, 0x590)+1)

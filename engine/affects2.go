@@ -415,8 +415,8 @@ func (e *Engine) o13_2700(c *Character, a *Affect, flag byte) {
 // for 1d4+1 and this affect (0x63) is removed.
 func (e *Engine) o13_2730(c *Character, a *Affect, flag byte) {
 	var n byte
-	if c.Status == 5 && c.Combat.Raw[ciDying] < 6 {
-		n = 6 - c.Combat.Raw[ciDying]
+	if c.Status == 5 && c.Combat.Dying < 6 {
+		n = 6 - c.Combat.Dying
 	}
 	if c.Status == 4 {
 		n = 6
