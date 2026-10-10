@@ -214,6 +214,9 @@ func importDisk2(src, dst string) error {
 				blocks[e.ID] = dax.AmigaSprite(b, name != "sprit", g.slot)
 			} else {
 				blocks[e.ID] = dax.AmigaImage(b, g.split, g.slot)
+				if name == "head" {
+					blocks[e.ID] = centre(blocks[e.ID], 11)
+				}
 			}
 		}
 		if err := os.WriteFile(filepath.Join(out, strings.ToUpper(name)+".DAX"), dax.WriteDOS(blocks), 0o644); err != nil {
@@ -221,4 +224,21 @@ func importDisk2(src, dst string) error {
 		}
 	}
 	return nil
+}
+
+// centre widens a one-frame DOS-layout picture to w cells, centred. The
+// Amiga heads are 7 cells wide; the engine places them where the 11-cell
+// DOS heads go, above the 11-cell bodies.
+func centre(b []byte, w int) []byte {
+	h, old := int(b[0])|int(b[1])<<8, int(b[2])|int(b[3])<<8
+	if old >= w || b[8] != 1 {
+		return b
+	}
+	pad := (w - old) / 2 * 4 // bytes of blank pixels on the left
+	out := append(append([]byte(nil), b[:17]...), make([]byte, h*w*4)...)
+	out[2], out[3] = byte(w), byte(w>>8)
+	for y := 0; y < h; y++ {
+		copy(out[17+y*w*4+pad:], b[17+y*old*4:17+(y+1)*old*4])
+	}
+	return out
 }
