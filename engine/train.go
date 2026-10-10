@@ -539,23 +539,28 @@ func (e *Engine) iconCopy(src, dst byte, recolour bool) {
 // recolourIcon = 0464:1E5C (identity, to, 0, 0, icon): colour i becomes
 // to[i] for i = 0..15 in turn, so a pixel already moved to a later colour
 // moves again (3 -> 15 -> to[15]). Mask pixels are left alone. Amiga
-// pixels (extra) take the same change through amigaIconColour.
+// pixels (extra) take the same end result through amigaIconColour.
 func recolourIcon(im *dax.Image, to [16]byte) {
 	if im == nil {
 		return
 	}
-	var am [16]byte
-	for i, v := range to {
-		am[amigaIconColour[i]] = amigaIconColour[v]
-	}
-	for i := byte(0); i < 16; i++ {
-		for k, v := range im.Data {
-			switch {
-			case v == i && int(i) != im.Mask:
-				im.Data[k] = to[i]
-			case v >= ega.AmigaBase && v&0xF == i:
-				im.Data[k] = v&^0xF | am[i]
+	var f, am [16]byte
+	for c := range f {
+		x := byte(c)
+		for i := x; i < 16; i++ {
+			if x == i {
+				x = to[i]
 			}
+		}
+		f[c] = x
+		am[amigaIconColour[c]] = amigaIconColour[x]
+	}
+	for k, v := range im.Data {
+		switch {
+		case v < 16 && int(v) != im.Mask:
+			im.Data[k] = f[v]
+		case v >= ega.AmigaBase:
+			im.Data[k] = v&^0xF | am[v&0xF]
 		}
 	}
 }

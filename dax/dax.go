@@ -170,7 +170,11 @@ func (l *Loader) File(name string) *File {
 func (l *Loader) Block(name string, id int) []byte {
 	if l.amiga != nil {
 		base := strings.TrimRight(strings.TrimSuffix(strings.ToUpper(name), ".DAX"), "0123456789")
-		if b := l.amiga.Block(base, id); b != nil {
+		b := l.amiga.Block(base, id)
+		if b == nil && base == "CHEAD" && id >= 0x80 {
+			b = l.amiga.Block(base, id-0x80) // one Amiga head for both poses, not the DOS action head
+		}
+		if b != nil {
 			if base == "HEAD" { // here, not at import, so older imports get it too
 				b = centre(b, 11)
 			}
