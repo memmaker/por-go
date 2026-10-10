@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"os"
 	"path/filepath"
@@ -20,10 +21,65 @@ const (
 )
 
 // Item and Affect are the raw list nodes (next pointers live in the slices).
-type Item struct{ Raw [itemRecSize]byte }
+// Item is the 0x3F-byte DOS item record, in its file layout (encoding/binary).
+type Item struct {
+	PName   [0x29]byte // 0x00 shown name, Pascal string (built by ItemName)
+	Pad29   byte       // 0x29
+	_       [4]byte    // 0x2A next pointer
+	Type    byte       // 0x2E base item type (index into the DS:5582 records)
+	Words   [3]byte    // 0x2F name word ids into DS:10A7
+	Plus    byte       // 0x32 signed
+	Plus2   byte       // 0x33
+	Readied byte       // 0x34
+	Hidden  byte       // 0x35 bit 3-i: word i not known yet
+	Magic   byte       // 0x36
+	Weight  uint16     // 0x37
+	Count   byte       // 0x39
+	Price   uint16     // 0x3A
+	Spells  [3]byte    // 0x3C a scroll's spells, +0x80 = being scribed
+}
+
+// Affect is a spell effect or condition on a character.
 type Affect struct {
-	Raw  [affectRecSize]byte
+	affectRecord
 	Item *Item // set when an item stands in for the affect (ovr13 item handlers)
+}
+
+// affectRecord is the 9-byte DOS affect node in its file layout.
+type affectRecord struct {
+	Type byte   // affect number, index into the ovr13 handler table
+	Time uint16 // remaining duration, 0 = permanent
+	Data byte
+	Call byte    // non-zero: the handler runs when the affect is removed
+	_    [4]byte // next pointer
+}
+
+// readRecords reads the n-byte records in b (a partial last one is dropped).
+func readRecords[T any](b []byte, n int) []*T {
+	var out []*T
+	for ; len(b) >= n; b = b[n:] {
+		v := new(T)
+		binary.Read(bytes.NewReader(b[:n]), binary.LittleEndian, v)
+		out = append(out, v)
+	}
+	return out
+}
+
+func readAffects(b []byte) []*Affect {
+	var out []*Affect
+	for _, r := range readRecords[affectRecord](b, affectRecSize) {
+		out = append(out, &Affect{affectRecord: *r})
+	}
+	return out
+}
+
+// writeRecords is the inverse of readRecords.
+func writeRecords[T any](list []*T) []byte {
+	var buf bytes.Buffer
+	for _, v := range list {
+		binary.Write(&buf, binary.LittleEndian, v)
+	}
+	return buf.Bytes()
 }
 
 // savePath resolves a file name inside the save directory case-insensitively
@@ -160,19 +216,15 @@ func (e *Engine) SaveCharacter(c *Character, name string) {
 	}
 	os.Remove(e.savePath(base + ".itm"))
 	if len(c.Items) > 0 {
-		var b []byte
-		for _, it := range c.Items {
-			b = append(b, it.Raw[:]...)
-		}
-		os.WriteFile(e.savePath(base+".itm"), b, 0o644)
+		os.WriteFile(e.savePath(base+".itm"), writeRecords(c.Items), 0o644)
 	}
 	os.Remove(e.savePath(base + ".spc"))
 	if len(c.Affects) > 0 {
-		var b []byte
-		for _, sp := range c.Affects {
-			b = append(b, sp.Raw[:]...)
+		var recs []*affectRecord
+		for _, a := range c.Affects {
+			recs = append(recs, &a.affectRecord)
 		}
-		os.WriteFile(e.savePath(base+".spc"), b, 0o644)
+		os.WriteFile(e.savePath(base+".spc"), writeRecords(recs), 0o644)
 	}
 }
 
@@ -192,18 +244,10 @@ func (e *Engine) LoadCharacter(name string, c *Character, useSav bool) bool {
 	c.setRecord(b)
 	c.Items, c.Affects = nil, nil
 	if b, err := os.ReadFile(e.savePath(nm + ".itm")); err == nil {
-		for i := 0; i+itemRecSize <= len(b); i += itemRecSize {
-			it := &Item{}
-			copy(it.Raw[:], b[i:])
-			c.Items = append(c.Items, it)
-		}
+		c.Items = readRecords[Item](b, itemRecSize)
 	}
 	if b, err := os.ReadFile(e.savePath(nm + ".spc")); err == nil {
-		for i := 0; i+affectRecSize <= len(b); i += affectRecSize {
-			sp := &Affect{}
-			copy(sp.Raw[:], b[i:])
-			c.Affects = append(c.Affects, sp)
-		}
+		c.Affects = readAffects(b)
 	}
 	e.ClearKeyboard()
 	return true
@@ -237,18 +281,10 @@ func (e *Engine) LoadMonster(index int, c *Character) bool {
 	}
 	e.loadingMonster = true // DS:557C
 	if b := e.L.Block("MON"+n+"SPC", index); b != nil {
-		for i := 0; i+affectRecSize <= len(b); i += affectRecSize {
-			sp := &Affect{}
-			copy(sp.Raw[:], b[i:])
-			c.Affects = append(c.Affects, sp)
-		}
+		c.Affects = readAffects(b)
 	}
 	if b := e.L.Block("MON"+n+"ITM", index); b != nil {
-		for i := 0; i+itemRecSize <= len(b); i += itemRecSize {
-			it := &Item{}
-			copy(it.Raw[:], b[i:])
-			c.Items = append(c.Items, it)
-		}
+		c.Items = readRecords[Item](b, itemRecSize)
 	}
 	e.loadingMonster = false
 	e.ClearKeyboard()

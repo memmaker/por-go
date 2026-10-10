@@ -222,9 +222,9 @@ func (e *Engine) rangedFacing(c, target *Character) bool {
 	w, ammo := c.Slots[0], c.Slots[2] // +0xCC, +0xD4
 	var wt byte                       // uninitialised in the original when there is no weapon
 	if w != nil {
-		wt = w.Raw[itType]
+		wt = w.Type
 	}
-	if int8(c.Levels[clsThief]) > 0 && (ammo == nil || ammo.Raw[itType] == 0x32) {
+	if int8(c.Levels[clsThief]) > 0 && (ammo == nil || ammo.Type == 0x32) {
 		if w == nil || wt == 7 || wt == 8 || (wt > 0x22 && wt < 0x26) {
 			flag = true
 		}
@@ -249,7 +249,7 @@ func (e *Engine) o14_263D(from, to *Character) int {
 func (e *Engine) attackAnimation(from, to *Character, weapon *Item) {
 	dir := e.o14_263D(from, to)
 	frames, delay, base := 1, 0xA, 0xD
-	switch typ := weapon.Raw[itType]; {
+	switch typ := weapon.Type; {
 	case typ == 9 || typ == 0x15 || typ == 0x1C || typ == 0x1F || typ == 0x49:
 		switch {
 		case dir&1 == 1 && (dir == 3 || dir == 5):
@@ -552,7 +552,7 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 	rng := byte(rangeArg)
 	if rng == 0xFF {
 		if w := c.Slots[0]; w != nil {
-			rng = e.baseItem(w.Raw[itType], 12) - 1
+			rng = e.baseItem(w.Type, 12) - 1
 		} else {
 			rng = 1
 		}
@@ -705,11 +705,11 @@ func (e *Engine) o14_39D2(c *Character, a *Affect, flag byte) {
 // down or the affect is removed.
 func (e *Engine) o14_3A86(c *Character, a *Affect, flag byte) {
 	var res bool
-	e.v6826 = e.combatant(a.Raw[3])
+	e.v6826 = e.combatant(a.Data)
 	if flag != 0 || c.Okay == 0 || e.v6826.Okay == 0 {
 		e.RemoveAffect(e.v6826, 0x3A, nil)
 		if flag == 0 {
-			a.Raw[4] = 0
+			a.Call = 0
 			e.RemoveAffect(c, 0x4A, a)
 		}
 		return

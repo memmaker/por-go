@@ -118,23 +118,19 @@ func (e *Engine) addSpellLine(spell byte) {
 func (e *Engine) addScrollSpells(all byte) {
 	sel := e.selected()
 	// 00BA:2199 (sel, 0x10, out): the character has the affect
-	if e.FindAffect(sel, 0x10) != nil || sel.Levels[clsCleric] > 0 && sel.Levels[clsCleric] < 0x80 && e.items[int(e.usedScroll.Raw[itType])<<4] == 0xC {
-		e.usedScroll.Raw[itHidden] = 0
+	if e.FindAffect(sel, 0x10) != nil || sel.Levels[clsCleric] > 0 && sel.Levels[clsCleric] < 0x80 && e.items[int(e.usedScroll.Type)<<4] == 0xC {
+		e.usedScroll.Hidden = 0
 	}
-	if e.usedScroll.Raw[itHidden] != 0 {
+	if e.usedScroll.Hidden != 0 {
 		return
 	}
-	for i := 1; ; i++ {
-		v := e.usedScroll.Raw[0x3B+i]
+	for _, v := range e.usedScroll.Spells {
 		if all != 0 && v > 0x80 || all == 0 && v > 0 {
 			e.addSpellLine(v)
 			if e.spellItemCount < len(e.spellItems) {
 				e.spellItems[e.spellItemCount] = e.usedScroll
 			}
 			e.spellItemCount++
-		}
-		if i == 3 {
-			break
 		}
 	}
 }
@@ -443,9 +439,9 @@ func (e *Engine) spellRemoveCurse() {
 		if found {
 			break
 		}
-		if it.Raw[itMagic] != 0 {
+		if it.Magic != 0 {
 			found = true
-			it.Raw[itMagic] = 0
+			it.Magic = 0
 		}
 	}
 	if found {
@@ -744,8 +740,8 @@ func (e *Engine) o23_30D9(c *Character, a *Affect, flag int) {
 	e.flyMissile(cx, cy, e.tgtX, e.tgtY, 4, 0x32)
 	e.strikeSquare(e.tgtX, e.tgtY, int(c.MaxHP), 3)
 	e.boltPath(0xA, int(c.MaxHP), 3, 0)
-	if a.Raw[afData] > 0xFD {
-		a.Raw[afData]--
+	if a.Data > 0xFD {
+		a.Data--
 	} else {
 		e.RemoveAffect(c, 0x58, a)
 	}
@@ -757,7 +753,7 @@ func (e *Engine) isScroll(it *Item) bool {
 	if it == nil {
 		return false
 	}
-	t := e.items[int(it.Raw[itType])<<4]
+	t := e.items[int(it.Type)<<4]
 	return t > 0xA && t < 0xE
 }
 
@@ -767,16 +763,16 @@ func (e *Engine) scrollUsed(c *Character, it *Item, spell byte) {
 	s := spell & 0x7F
 	idx := 0
 	for i := 1; i <= 3; i++ {
-		if it.Raw[0x3B+i]&0x7F == s {
+		if it.Spells[i-1]&0x7F == s {
 			idx = i
 		}
 	}
 	if idx == 0 {
 		return
 	}
-	it.Raw[0x3B+idx] = 0
-	it.Raw[0x30]--
-	if it.Raw[0x30] < 0xD2 {
+	it.Spells[idx-1] = 0
+	it.Words[1]--
+	if it.Words[1] < 0xD2 {
 		e.RemoveItem(c, it)
 	}
 }

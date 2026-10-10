@@ -55,12 +55,12 @@ func (e *Engine) computeExp() int32 {
 			continue
 		}
 		for _, it := range c.Items {
-			if wordAt(it.Raw[:], 0x3A) != 0 || taken < 8 && e.Dice(1, 10) <= 3 {
+			if it.Price != 0 || taken < 8 && e.Dice(1, 10) <= 3 {
 				taken++
 				e.ItemName(c, it, 0, 0, false, false)
-				cp := &Item{Raw: it.Raw}
-				cp.Raw[itReadied] = 0
-				e.run.treasure = append([]*Item{cp}, e.run.treasure...)
+				cp := *it
+				cp.Readied = 0
+				e.run.treasure = append([]*Item{&cp}, e.run.treasure...)
 			}
 		}
 	}
@@ -68,7 +68,7 @@ func (e *Engine) computeExp() int32 {
 	// (the original stops at DS:5D9A, an item the combat code marks; it is
 	// never set outside a fight)
 	for _, it := range e.run.treasure {
-		if p := int8(it.Raw[itPlus]); p > 0 {
+		if p := int8(it.Plus); p > 0 {
 			total += int32(p) * 400
 		}
 	}

@@ -151,7 +151,7 @@ func (e *Engine) o13_31A2() {
 
 // itemBaseFlags is DS:5589 (+7 of the 16-byte base item record) for the item's type.
 func (e *Engine) itemBaseFlags(it *Item) byte {
-	if i := int(it.Raw[0x2E])<<4 + 7; i < len(e.items) {
+	if i := int(it.Type)<<4 + 7; i < len(e.items) {
 		return e.items[i]
 	}
 	return 0
@@ -183,7 +183,7 @@ func (e *Engine) o13_1CAD(c *Character, a *Affect, flag byte) {
 			if reflected {
 				break
 			}
-			if p.Raw[0x34] != 0 && (p.Raw[0x2F] == 0x76 || p.Raw[0x30] == 0x76 || p.Raw[0x31] == 0x76) {
+			if p.Readied != 0 && (p.Words[0] == 0x76 || p.Words[1] == 0x76 || p.Words[2] == 0x76) {
 				e.CharMessage(t, "reflects it!", 0xC, false)
 				e.flyMissile(e.combatX(t), e.combatY(t), e.combatX(c), e.combatY(c), 4, 0x2D)
 				reflected = true
@@ -319,10 +319,10 @@ func (e *Engine) o13_23EC(c *Character, a *Affect, flag byte) {
 // it is rolled with a hit roll set.
 func (e *Engine) o13_2490(c *Character, a *Affect, flag byte) {
 	if e.v6DE3 == 0 && e.rv.hitRoll == 0 {
-		a.Raw[3] &= 0x0F
-	} else if a.Raw[3]&0x10 == 0 {
+		a.Data &= 0x0F
+	} else if a.Data&0x10 == 0 {
 		e.rv.hitRoll = -1
-		a.Raw[3] |= 0x10
+		a.Data |= 0x10
 	}
 }
 
@@ -380,7 +380,7 @@ func (e *Engine) o13_25BC(c *Character, a *Affect, flag byte) {
 
 // o13_2610 (c, a, flag): the affect ends; a living character falls dead.
 func (e *Engine) o13_2610(c *Character, a *Affect, flag byte) {
-	a.Raw[4] = 0
+	a.Call = 0
 	if c.Okay != 0 {
 		e.killWithMessage(c, 6, "Falls dead")
 	}
@@ -390,7 +390,7 @@ func (e *Engine) o13_2610(c *Character, a *Affect, flag byte) {
 // (+0x32 non-zero, or 0xB1 in +0x31).
 func (e *Engine) o13_264B(c *Character, a *Affect, flag byte) {
 	w := e.readiedWeapon(e.selected())
-	if w == nil || w.Raw[0x32] == 0 && w.Raw[0x31] != 0xB1 {
+	if w == nil || w.Plus == 0 && w.Words[2] != 0xB1 {
 		e.rv.damage = 0
 	}
 }
@@ -423,7 +423,7 @@ func (e *Engine) o13_2730(c *Character, a *Affect, flag byte) {
 	}
 	if n > 0 && e.Revive(c, n) {
 		e.AddAffect(c, 0x5F, e.Dice(1, 4)+1, 0xFF, 1)
-		a.Raw[4] = 0
+		a.Call = 0
 		e.RemoveAffect(c, 0x63, a)
 	}
 }
@@ -446,13 +446,13 @@ func (e *Engine) o13_2814(c *Character, a *Affect, flag byte) {
 // o13_2866 (c, a, flag): back up at full hit points, else re-add 0x66.
 func (e *Engine) o13_2866(c *Character, a *Affect, flag byte) {
 	if !e.Revive(c, c.MaxHP) {
-		e.addAffectNow(c, 0x66, a.Raw[3], 1)
+		e.addAffectNow(c, 0x66, a.Data, 1)
 	}
 }
 
 // o13_28BF (c, a, flag): turns gaseous and leaves the fight.
 func (e *Engine) o13_28BF(c *Character, a *Affect, flag byte) {
-	a.Raw[4] = 0
+	a.Call = 0
 	e.combatRedrawChar(c, 3, 0)
 	e.KillCharacter(c, 3, "Turns gaseous and escapes")
 }
@@ -549,7 +549,7 @@ func (e *Engine) o13_2A87(c *Character, a *Affect, flag byte) {
 
 // o13_2AE6 (c, a, flag): halves damage when the weapon's +0x32 is positive.
 func (e *Engine) o13_2AE6(c *Character, a *Affect, flag byte) {
-	if w := e.readiedWeapon(e.selected()); w != nil && int8(w.Raw[0x32]) > 0 {
+	if w := e.readiedWeapon(e.selected()); w != nil && int8(w.Plus) > 0 {
 		e.halveDamage()
 	}
 }
@@ -557,7 +557,7 @@ func (e *Engine) o13_2AE6(c *Character, a *Affect, flag byte) {
 // o13_2B20 (c, a, flag): the selected character's first readied item of
 // type 0x55 makes the damage 1d6+1.
 func (e *Engine) o13_2B20(c *Character, a *Affect, flag byte) {
-	if w := e.selected().Slots[0]; w != nil && w.Raw[0x2E] == 0x55 {
+	if w := e.selected().Slots[0]; w != nil && w.Type == 0x55 {
 		e.rv.damage = byte(e.RollDice(1, 6) + 1)
 	}
 }
@@ -572,7 +572,7 @@ func (e *Engine) o13_2B63(c *Character, a *Affect, flag byte) {
 // o13_2B7D (c, a, flag): damage is cancelled unless the weapon has +0x32
 // set, or the attacker has item type > 0 or level (+0x73) of 4 or more.
 func (e *Engine) o13_2B7D(c *Character, a *Affect, flag byte) {
-	if w := e.readiedWeapon(e.selected()); w != nil && w.Raw[0x32] != 0 {
+	if w := e.readiedWeapon(e.selected()); w != nil && w.Plus != 0 {
 		return
 	}
 	s := e.selected()
@@ -584,7 +584,7 @@ func (e *Engine) o13_2B7D(c *Character, a *Affect, flag byte) {
 // o13_2BC8 (c, a, flag): the selected character's readied item of type
 // 0x57 or 0x58 triggers affect 0x32 handling.
 func (e *Engine) o13_2BC8(c *Character, a *Affect, flag byte) {
-	if w := e.selected().Slots[0]; w != nil && (w.Raw[0x2E] == 0x57 || w.Raw[0x2E] == 0x58) {
+	if w := e.selected().Slots[0]; w != nil && (w.Type == 0x57 || w.Type == 0x58) {
 		e.avoidDistantAttack(c, 0x32)
 	}
 }
@@ -610,7 +610,7 @@ func (e *Engine) o13_2C1C(c *Character, a *Affect, flag byte) {
 // o13_2D38 (c, a, flag): the selected character's readied item of type 0x56
 // makes the damage 3d8; fire or magic types (mask 9) add the dice count.
 func (e *Engine) o13_2D38(c *Character, a *Affect, flag byte) {
-	if w := e.selected().Slots[0]; w != nil && w.Raw[0x2E] == 0x56 {
+	if w := e.selected().Slots[0]; w != nil && w.Type == 0x56 {
 		e.rv.damage = byte(e.RollDice(3, 8))
 	}
 	if e.rv.dmgType&9 != 0 {
@@ -625,9 +625,9 @@ func (e *Engine) o13_2D88(c *Character, a *Affect, flag byte) {
 	switch {
 	case w == nil:
 		e.rv.damage = 0
-	case w.Raw[0x32] == 0 && w.Raw[0x31] == 0xB1:
+	case w.Plus == 0 && w.Words[2] == 0xB1:
 		e.halveDamage()
-	case w.Raw[0x32] == 0:
+	case w.Plus == 0:
 		e.rv.damage = 0
 	}
 }
@@ -659,9 +659,9 @@ func (e *Engine) o13_2E37(c *Character, a *Affect, flag byte) {
 		if e.v681E != 0 {
 			break
 		}
-		if p.Raw[0x34] != 0 {
+		if p.Readied != 0 {
 			for k := 1; k <= 3; k++ {
-				if p.Raw[0x2E+k] == 0x98 && p.Raw[0x31] == 0xFC || p.Raw[0x2E+k] == 0x76 {
+				if p.Words[k-1] == 0x98 && p.Words[2] == 0xFC || p.Words[k-1] == 0x76 {
 					e.v681E = 1
 				}
 			}
@@ -672,7 +672,7 @@ func (e *Engine) o13_2E37(c *Character, a *Affect, flag byte) {
 // o13_2EDA (c, a, flag): an item stands in for a; its +0x3D is the affect it
 // grants (added on use with call 0, then run once; removed with flag set).
 func (e *Engine) o13_2EDA(c *Character, a *Affect, flag byte) {
-	typ := affectItem(a).Raw[0x3D]
+	typ := affectItem(a).Spells[1]
 	if flag != 0 {
 		e.RemoveAffect(c, typ, nil)
 		return
@@ -692,10 +692,10 @@ func (e *Engine) o13_2F57(c *Character, a *Affect, flag byte) {
 			if found {
 				break
 			}
-			if p.Raw[0] == 0x26 {
+			if p.Type == 0x26 {
 				str, str00 := strDecode(p)
 				// p.Raw[0] is the type byte (the original compares the first byte, not the data)
-				if giant && p.Raw[0] < 0x80 || str == 0x12 && str00 == 0x64 && !giant {
+				if giant && p.Type < 0x80 || str == 0x12 && str00 == 0x64 && !giant {
 					e.RemoveAffect(c, 0x26, p)
 					found = true
 				}
@@ -725,9 +725,9 @@ func (e *Engine) o13_30A5(c *Character, a *Affect, flag byte) {
 		return
 	}
 	it := affectItem(a)
-	if it.Raw[0x3D]&0xF != c.Alignment {
-		it.Raw[0x34] = 0
-		n := int(it.Raw[0x3D] >> 4)
+	if it.Spells[1]&0xF != c.Alignment {
+		it.Readied = 0
+		n := int(it.Spells[1] >> 4)
 		e.rv.dmgType = 8
 		if e.beginFlag == 5 {
 			e.combatUseHook()
@@ -740,7 +740,7 @@ func (e *Engine) o13_30A5(c *Character, a *Affect, flag byte) {
 // o13_3134 (c, a, flag): the item needs strength 19 or more.
 func (e *Engine) o13_3134(c *Character, a *Affect, flag byte) {
 	if flag == 0 && c.Stats[statStr] < 0x13 {
-		affectItem(a).Raw[0x34] = 0
+		affectItem(a).Readied = 0
 		e.BottomMessage("Must have Giant Strength")
 	}
 }

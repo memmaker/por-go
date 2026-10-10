@@ -258,11 +258,11 @@ func (e *Engine) inventory(direct bool) (quit, leave bool) {
 func (e *Engine) canLoseItem(it *Item) bool {
 	ok := false
 	switch {
-	case it.Raw[itReadied] != 0:
+	case it.Readied != 0:
 		e.BottomMessage("Must be unreadied")
 	case !e.isScroll(it):
 		ok = true
-	case it.Raw[0x3C] > 0x7F || it.Raw[0x3D] > 0x7F || it.Raw[0x3E] > 0x7F:
+	case it.Spells[0] > 0x7F || it.Spells[1] > 0x7F || it.Spells[2] > 0x7F:
 		c := e.selected()
 		e.displayName(c, 1, 0x15, false)
 		e.msgCol, e.msgRow = len(c.Name())+2, 0x15
@@ -356,10 +356,10 @@ func (e *Engine) ItemsMenu() bool {
 			case 'R':
 				e.readyItem(it)
 			case 'U':
-				if it.Raw[itReadied] == 0 {
+				if it.Readied == 0 {
 					e.BottomMessage("Must be Readied")
 					key = ' '
-				} else if e.isScroll(it) || it.Raw[0x3D] > 0 && it.Raw[0x3E] < 0x80 {
+				} else if e.isScroll(it) || it.Spells[1] > 0 && it.Spells[2] < 0x80 {
 					quit = e.useItem(it)
 					if e.beginFlag != 5 {
 						quit = false
@@ -412,21 +412,21 @@ func (e *Engine) ItemsMenu() bool {
 // readyItem = ovr20:14D0 (item): ready or unready, with the reasons it
 // cannot be readied and the item's own effect (+0x3E > 0x7F).
 func (e *Engine) readyItem(it *Item) {
-	effect := it.Raw[0x3E] > 0x7F
+	effect := it.Spells[2] > 0x7F
 	c := e.selected()
-	if it.Raw[itReadied] != 0 {
-		if it.Raw[itMagic] != 0 {
+	if it.Readied != 0 {
+		if it.Magic != 0 {
 			e.BottomMessage("It's Cursed")
 			return
 		}
-		it.Raw[itReadied] = 0
+		it.Readied = 0
 		if effect {
 			e.itemAffect(it, c, 1)
 		}
 		return
 	}
 	why := 0
-	typ := it.Raw[itType]
+	typ := it.Type
 	if int(e.baseItem(typ, 1))+int(c.Hands) > 2 {
 		why = 3
 	}
@@ -452,7 +452,7 @@ func (e *Engine) readyItem(it *Item) {
 	}
 	switch why {
 	case 0:
-		it.Raw[itReadied] = 1
+		it.Readied = 1
 		if effect {
 			e.itemAffect(it, c, 0)
 		}
@@ -478,8 +478,10 @@ func (e *Engine) readyItem(it *Item) {
 // record, as the original does.
 func (e *Engine) itemAffect(it *Item, c *Character, flag byte) {
 	a := &Affect{Item: it}
-	copy(a.Raw[:], it.Raw[:])
-	e.callAffect(it.Raw[0x3E], c, a, flag)
+	// the affect fields are the item's first bytes, as in the original
+	n := it.PName
+	a.Type, a.Time, a.Data, a.Call = n[0], uint16(n[1])|uint16(n[2])<<8, n[3], n[4]
+	e.callAffect(it.Spells[2], c, a, flag)
 }
 
 // tradeItem = ovr20:1734 (item).
@@ -503,15 +505,15 @@ func (e *Engine) tradeItem(it *Item) {
 // halveItem = ovr20:17ED (item): half the stack becomes a new unreadied
 // item right after it.
 func (e *Engine) halveItem(it *Item) {
-	half := it.Raw[itCount] >> 1
+	half := it.Count >> 1
 	if half == 0 {
 		e.BottomMessage("Can't halve that")
 		return
 	}
 	n := *it
-	n.Raw[itCount] = half
-	n.Raw[itReadied] = 0
-	it.Raw[itCount] -= half
+	n.Count = half
+	n.Readied = 0
+	it.Count -= half
 	c := e.selected()
 	for i, x := range c.Items {
 		if x == it {
@@ -524,32 +526,27 @@ func (e *Engine) halveItem(it *Item) {
 // joinItems = ovr20:189D (item): every matching stack joins it, up to 255
 // a stack. (The original compares +0x3C..+0x3E of each item with itself.)
 func (e *Engine) joinItems(it *Item) {
-	total := int(it.Raw[itCount])
+	total := int(it.Count)
 	c := e.selected()
 	for _, p := range append([]*Item(nil), c.Items...) {
-		if p == it || p.Raw[itCount] == 0 {
+		if p == it || p.Count == 0 {
 			continue
 		}
-		same := true
-		for _, k := range []int{0x2F, 0x30, 0x31, itType, itPlus, itPlus2, itMagic} {
-			if p.Raw[k] != it.Raw[k] {
-				same = false
-			}
-		}
-		if !same || wordAt(p.Raw[:], 0x37) != wordAt(it.Raw[:], 0x37) || p.Raw[0x3C] >= 2 {
+		same := p.Words == it.Words && p.Type == it.Type && p.Plus == it.Plus && p.Plus2 == it.Plus2 && p.Magic == it.Magic
+		if !same || p.Weight != it.Weight || p.Spells[0] >= 2 {
 			continue
 		}
-		if int(p.Raw[itCount])+total <= 0xFF {
-			total += int(p.Raw[itCount])
+		if int(p.Count)+total <= 0xFF {
+			total += int(p.Count)
 			e.RemoveItem(c, p)
 		} else {
-			it.Raw[itCount] = 0xFF
-			p.Raw[itCount] -= byte(0xFF - total)
-			total = int(p.Raw[itCount])
+			it.Count = 0xFF
+			p.Count -= byte(0xFF - total)
+			total = int(p.Count)
 			it = p
 		}
 	}
-	it.Raw[itCount] = byte(total)
+	it.Count = byte(total)
 }
 
 // useItem = ovr20:1A8A (item): cast the scroll's spell or the item's own
@@ -563,9 +560,9 @@ func (e *Engine) useItem(it *Item) bool {
 		e.usedScroll = it
 		var flag bool
 		spell = e.SpellList(2, 1, &idx, &flag)
-	} else if it.Raw[0x3D] > 0 && it.Raw[0x3E] < 0x80 {
+	} else if it.Spells[1] > 0 && it.Spells[2] < 0x80 {
 		e.usingItem = true
-		spell = it.Raw[0x3D]
+		spell = it.Spells[1]
 	}
 	if spell == 0 {
 		return false
@@ -597,12 +594,12 @@ func (e *Engine) useItem(it *Item) bool {
 	if quit {
 		if e.isScroll(it) {
 			e.scrollUsed(c, it, spell)
-		} else if it.Raw[0x3C] > 0 {
-			if it.Raw[itCount] > 1 {
-				it.Raw[itCount]--
+		} else if it.Spells[0] > 0 {
+			if it.Count > 1 {
+				it.Count--
 			} else {
-				it.Raw[0x3C]--
-				if it.Raw[0x3C] == 0 {
+				it.Spells[0]--
+				if it.Spells[0] == 0 {
 					e.RemoveItem(c, it)
 				}
 			}
@@ -619,10 +616,10 @@ func (e *Engine) spellRec(spell byte, k int) byte {
 // sellItem = ovr20:1CEE (item): half the value (a twentieth per piece
 // of a stack), paid into the party's gold.
 func (e *Engine) sellItem(it *Item) {
-	v := wordAt(it.Raw[:], 0x3A) >> 1
-	if it.Raw[itCount] > 1 {
+	v := it.Price >> 1
+	if it.Count > 1 {
 		// (the arrows/quarrels branch of the original can never be taken)
-		v = uint16(uint32(uint16(uint32(it.Raw[itCount])*uint32(v))) / 0x14)
+		v = uint16(uint32(uint16(uint32(it.Count)*uint32(v))) / 0x14)
 	}
 	e.ItemName(e.viewChar(), it, 0, 0, false, false)
 	e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true,
@@ -640,10 +637,10 @@ func (e *Engine) identifyItem(it *Item, redraw *bool) {
 	e.ItemName(e.viewChar(), it, 0, 0, false, false)
 	e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "For 200 gold pieces I'll identify your "+it.Name())
 	if e.YesNo(0xD, 0xA, 0xF, "Is It a Deal? ") == 'Y' && e.pay(200) {
-		if it.Raw[itHidden] == 0 {
+		if it.Hidden == 0 {
 			e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "I can't tell anything new about your "+it.Name())
 		} else {
-			it.Raw[itHidden] = 0
+			it.Hidden = 0
 			e.ItemName(e.viewChar(), it, 0, 0, false, false)
 			e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "It looks like some sort of "+it.Name())
 			*redraw = true
@@ -657,9 +654,9 @@ func (e *Engine) identifyItem(it *Item, redraw *bool) {
 func (e *Engine) overloaded(it *Item, c *Character) bool {
 	e.ApplyItems(c)
 	over := c.ItemCount > 0xF
-	w := wordAt(it.Raw[:], 0x37)
-	if it.Raw[itCount] > 0 {
-		w *= uint16(it.Raw[itCount])
+	w := it.Weight
+	if it.Count > 0 {
+		w *= uint16(it.Count)
 	}
 	if int32(c.Weight+w) > int32(strCarry(c))+1500 {
 		over = true

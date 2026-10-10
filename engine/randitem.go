@@ -4,52 +4,51 @@ package engine
 // type with a random bonus, or a magic item from the DS:0970 table.
 func (e *Engine) RandomItem(typ byte) *Item {
 	it := &Item{}
-	r := it.Raw[:]
 	k := 0 // DS:0970 record of a table item
-	r[itReadied] = 0
-	r[itHidden] = 6
-	r[itMagic] = 0
-	r[itType] = typ
-	putWord(r, 0x37, 0)
+	it.Readied = 0
+	it.Hidden = 6
+	it.Magic = 0
+	it.Type = typ
+	it.Weight = 0
 	switch {
 	case typ >= 1 && typ <= 0x3B, typ == 0x49, typ == 0x4D, typ == 0x5D:
-		r[itPlus] = byte(e.randomItemClass())
-		bonus := r[itPlus] + 0xA1
+		it.Plus = byte(e.randomItemClass())
+		bonus := it.Plus + 0xA1
 		switch {
 		case typ == 0x15:
 			if e.Dice(1, 5) == 5 {
 				k = 0x90 // (sic: one word before the 0x91 record)
 			}
-			r[0x31], r[0x30] = 0x15, bonus
+			it.Words[2], it.Words[1] = 0x15, bonus
 		case typ == 0x1C:
-			r[0x31], r[0x30] = 0x1C, bonus
+			it.Words[2], it.Words[1] = 0x1C, bonus
 		case typ == 0x32, typ == 0x33:
-			r[0x31], r[0x30], r[0x2F], r[itHidden] = typ, 0x31, bonus, 4
+			it.Words[2], it.Words[1], it.Words[0], it.Hidden = typ, 0x31, bonus, 4
 		case typ == 0x34:
-			r[0x31], r[0x30], r[0x2F], r[itHidden] = typ, 0x32, bonus, 4
+			it.Words[2], it.Words[1], it.Words[0], it.Hidden = typ, 0x32, bonus, 4
 		case typ >= 0x35 && typ <= 0x3A:
-			r[0x31], r[0x30], r[0x2F], r[itHidden] = typ, 0x30, bonus, 4
+			it.Words[2], it.Words[1], it.Words[0], it.Hidden = typ, 0x30, bonus, 4
 		case typ == 0x49:
-			r[0x31], r[0x30] = 0x3D, bonus
+			it.Words[2], it.Words[1] = 0x3D, bonus
 		case typ == 0x4D:
-			r[0x31], r[0x30] = 0x4F, 0xA7
-			r[itPlus] = r[itPlus]*2 + 2
-			switch r[itPlus] {
+			it.Words[2], it.Words[1] = 0x4F, 0xA7
+			it.Plus = it.Plus*2 + 2
+			switch it.Plus {
 			case 4:
-				r[0x2F] = 0xDD
+				it.Words[0] = 0xDD
 			case 6:
-				r[0x2F] = 0xDE
+				it.Words[0] = 0xDE
 			case 8:
-				r[0x2F] = 0xDC
+				it.Words[0] = 0xDC
 			}
 		case typ == 0x5D:
-			r[0x31], r[0x30], r[0x2F] = 0x42, 0xE0, bonus
+			it.Words[2], it.Words[1], it.Words[0] = 0x42, 0xE0, bonus
 		default:
-			r[0x31], r[0x30] = typ, bonus
+			it.Words[2], it.Words[1] = typ, bonus
 		}
-		r[itPlus2] = 0
-		r[itCount] = 0
-		putWord(r, 0x37, randomItemWeight(typ, r))
+		it.Plus2 = 0
+		it.Count = 0
+		it.Weight = randomItemWeight(typ, it)
 		mul := uint16(2000)
 		switch typ {
 		case 0x3B:
@@ -65,21 +64,21 @@ func (e *Engine) RandomItem(typ byte) *Item {
 		case 0x3A:
 			mul = 5000
 		}
-		putWord(r, 0x3A, uint16(int16(int8(r[itPlus])))*mul)
+		it.Price = uint16(int16(int8(it.Plus))) * mul
 	case typ == 0x3D, typ == 0x3E:
 		// scrolls: 1-3 spells, clerical (0x3D) or magic-user
 		n := e.Dice(1, 3)
 		if typ == 0x3D {
-			r[0x31] = 0xD1
+			it.Words[2] = 0xD1
 		} else {
-			r[0x31] = 0xD0
+			it.Words[2] = 0xD0
 		}
-		r[0x30] = byte(n + 0xD1)
-		r[0x2F] = 0
-		r[itPlus] = 1
-		putWord(r, 0x37, 0x19)
-		r[itCount] = 0
-		putWord(r, 0x3A, 0)
+		it.Words[1] = byte(n + 0xD1)
+		it.Words[0] = 0
+		it.Plus = 1
+		it.Weight = 0x19
+		it.Count = 0
+		it.Price = 0
 		for i := 1; i <= n; i++ {
 			lvl := e.Dice(1, 3)
 			var s int
@@ -102,8 +101,8 @@ func (e *Engine) RandomItem(typ byte) *Item {
 					s = e.Dice(1, 9) + 0x23
 				}
 			}
-			r[0x3B+i] = byte(s)
-			putWord(r, 0x3A, wordAt(r, 0x3A)+uint16(lvl)*300)
+			it.Spells[i-1] = byte(s)
+			it.Price = it.Price + uint16(lvl)*300
 		}
 	case typ == 0x3F:
 		k = 0x49
@@ -152,17 +151,17 @@ func (e *Engine) RandomItem(typ byte) *Item {
 	if k != 0 {
 		w := func(i int) uint16 { return wordAt(e.X.Bytes(0x970+2*i, 2), 0) }
 		for j := 0; j <= 2; j++ {
-			r[0x2F+j] = byte(w(k + j))
+			it.Words[j] = byte(w(k + j))
 		}
-		r[itPlus], r[itPlus2] = 1, 1
+		it.Plus, it.Plus2 = 1, 1
 		if k == 0x61 {
-			r[itPlus], r[itPlus2] = 2, 2
+			it.Plus, it.Plus2 = 2, 2
 		}
-		putWord(r, 0x37, w(k+3))
-		r[itCount] = 0
-		putWord(r, 0x3A, w(k+4))
+		it.Weight = w(k + 3)
+		it.Count = 0
+		it.Price = w(k + 4)
 		for j := 1; j <= 3; j++ {
-			r[0x3B+j] = byte(w(k + 4 + j))
+			it.Spells[j-1] = byte(w(k + 4 + j))
 		}
 	}
 	return it
@@ -170,7 +169,7 @@ func (e *Engine) RandomItem(typ byte) *Item {
 
 // randomItemWeight = ovr22:1295..14A2: weight by base type (arrows and
 // darts also get a count).
-func randomItemWeight(typ byte, r []byte) uint16 {
+func randomItemWeight(typ byte, it *Item) uint16 {
 	switch typ {
 	case 1, 0xD, 0xE, 0x23:
 		return 0x4B
@@ -189,7 +188,7 @@ func randomItemWeight(typ byte, r []byte) uint16 {
 	case 8, 0x4D:
 		return 0xA
 	case 9:
-		r[itCount] = 5
+		it.Count = 5
 		return 0x19
 	case 0xA, 0x1A, 0x24:
 		return 0x3C
@@ -218,7 +217,7 @@ func randomItemWeight(typ byte, r []byte) uint16 {
 	case 0x5D:
 		return 1
 	}
-	r[itCount] = 0xA
+	it.Count = 0xA
 	return 0x28
 }
 
@@ -329,11 +328,11 @@ func (e *Engine) sellOrKeep(c *Character, v uint16, word byte) {
 	key, _ := e.DisplayInput("You can : ", menu, 0xD, 0xA, 0xF, true, false)
 	if key == 'K' && !sellOnly {
 		it := &Item{}
-		it.Raw[0x31] = word
-		it.Raw[itType] = 0x46
-		putWord(it.Raw[:], 0x3A, v)
-		putWord(it.Raw[:], 0x37, 1)
-		it.Raw[itHidden] = 0
+		it.Words[2] = word
+		it.Type = 0x46
+		it.Price = v
+		it.Weight = 1
+		it.Hidden = 0
 		// The original appends to the item list but, when the list is empty,
 		// only to its local copy: the gem is lost. Kept as written.
 		if len(c.Items) > 0 {

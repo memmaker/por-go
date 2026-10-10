@@ -578,7 +578,7 @@ func (e *Engine) StepForward() {
 // reductions for big items accumulate over the list, as in the original.
 func (e *Engine) ItemSave(c *Character, pct int) {
 	for _, it := range append([]*Item(nil), c.Items...) {
-		if v := wordAt(it.Raw[:], 0x37); v > 0xFF {
+		if v := it.Weight; v > 0xFF {
 			if pct > 0x5A {
 				pct -= 0x5A
 			} else {

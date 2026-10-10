@@ -133,8 +133,8 @@ func (e *Engine) aiCastFromItem(c *Character) bool {
 			if found != nil {
 				break
 			}
-			sp := p.Raw[0x3D]
-			if !e.isScroll(p) && p.Raw[0x3E] < 0x80 && p.Raw[0x34] != 0 && sp > 0 {
+			sp := p.Spells[1]
+			if !e.isScroll(p) && p.Spells[2] < 0x80 && p.Readied != 0 && sp > 0 {
 				if sp > 0x38 {
 					sp -= 0x17
 				}
@@ -336,7 +336,7 @@ func (e *Engine) aiAttackLoop(c *Character) bool {
 		engaged := false
 		rng := 1
 		if w := c.Slots[0]; w != nil {
-			rng = int(e.baseItem(w.Raw[0x2E], 0xC) - 1)
+			rng = int(e.baseItem(w.Type, 0xC) - 1)
 		}
 		if rng == 0 || rng == 0xFF {
 			rng = 1
@@ -497,16 +497,16 @@ func (e *Engine) aiFleeCheck(c *Character) bool {
 func (e *Engine) weaponScore(c *Character, it *Item) int {
 	var t [16]byte
 	for i := range t {
-		t[i] = e.baseItem(it.Raw[0x2E], i)
+		t[i] = e.baseItem(it.Type, i)
 	}
 	s := byte(int(t[9]) * int(t[10]))
-	if int8(it.Raw[0x32]) > 0 {
-		s += byte(int(int8(it.Raw[0x32])) << 3)
+	if int8(it.Plus) > 0 {
+		s += byte(int(int8(it.Plus)) << 3)
 	}
 	if int8(t[11]) > 0 {
 		s += byte(int(int8(t[11])) << 1)
 	}
-	if it.Raw[0x2E] == 0x55 && c.Combat.Target != nil && int8(c.Combat.Target.Undead) > 0 {
+	if it.Type == 0x55 && c.Combat.Target != nil && int8(c.Combat.Target.Undead) > 0 {
 		s = 8
 	}
 	if t[14]&8 != 0 {
@@ -518,13 +518,13 @@ func (e *Engine) weaponScore(c *Character, it *Item) int {
 	if int(c.Hands)+int(t[1]) > 3 {
 		s = 0
 	}
-	if it.Raw[0x3E] == 0x84 && it.Raw[0x3D]&0xF != c.Alignment {
+	if it.Spells[2] == 0x84 && it.Spells[1]&0xF != c.Alignment {
 		s = 0
 	}
-	if it.Raw[0x3D] == 0x53 {
+	if it.Spells[1] == 0x53 {
 		s = 0
 	}
-	if it.Raw[0x36] != 0 {
+	if it.Magic != 0 {
 		s = 0
 	}
 	return int(s)
@@ -533,7 +533,7 @@ func (e *Engine) weaponScore(c *Character, it *Item) int {
 // aiPickWeapon = ovr10:13CA (char): choose the best melee or missile
 // weapon, and the best second item, and ready them.
 func (e *Engine) aiPickWeapon(c *Character) {
-	tb := func(it *Item, n int) byte { return e.baseItem(it.Raw[0x2E], n) }
+	tb := func(it *Item, n int) byte { return e.baseItem(it.Type, n) }
 	if w := c.Slots[0]; w != nil {
 		c.Hands -= tb(w, 1)
 	}
@@ -559,8 +559,8 @@ func (e *Engine) aiPickWeapon(c *Character) {
 		}
 		if tb(p, 0) == 1 && tb(p, 0xD)&c.ClassMask > 0 {
 			sc := byte(0)
-			if int8(p.Raw[0x32]) >= 0 {
-				sc = byte(int(int8(p.Raw[0x32])) + 1)
+			if int8(p.Plus) >= 0 {
+				sc = byte(int(int8(p.Plus)) + 1)
 			}
 			if sc > bs3 {
 				best3, bs3 = p, sc
@@ -591,7 +591,7 @@ func (e *Engine) aiPickWeapon(c *Character) {
 	}
 	done := false
 	ok = true
-	if w := c.Slots[0]; w != nil && (w == chosen || w.Raw[0x36] != 0) {
+	if w := c.Slots[0]; w != nil && (w == chosen || w.Magic != 0) {
 		ok = false
 	}
 	if ok {
@@ -599,7 +599,7 @@ func (e *Engine) aiPickWeapon(c *Character) {
 			e.readyItem(c.Slots[0])
 		}
 		e.ApplyItems(c)
-		if w := c.Slots[1]; w != nil && w.Raw[0x36] == 0 {
+		if w := c.Slots[1]; w != nil && w.Magic == 0 {
 			c.Hands -= tb(w, 1)
 		}
 		if chosen != nil {
@@ -610,12 +610,12 @@ func (e *Engine) aiPickWeapon(c *Character) {
 	e.ApplyItems(c)
 	e.o14_0D23(c)
 	ok = true
-	if w := c.Slots[1]; w != nil && (w == best3 || w.Raw[0x36] != 0) {
+	if w := c.Slots[1]; w != nil && (w == best3 || w.Magic != 0) {
 		ok = false
 	}
 	if c.Hands > 2 {
 		// the original passes chosen even when nil
-		if w := c.Slots[1]; w == nil || w.Raw[0x36] != 0 {
+		if w := c.Slots[1]; w == nil || w.Magic != 0 {
 			if chosen != nil {
 				e.readyItem(chosen)
 			}

@@ -36,7 +36,7 @@ func (e *Engine) studyTime(c *Character) int {
 			continue
 		}
 		for k := 1; k <= 3; k++ {
-			if s := it.Raw[0x3B+k]; s > 0x7F {
+			if s := it.Spells[k-1]; s > 0x7F {
 				l := e.spellLevel(s)
 				if l > maxScr {
 					maxScr = l
@@ -71,7 +71,7 @@ func (e *Engine) clearScribe(c *Character) {
 	for _, it := range c.Items {
 		if e.isScroll(it) {
 			for k := 1; k <= 3; k++ {
-				it.Raw[0x3B+k] &= 0x7F
+				it.Spells[k-1] &= 0x7F
 			}
 		}
 	}
@@ -335,7 +335,7 @@ func (e *Engine) scribeMenu() {
 				continue
 			}
 			for k := 1; k <= 3; k++ {
-				if s := it.Raw[0x3B+k]; s > 0x7F && s&0x7F == spell {
+				if s := it.Spells[k-1]; s > 0x7F && s&0x7F == spell {
 					e.BottomMessage("You are already scibing that spell")
 					found = true
 				}
@@ -354,8 +354,8 @@ func (e *Engine) scribeMenu() {
 				break
 			}
 			for k := 1; k <= 3 && !found; k++ {
-				if it.Raw[0x3B+k] == spell {
-					it.Raw[0x3B+k] |= 0x80
+				if it.Spells[k-1] == spell {
+					it.Spells[k-1] |= 0x80
 					found = true
 				}
 			}
@@ -408,7 +408,7 @@ var affectNames = map[byte]string{
 func (e *Engine) affectList(c *Character) []string {
 	var names []string
 	for _, a := range c.Affects {
-		t := a.Raw[afType]
+		t := a.Type
 		name, known := "", true
 		if listedAffect(t) {
 			for s := 1; s <= 0x38 && name == ""; s++ {
@@ -867,7 +867,7 @@ func (e *Engine) scribeOne(c *Character, check *bool) int {
 			continue
 		}
 		for k := 1; k <= 3 && found == 0; k++ {
-			s := it.Raw[0x3B+k]
+			s := it.Spells[k-1]
 			if s <= 0x80 {
 				continue
 			}

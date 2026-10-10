@@ -657,12 +657,12 @@ func (e *Engine) tickEffects(count, unit int) {
 			}
 			for done := false; cur != nil && !done; {
 				done = cur == last
-				d := int(wordAt(cur.Raw[:], 1))
+				d := int(cur.Time)
 				switch {
 				case d == 0:
 					cur = next(c, cur)
 				case step < d:
-					putWord(cur.Raw[:], 1, uint16(d-step))
+					cur.Time = uint16(d - step)
 					r.effTick[i+1] = 1
 					cur = next(c, cur)
 				default:
@@ -683,7 +683,7 @@ func (e *Engine) tickEffects(count, unit int) {
 				}
 			}
 			for ; cur != nil; cur = next(c, cur) { // ovr21:028E
-				if wordAt(cur.Raw[:], 1) > 0 {
+				if cur.Time > 0 {
 					r.effTick[i+1] = 1
 				}
 			}

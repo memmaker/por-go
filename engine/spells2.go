@@ -459,10 +459,10 @@ func (e *Engine) o23_2385() {
 		hit := false
 		t := e.tgt(1)
 		for _, a := range append([]*Affect(nil), t.Affects...) {
-			if a.Raw[afData] >= 0xFF {
+			if a.Data >= 0xFF {
 				continue
 			}
-			e.v4845 = a.Raw[afData] & 0xF
+			e.v4845 = a.Data & 0xF
 			switch {
 			case byte(lvl) > e.v4845:
 				e.v4844 = byte((lvl-int(e.v4845))*5 + 0x32)
@@ -472,7 +472,7 @@ func (e *Engine) o23_2385() {
 				e.v4844 = 0x32
 			}
 			if byte(e.Dice(1, 100)) <= e.v4844 {
-				e.RemoveAffect(t, a.Raw[afType], a)
+				e.RemoveAffect(t, a.Type, a)
 				hit = true
 			}
 		}

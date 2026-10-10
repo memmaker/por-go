@@ -47,3 +47,22 @@ func TestCharRecordLayout(t *testing.T) {
 		t.Fatal("record does not round-trip")
 	}
 }
+
+func TestItemAffectRecords(t *testing.T) {
+	if n := binary.Size(Item{}); n != itemRecSize {
+		t.Fatalf("item is %#x bytes, want %#x", n, itemRecSize)
+	}
+	if n := binary.Size(affectRecord{}); n != affectRecSize {
+		t.Fatalf("affect is %d bytes, want %d", n, affectRecSize)
+	}
+	b := make([]byte, 2*itemRecSize)
+	for i := range b {
+		b[i] = byte(i)
+	}
+	clear(b[0x2A:0x2E]) // next pointers are dropped
+	clear(b[itemRecSize+0x2A : itemRecSize+0x2E])
+	items := readRecords[Item](b, itemRecSize)
+	if len(items) != 2 || items[1].Price != 0x7A79 || !bytes.Equal(writeRecords(items), b) {
+		t.Fatal("items do not round-trip")
+	}
+}

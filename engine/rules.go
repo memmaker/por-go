@@ -3,17 +3,6 @@ package engine
 // Rules: affects, to-hit rolls, saving throws, damage and healing, ported
 // from ovr25 and the START helpers it leans on (00BA:16EC ... 2637).
 
-// Affect node (9 bytes; the next pointer at +5 lives in the slice).
-const (
-	afType = 0 // affect number, index into the ovr13 handler table
-	afTime = 1 // word: remaining duration, 0 = permanent
-	afData = 3
-	afCall = 4 // non-zero: the handler runs when the affect is removed
-)
-
-func (a *Affect) Type() byte { return a.Raw[afType] }
-func (a *Affect) Time() int  { return int(a.Raw[afTime]) | int(a.Raw[afTime+1])<<8 }
-
 // CombatInfo is the 0x16-byte block at char+0x108 (allocated by ovr11).
 type CombatInfo struct {
 	Raw    [0x16]byte
@@ -56,7 +45,7 @@ func (e *Engine) callAffect(typ byte, c *Character, a *Affect, flag byte) {
 // FindAffect = 00BA:2199 (out, type, char): first affect of the type.
 func (e *Engine) FindAffect(c *Character, typ byte) *Affect {
 	for _, a := range c.Affects {
-		if a.Raw[afType] == typ {
+		if a.Type == typ {
 			return a
 		}
 	}
@@ -72,7 +61,7 @@ func (e *Engine) RemoveAffect(c *Character, typ byte, a *Affect) {
 	if a == nil {
 		return
 	}
-	if a.Raw[afCall] != 0 {
+	if a.Call != 0 {
 		e.callAffect(typ, c, a, 1)
 	}
 	for i, x := range c.Affects {
@@ -84,15 +73,11 @@ func (e *Engine) RemoveAffect(c *Character, typ byte, a *Affect) {
 }
 
 // RemoveEffect is the old name of RemoveAffect used by the clock code.
-func (e *Engine) RemoveEffect(c *Character, a *Affect) { e.RemoveAffect(c, a.Raw[afType], a) }
+func (e *Engine) RemoveEffect(c *Character, a *Affect) { e.RemoveAffect(c, a.Type, a) }
 
 // AddAffect = ovr25:0E52 (char, type, time, data, call): append a node.
 func (e *Engine) AddAffect(c *Character, typ byte, time int, data, call byte) {
-	a := &Affect{}
-	a.Raw[afType] = typ
-	a.Raw[afTime], a.Raw[afTime+1] = byte(time), byte(time>>8)
-	a.Raw[afCall] = call
-	a.Raw[afData] = data
+	a := &Affect{affectRecord: affectRecord{Type: typ, Time: uint16(time), Data: data, Call: call}}
 	c.Affects = append(c.Affects, a)
 }
 
@@ -339,7 +324,7 @@ func strValue(str, str00 byte) byte {
 
 // strDecode = ovr25:110D: the inverse, from an affect's saved strength.
 func strDecode(a *Affect) (str, str00 byte) {
-	str = a.Raw[afData] & 0x7F
+	str = a.Data & 0x7F
 	if str <= 0x65 {
 		return 18, str - 1
 	}
@@ -359,14 +344,14 @@ func (e *Engine) SetStrength(c *Character, str, str00 byte) (byte, bool) {
 		if keep != nil {
 			break
 		}
-		if (a.Raw[afType] == 0x0C || a.Raw[afType] == 0x26) && a.Raw[afData] < 0x80 {
+		if (a.Type == 0x0C || a.Type == 0x26) && a.Data < 0x80 {
 			keep = a
 		}
 	}
 	if keep != nil {
 		v := strValue(cur, cur00)
 		cur, cur00 = strDecode(keep)
-		keep.Raw[afData] = v + 0x80
+		keep.Data = v + 0x80
 	}
 	c.Stats[statStr] = str
 	c.Str00 = str00
@@ -462,7 +447,7 @@ func (e *Engine) AddAffectMsg(c *Character, typ byte, time int, data, call, save
 		return
 	}
 	if a := e.FindAffect(c, typ); a != nil {
-		if a.Time() > 0 && time > a.Time() || time == 0 {
+		if a.Time > 0 && time > int(a.Time) || time == 0 {
 			e.RemoveAffect(c, typ, a)
 		}
 	}

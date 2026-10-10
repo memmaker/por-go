@@ -131,16 +131,16 @@ func (e *Engine) ApplyItems(c *Character) {
 	readiedWeight = 0
 	for _, it := range c.Items {
 		c.ItemCount++
-		w := wordAt(it.Raw[:], 0x37)
-		if it.Raw[itCount] > 0 {
-			w *= uint16(it.Raw[itCount])
+		w := it.Weight
+		if it.Count > 0 {
+			w *= uint16(it.Count)
 		}
 		c.Weight = c.Weight + w
-		if it.Raw[itReadied] == 0 {
+		if it.Readied == 0 {
 			continue
 		}
 		readiedWeight += w
-		typ := it.Raw[itType]
+		typ := it.Type
 		switch s := e.baseItem(typ, 0); {
 		case s <= 8:
 			c.Slots[s] = it
@@ -157,7 +157,7 @@ func (e *Engine) ApplyItems(c *Character) {
 		if typ == 0x1C {
 			c.Slots[slotBolts] = it
 		}
-		if it.Raw[itWords] == 0xBA {
+		if it.Words[0] == 0xBA {
 			bag = true
 		}
 		c.Hands += e.baseItem(typ, 1)
@@ -176,7 +176,7 @@ func (e *Engine) ApplyItems(c *Character) {
 	}
 	e.weaponStats(c)
 	for _, it := range c.Items {
-		if it.Raw[itReadied] == 0 {
+		if it.Readied == 0 {
 			continue
 		}
 		e.armourMove(it, c)
@@ -217,7 +217,7 @@ func (e *Engine) weaponStats(c *Character) {
 	if w == nil {
 		return
 	}
-	typ := w.Raw[itType]
+	typ := w.Type
 	flags := e.baseItem(typ, 0xE)
 	c.THAC0 = c.HitDice
 	if flags&2 != 0 { // missile
@@ -228,15 +228,15 @@ func (e *Engine) weaponStats(c *Character) {
 		c.THAC0 += byte(strHit(c))
 		c.Bonus[0] += byte(strDamage(c))
 	}
-	plus := int8(w.Raw[itPlus])
+	plus := int8(w.Plus)
 	if flags > 0x7F && c.Slots[slotBolts] != nil {
-		plus += int8(c.Slots[slotBolts].Raw[itPlus])
+		plus += int8(c.Slots[slotBolts].Plus)
 	}
 	if flags&1 != 0 && c.Slots[slotArrows] != nil {
-		plus += int8(c.Slots[slotArrows].Raw[itPlus])
+		plus += int8(c.Slots[slotArrows].Plus)
 	}
 	c.Bonus[0] += byte(plus)
-	if c.Race == 2 && (w.Raw[itType] > 0x28 && w.Raw[itType] < 0x2D || w.Raw[itType] == 0x25 || w.Raw[itType] == 0x24) {
+	if c.Race == 2 && (w.Type > 0x28 && w.Type < 0x2D || w.Type == 0x25 || w.Type == 0x24) {
 		plus++ // elves with bows and swords
 	}
 	c.THAC0 += byte(plus)
@@ -247,10 +247,10 @@ func (e *Engine) weaponStats(c *Character) {
 // armourMove = 00BA:01FB (char, item): body armour sets the movement by
 // its weight; magical armour moves 3 faster up to 9.
 func (e *Engine) armourMove(it *Item, c *Character) {
-	if e.baseItem(it.Raw[itType], 0) != 2 {
+	if e.baseItem(it.Type, 0) != 2 {
 		return
 	}
-	switch w := wordAt(it.Raw[:], 0x37); {
+	switch w := it.Weight; {
 	case w <= 0x96:
 		c.Move = c.BaseMove
 	case w <= 0x18F:
@@ -258,7 +258,7 @@ func (e *Engine) armourMove(it *Item, c *Character) {
 	default:
 		c.Move = 6
 	}
-	if it.Raw[itPlus] != 0 && c.Move <= 9 {
+	if it.Plus != 0 && c.Move <= 9 {
 		c.Move += 3
 	}
 }
@@ -267,14 +267,14 @@ func (e *Engine) armourMove(it *Item, c *Character) {
 // protective items, ac[3] best ring, ac[4] best armour; magical body
 // armour cancels rings.
 func (e *Engine) itemAC(c *Character, it *Item, ac *[5]int8, ringOnly *bool) {
-	typ := it.Raw[itType]
+	typ := it.Type
 	v := e.baseItem(typ, 6)
 	if v <= 0x7F {
 		return
 	}
 	v &= 0x7F
 	slot := e.baseItem(typ, 0)
-	plus := int8(it.Raw[itPlus])
+	plus := int8(it.Plus)
 	switch {
 	case slot == 1:
 		ac[1] = int8(v) + plus
@@ -286,7 +286,7 @@ func (e *Engine) itemAC(c *Character, it *Item, ac *[5]int8, ringOnly *bool) {
 		} else {
 			ac[2] += plus
 		}
-		c.SaveBonus += it.Raw[itPlus2]
+		c.SaveBonus += it.Plus2
 	case int(v)+int(plus) > int(ac[4]):
 		ac[4] = int8(v) + plus
 		if plus > 0 && slot == 2 {

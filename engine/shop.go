@@ -10,10 +10,10 @@ import "strings"
 func (e *Engine) shopList(index *int, item **Item) byte {
 	list := make([]*ListNode, len(e.run.treasure))
 	for i, it := range e.run.treasure {
-		if wordAt(it.Raw[:], 0x3A) == 0 {
-			putWord(it.Raw[:], 0x3A, 1)
+		if it.Price == 0 {
+			it.Price = 1
 		}
-		price := itoa(int(wordAt(it.Raw[:], 0x3A)))
+		price := itoa(int(it.Price))
 		if len(price) > 0x10 {
 			price = price[:0x10]
 		}
@@ -77,7 +77,7 @@ func (e *Engine) shopBuy() {
 		if key != 'B' && key != 13 || it == nil {
 			return
 		}
-		price := int(wordAt(it.Raw[:], 0x3A))
+		price := int(it.Price)
 		if price > e.purse.gold {
 			e.BottomMessage("Not enough Money.")
 		} else if !e.buyItem(it) {
@@ -120,5 +120,5 @@ func (e *Engine) Shop() {
 // canUseItem (extra): the item's class mask lets c ready it (the Wrong
 // Class test of readyItem).
 func (e *Engine) canUseItem(c *Character, it *Item) bool {
-	return e.baseItem(it.Raw[itType], 0xD)&c.ClassMask != 0
+	return e.baseItem(it.Type, 0xD)&c.ClassMask != 0
 }

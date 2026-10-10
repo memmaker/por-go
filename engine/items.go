@@ -2,34 +2,21 @@ package engine
 
 // Items: names, lists and the START helpers around them.
 
-// Item record fields (0x3F bytes; the name is built into +0).
-const (
-	itName    = 0x00 // pascal string, max 0x28 (built by ItemName)
-	itType    = 0x2E // base item type (index into DS:5582 records)
-	itWords   = 0x2F // 3 word ids into DS:10A7 (0x15 bytes each)
-	itPlus    = 0x32 // signed
-	itPlus2   = 0x33
-	itReadied = 0x34
-	itHidden  = 0x35 // bit 3-i: word i not known yet
-	itMagic   = 0x36
-	itCount   = 0x39
-)
-
 // itemWord = DS:10A7 + 0x15*n.
 func (e *Engine) itemWord(n byte) string { return e.X.PString(0x10A7 + 0x15*int(n)) }
 
 func (it *Item) Name() string {
-	n := int(it.Raw[itName])
+	n := int(it.PName[0])
 	if n > 0x28 {
 		n = 0x28
 	}
-	return string(it.Raw[1 : 1+n])
+	return string(it.PName[1 : n+1])
 }
 
 func (it *Item) setName(s string) {
 	s = cut(s, 0x28)
-	it.Raw[itName] = byte(len(s))
-	copy(it.Raw[1:0x29], s)
+	it.PName[0] = byte(len(s))
+	copy(it.PName[1:41], s)
 }
 
 // ItemName = 00BA:0442 (char, item, x, y, readied, display): builds the
@@ -37,10 +24,9 @@ func (it *Item) setName(s string) {
 // for magic when someone detects magic, count, the known words with the
 // plural "s" on the right one) and optionally prints it.
 func (e *Engine) ItemName(c *Character, it *Item, x, y int, readied, display bool) {
-	r := &it.Raw
 	name := ""
 	if readied {
-		if r[itReadied] != 0 {
+		if it.Readied != 0 {
 			name = " Yes  "
 		} else {
 			name = " No   "
@@ -55,15 +41,15 @@ func (e *Engine) ItemName(c *Character, it *Item, x, y int, readied, display boo
 			detect = true
 		}
 	}
-	if detect && (int8(r[itPlus]) > 0 || int8(r[itPlus2]) > 0 || r[itMagic] != 0) {
+	if detect && (int8(it.Plus) > 0 || int8(it.Plus2) > 0 || it.Magic != 0) {
 		name = cut(name+"* ", 0x28)
 	}
-	if r[itCount] > 0 {
-		name = cut(name+itoa(int(r[itCount]))+" ", 0x28)
+	if it.Count > 0 {
+		name = cut(name+itoa(int(it.Count))+" ", 0x28)
 	}
 	mask := 0
 	for i := 1; i <= 3; i++ {
-		if r[itType+i] != 0 && (r[itHidden]>>(3-i))&1 == 0 {
+		if it.Words[i-1] != 0 && (it.Hidden>>(3-i))&1 == 0 {
 			mask += 1 << (i - 1)
 		}
 	}
@@ -72,16 +58,16 @@ func (e *Engine) ItemName(c *Character, it *Item, x, y int, readied, display boo
 		if (mask>>(i-1))&1 == 0 {
 			continue
 		}
-		name = cut(name+e.itemWord(r[itType+i]), 0x28)
+		name = cut(name+e.itemWord(it.Words[i-1]), 0x28)
 		s := " "
-		if r[itCount] >= 2 && !plural {
-			typ := r[itType]
+		if it.Count >= 2 && !plural {
+			typ := it.Type
 			switch {
 			case 1<<(i-1) == mask,
 				i == 1 && mask > 4 && typ != 0x56,
 				i == 2 && mask&1 == 0,
 				i == 3 && typ == 0x56,
-				(typ == 0x49 || typ == 0x1C) && r[itWords+2] != 0xB1:
+				(typ == 0x49 || typ == 0x1C) && it.Words[2] != 0xB1:
 				s = "s "
 				plural = true
 			}

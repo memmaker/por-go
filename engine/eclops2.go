@@ -54,10 +54,7 @@ func (e *Engine) opTreasure() {
 			e.MessageRow24b(0xF, "Unable to find item file")
 			e.Exit()
 		}
-		for o := 0; o < len(b); o += itemRecSize {
-			it := &Item{}
-			copy(it.Raw[:], b[o:])
-			it.Raw[0x2A], it.Raw[0x2B], it.Raw[0x2C], it.Raw[0x2D] = 0, 0, 0, 0
+		for _, it := range readRecords[Item](b, itemRecSize) {
 			e.run.treasure = append([]*Item{it}, e.run.treasure...)
 		}
 		return
@@ -465,7 +462,7 @@ func (e *Engine) opFindItem() {
 	e.es.flags[1] = true
 	for _, c := range e.party {
 		for _, it := range c.Items {
-			if it.Raw[0x2E] == v {
+			if it.Type == v {
 				e.es.flags[0], e.es.flags[1] = true, false
 				return
 			}

@@ -242,15 +242,15 @@ func (e *Engine) o13_03E1(c *Character, a *Affect, flag byte) {
 // o13_0400: charm: the side follows the affect.
 func (e *Engine) o13_0400(c *Character, a *Affect, flag byte) {
 	if flag != 0 {
-		c.Side = (a.Raw[3] & 0x40) >> 6
+		c.Side = (a.Data & 0x40) >> 6
 		if c.Control == 0xB3 {
 			c.Control = 0
 		}
 		return
 	}
-	if a.Raw[3]&0x20 == 0 {
-		a.Raw[3] = a.Raw[3] + 0x20 + c.Side<<6
-		c.Side = a.Raw[3] >> 7
+	if a.Data&0x20 == 0 {
+		a.Data = a.Data + 0x20 + c.Side<<6
+		c.Side = a.Data >> 7
 		c.Auto = 1
 		if c.Control <= 0x7F {
 			c.Control = 0xB3
@@ -263,14 +263,14 @@ func (e *Engine) o13_0400(c *Character, a *Affect, flag byte) {
 
 // o13_04BA: strength affects (the best one counts).
 func (e *Engine) o13_04BA(c *Character, a *Affect, flag byte) {
-	if a.Raw[3] > 0x7F {
+	if a.Data > 0x7F {
 		return
 	}
 	c.Stats[statStr], c.Str00 = strDecode(a)
 	var best *Affect
 	var bs, bs00 byte
 	for _, n := range c.Affects {
-		if (n.Raw[afType] == 0xC || n.Raw[afType] == 0x26) && n != a {
+		if (n.Type == 0xC || n.Type == 0x26) && n != a {
 			s, s00 := strDecode(n)
 			if s > bs || bs == 0x12 && s00 > bs00 {
 				bs, bs00, best = s, s00, n
@@ -278,17 +278,17 @@ func (e *Engine) o13_04BA(c *Character, a *Affect, flag byte) {
 		}
 	}
 	if best != nil {
-		best.Raw[3] = strValue(c.Stats[statStr], c.Str00)
+		best.Data = strValue(c.Stats[statStr], c.Str00)
 		c.Stats[statStr], c.Str00 = bs, bs00
 	}
 }
 
 // o13_05D6.
-func (e *Engine) o13_05D6(c *Character, a *Affect, flag byte) { c.Stats[statCha] = a.Raw[3] }
+func (e *Engine) o13_05D6(c *Character, a *Affect, flag byte) { c.Stats[statCha] = a.Data }
 
 // o13_05EB: poison: damage each round.
 func (e *Engine) o13_05EB(c *Character, a *Affect, flag byte) {
-	if e.addAffectNow(c, 0xF, a.Raw[3], 0xA) && c.HP > 1 {
+	if e.addAffectNow(c, 0xF, a.Data, 0xA) && c.HP > 1 {
 		e.rv.dmgType = 0
 		e.Damage(c, 1, 0, false)
 		if e.beginFlag != 5 {
@@ -351,7 +351,7 @@ func (e *Engine) o13_0775(c *Character, a *Affect, flag byte) {
 func (e *Engine) o13_07E0(c *Character, a *Affect, flag byte) {
 	var it *Item
 	for _, i := range c.Items {
-		if i.Raw[0x2E] == 0x14 && i.Raw[0x31] == 0xF3 {
+		if i.Type == 0x14 && i.Words[2] == 0xF3 {
 			it = i
 			break
 		}
@@ -361,12 +361,12 @@ func (e *Engine) o13_07E0(c *Character, a *Affect, flag byte) {
 	}
 	if flag == 0 && it == nil && c.ItemCount < 0x10 {
 		n := &Item{}
-		n.Raw[0x2E] = 0x14
-		n.Raw[0x30] = 0x14
-		n.Raw[0x31] = 0xF3
-		n.Raw[0x32] = 1
-		n.Raw[0x3D] = 0x17
-		n.Raw[0x3E] = 0x89
+		n.Type = 0x14
+		n.Words[1] = 0x14
+		n.Words[2] = 0xF3
+		n.Plus = 1
+		n.Spells[1] = 0x17
+		n.Spells[2] = 0x89
 		e.AddItemCopy(c, n)
 		e.CharMessage(c, "Gains an item", 0xA, true)
 	}
@@ -391,11 +391,11 @@ func (e *Engine) o13_0947(c *Character, a *Affect, flag byte) {
 
 // o13_09C0: mirror image: an attack may hit an image instead.
 func (e *Engine) o13_09C0(c *Character, a *Affect, flag byte) {
-	if e.Dice(1, int(a.Raw[3])+1) > 1 && e.curSpell > 0 && e.spellFlag6820 == 0 {
+	if e.Dice(1, int(a.Data)+1) > 1 && e.curSpell > 0 && e.spellFlag6820 == 0 {
 		e.blockAffect(0)
 		e.CharMessage(c, "lost an image", 0xA, true)
-		a.Raw[3]--
-		if a.Raw[3] == 0 {
+		a.Data--
+		if a.Data == 0 {
 			e.RemoveAffect(c, 0x1C, nil)
 		}
 	}
@@ -428,11 +428,11 @@ func (e *Engine) o13_0A65(c *Character, a *Affect, flag byte) {
 
 // o13_0B1B: "collapses" (status 6) and the character is reset.
 func (e *Engine) o13_0B1B(c *Character, a *Affect, flag byte) {
-	a.Raw[afCall] = 0
+	a.Call = 0
 	if e.rv.cure == 0 {
 		e.killWithMessage(c, 6, "collapses")
 	}
-	c.Side = a.Raw[3] >> 4
+	c.Side = a.Data >> 4
 	c.Auto = 1
 	c.Undead = 0
 	c.FightLevel = c.Levels[clsFighter]
@@ -479,8 +479,8 @@ func (e *Engine) o13_0C26(c *Character, a *Affect, flag byte) {
 
 // o13_0C4B: "ages" once (age +1), DS:681A doubled.
 func (e *Engine) o13_0C4B(c *Character, a *Affect, flag byte) {
-	if a.Raw[3]&0x10 == 0 {
-		a.Raw[3] += 0x10
+	if a.Data&0x10 == 0 {
+		a.Data += 0x10
 		e.CharMessage(c, "ages", 0xA, true)
 		c.Age++
 	}
@@ -491,7 +491,7 @@ func (e *Engine) o13_0C4B(c *Character, a *Affect, flag byte) {
 // squares get back their ground, the cloud is freed, the squares of the
 // other clouds are marked again.
 func (e *Engine) o13_0CC3(c *Character, a *Affect, flag byte) {
-	side := a.Raw[3] >> 4
+	side := a.Data >> 4
 	ci := -1
 	for i, cl := range e.clouds {
 		if cl.Ptr00 == c && cl.Raw[0x12] == side {
@@ -545,7 +545,7 @@ func (e *Engine) o13_0CC3(c *Character, a *Affect, flag byte) {
 // o13_1086: the selected character with a weapon of strength 0 may avoid
 // the attack.
 func (e *Engine) o13_1086(c *Character, a *Affect, flag byte) {
-	if w := e.readiedWeapon(e.selected()); w != nil && w.Raw[0x32] == 0 {
+	if w := e.readiedWeapon(e.selected()); w != nil && w.Plus == 0 {
 		e.avoidDistantAttack(c, 0x64)
 	}
 }
@@ -555,7 +555,7 @@ func (e *Engine) o13_10C1(c *Character, a *Affect, flag byte) { e.v681A >>= 1 }
 
 // o13_10DE: "is weakened": strength down while it lasts (affect 0x2B).
 func (e *Engine) o13_10DE(c *Character, a *Affect, flag byte) {
-	if !e.addAffectNow(c, 0x2B, a.Raw[3], 0x3C) {
+	if !e.addAffectNow(c, 0x2B, a.Data, 0x3C) {
 		return
 	}
 	if c.Stats[statStr] > 3 {
@@ -568,7 +568,7 @@ func (e *Engine) o13_10DE(c *Character, a *Affect, flag byte) {
 
 // o13_1168: affect 0x2C: damage while it lasts, or nausea at 1 hit point.
 func (e *Engine) o13_1168(c *Character, a *Affect, flag byte) {
-	if !e.addAffectNow(c, 0x2C, a.Raw[3], 0xA) {
+	if !e.addAffectNow(c, 0x2C, a.Data, 0xA) {
 		return
 	}
 	if c.HP > 1 {
@@ -601,7 +601,7 @@ func (e *Engine) o13_1276(c *Character, a *Affect, flag byte) {
 
 // o13_12B2: same side as the affect: o13_0C06, else -1 to hit and save.
 func (e *Engine) o13_12B2(c *Character, a *Affect, flag byte) {
-	if c.Side == (a.Raw[3]&0x10)>>4 {
+	if c.Side == (a.Data&0x10)>>4 {
 		e.o13_0C06(c, a, flag)
 	} else {
 		e.rv.hitRoll--
@@ -611,7 +611,7 @@ func (e *Engine) o13_12B2(c *Character, a *Affect, flag byte) {
 
 // o13_12FB: affect 0x32 and a point of healing.
 func (e *Engine) o13_12FB(c *Character, a *Affect, flag byte) {
-	if e.addAffectNow(c, 0x32, a.Raw[3], 0x3840) && e.Heal(c, 1, true) {
+	if e.addAffectNow(c, 0x32, a.Data, 0x3840) && e.Heal(c, 1, true) {
 		e.healedMessage(c)
 	}
 }
@@ -640,9 +640,9 @@ func (e *Engine) o13_1399(c *Character, a *Affect, flag byte) {
 	if c.Stats[statCha] < 3 {
 		c.Stats[statCha] = 3
 	}
-	if a.Raw[3]>>4 > 1 {
-		a.Raw[3] -= 0x10
-		e.addAffectNow(c, 0x39, a.Raw[3], 0xA8C0)
+	if a.Data>>4 > 1 {
+		a.Data -= 0x10
+		e.addAffectNow(c, 0x39, a.Data, 0xA8C0)
 	} else {
 		e.killWithMessage(c, 8, "Dies rots away")
 	}
@@ -678,7 +678,7 @@ func (e *Engine) o13_1490(c *Character, a *Affect, flag byte) {
 
 // o13_14EB: affect 0x3E and a point of healing.
 func (e *Engine) o13_14EB(c *Character, a *Affect, flag byte) {
-	if e.addAffectNow(c, 0x3E, a.Raw[3], 0x3C) && e.Heal(c, 1, true) {
+	if e.addAffectNow(c, 0x3E, a.Data, 0x3C) && e.Heal(c, 1, true) {
 		e.healedMessage(c)
 	}
 }
@@ -724,14 +724,14 @@ func (e *Engine) o13_1730(c *Character, a *Affect, flag byte) {
 // o13_176F: blood drain (affect 0x4B on the drinker, 0x3A on the victim,
 // the victim is combatant a.Raw[3]).
 func (e *Engine) o13_176F(c *Character, a *Affect, flag byte) {
-	t := e.combatant(a.Raw[3])
+	t := e.combatant(a.Data)
 	if t == nil {
 		t = &Character{}
 	}
 	if flag != 0 || c.Okay == 0 || t.Okay == 0 {
 		e.RemoveAffect(t, 0x3A, nil)
 		if flag == 0 {
-			a.Raw[afCall] = 0
+			a.Call = 0
 			e.RemoveAffect(c, 0x4B, a)
 		}
 		if c.Okay != 0 && t.Okay != 0 {
@@ -744,10 +744,10 @@ func (e *Engine) o13_176F(c *Character, a *Affect, flag byte) {
 	e.rv.dmgType = 0
 	e.Damage(t, dmg, 0, false)
 	e.clearCombatInfo(c)
-	time := int(a.Raw[afTime]) | int(a.Raw[afTime+1])<<8
+	time := int(a.Time)
 	if t.Okay != 0 && time>>4 > dmg {
 		time -= dmg << 4
-		a.Raw[afTime], a.Raw[afTime+1] = byte(time), byte(time>>8)
+		a.Time = uint16(time)
 	} else {
 		e.RemoveAffect(c, 0x4B, a)
 	}
@@ -775,7 +775,7 @@ func (e *Engine) o13_1935(c *Character, a *Affect, flag byte) {
 // o13_19D9: back on its feet or affect 0x4E (the local result is unused).
 func (e *Engine) o13_19D9(c *Character, a *Affect, flag byte) {
 	if !e.Revive(c, c.HP) {
-		e.addAffectNow(c, 0x4E, a.Raw[3], 1)
+		e.addAffectNow(c, 0x4E, a.Data, 1)
 	}
 }
 

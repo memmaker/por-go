@@ -153,7 +153,7 @@ func (e *Engine) removeCurse() {
 	c := e.selected()
 	cursed := false
 	for _, it := range c.Items {
-		if it.Raw[itMagic] != 0 {
+		if it.Magic != 0 {
 			cursed = true
 			break
 		}

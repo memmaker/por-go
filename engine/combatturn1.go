@@ -301,7 +301,7 @@ func (e *Engine) o14_0D23(c *Character) {
 		flag = true
 		v := byte(0) // (the original reads the item at +0xCC unchecked)
 		if c.Slots[0] != nil {
-			v = e.baseItem(c.Slots[0].Raw[itType], 5)
+			v = e.baseItem(c.Slots[0].Type, 5)
 		}
 		if v < 2 {
 			v = 2
@@ -315,8 +315,8 @@ func (e *Engine) o14_0D23(c *Character) {
 	r := byte(e.o14_0E52(e.v681A))
 	if flag && it != nil {
 		w := byte(1)
-		if it.Raw[itCount] > w {
-			w = it.Raw[itCount]
+		if it.Count > w {
+			w = it.Count
 		}
 		if w < r {
 			r = w
@@ -504,7 +504,7 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 		*done = 1
 	} else {
 		if a.Slots[0] != nil && (b.Size > 0x80 || b.Size&7 > 1) {
-			typ := a.Slots[0].Raw[itType]
+			typ := a.Slots[0].Type
 			a.Dice[0] = e.baseItem(typ, 2)
 			a.Sides[0] = e.baseItem(typ, 3)
 			a.Bonus[0] = byte(int(int8(a.Bonus[0])) - int(int8(e.baseItem(typ, 0xB))) + int(int8(e.baseItem(typ, 4))))
@@ -603,7 +603,7 @@ func (e *Engine) o14_1884(a, b *Character, flag int, it *Item, done *int) {
 	if it != nil {
 		e.attackAnimation(a, b, it)
 	}
-	if a.Slots[0] != nil && a.Slots[0].Raw[itType] == 0x2F {
+	if a.Slots[0] != nil && a.Slots[0].Type == 0x2F {
 		e.attackAnimation(a, b, a.Slots[0])
 	}
 	*done = 1
@@ -616,14 +616,15 @@ func (e *Engine) o14_1884(a, b *Character, flag int, it *Item, done *int) {
 		}
 		e.o14_1406(a, b, flag, done)
 		if it != nil {
-			if it.Raw[itCount] > 0 {
-				it.Raw[itCount] -= e.shots6E2C[1]
+			if it.Count > 0 {
+				it.Count -= e.shots6E2C[1]
 			}
-			if it.Raw[itCount] == 0 {
-				if e.throwable(a) && it.Raw[0x3E] != 0x89 {
-					n := &Item{Raw: it.Raw}
+			if it.Count == 0 {
+				if e.throwable(a) && it.Spells[2] != 0x89 {
+					cp := *it
+					n := &cp
 					e.run.treasure = append([]*Item{n}, e.run.treasure...)
-					n.Raw[itReadied] = 0
+					n.Readied = 0
 					e.RemoveItem(a, it)
 					e.v5D9A = n
 				} else {
@@ -649,7 +650,7 @@ func (e *Engine) o14_1B1E(a, b *Character, need *int) {
 	d := e.rangeTo(a, b)
 	f := d
 	if e.rangedWeapon(a) {
-		f = (int(e.baseItem(a.Slots[0].Raw[itType], 0xC)) - 1) / 3
+		f = (int(e.baseItem(a.Slots[0].Type, 0xC)) - 1) / 3
 	}
 	if d-f > 0 {
 		d -= f

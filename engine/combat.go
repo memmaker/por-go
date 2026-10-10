@@ -353,13 +353,13 @@ func (e *Engine) moveAttack(c *Character, done *int) {
 // +0xC above 1).
 func (e *Engine) rangedWeapon(c *Character) bool {
 	w := c.Slots[0]
-	return w != nil && e.baseItem(w.Raw[itType], 0xC) > 1
+	return w != nil && e.baseItem(w.Type, 0xC) > 1
 }
 
 // throwable = 00BA:2E46 (char): a ranged weapon that also works in melee
 // (base item flags 0x14).
 func (e *Engine) throwable(c *Character) bool {
-	return e.rangedWeapon(c) && e.baseItem(c.Slots[0].Raw[itType], 0xE)&0x14 == 0x14
+	return e.rangedWeapon(c) && e.baseItem(c.Slots[0].Type, 0xE)&0x14 == 0x14
 }
 
 // ammoFor = 00BA:2E8B (char, var item): the item a ranged attack uses up
@@ -370,7 +370,7 @@ func (e *Engine) ammoFor(c *Character, it **Item) bool {
 	*it = nil
 	var f byte
 	if w != nil {
-		f = e.baseItem(w.Raw[itType], 0xE)
+		f = e.baseItem(w.Type, 0xE)
 		if f&0x10 != 0 {
 			*it = w
 		}
