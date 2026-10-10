@@ -254,7 +254,8 @@ func (g *game) Draw(dst *ebiten.Image) {
 			im = ebiten.NewImageFromImage(o.Img)
 			g.scans[o.Img] = im
 		}
-		b := o.Img.Bounds()
+		b := o.Part()
+		im = im.SubImage(b).(*ebiten.Image) // drawn from its own top left
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 		op.GeoM.Scale(float64(o.At.Dx())*pw/ega.W/float64(b.Dx()), float64(o.At.Dy())*ph/ega.H/float64(b.Dy()))
 		op.GeoM.Translate(g.pic.x+float64(o.At.Min.X)*pw/ega.W, g.pic.y+float64(o.At.Min.Y)*ph/ega.H)

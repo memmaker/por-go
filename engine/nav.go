@@ -180,6 +180,10 @@ func (e *Engine) mouseKey(button, cx, cy int) uint16 {
 	case MouseWheelUp, MouseWheelDown:
 		up := button == MouseWheelUp
 		switch {
+		case e.ext.paging && up: // the pagers: back, on, or scroll a picture
+			return 0x4800
+		case e.ext.paging:
+			return 0x5000
 		case e.ext.menu == 0 || e.ext.raw != "":
 			return 0
 		case e.ext.list || e.ext.choosing:

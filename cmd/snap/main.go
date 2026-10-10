@@ -44,7 +44,7 @@ func dumpHi(s *ega.Screen, name string) {
 		}
 	}
 	for _, o := range s.Overlays {
-		b := o.Img.Bounds()
+		b := o.Part()
 		w, h := o.At.Dx()*k, o.At.Dy()*k
 		for y := range h {
 			for x := range w {

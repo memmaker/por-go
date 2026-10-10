@@ -22,3 +22,30 @@ func TestJournalRefs(t *testing.T) {
 		}
 	}
 }
+
+func TestJournalPagesShrinkPicture(t *testing.T) {
+	pic := func(rows int) []string {
+		l := []string{"\x01P"}
+		for range rows - 1 {
+			l = append(l, "\x02")
+		}
+		return l
+	}
+	fill := func(n int) []string {
+		l := []string{"\x00T"}
+		for range n - 1 {
+			l = append(l, "x")
+		}
+		return l
+	}
+	// 9 rows of text leave 12: over half of 19, so the picture shrinks in.
+	p := journalPages(append(fill(9), pic(19)...))
+	if len(p) != 1 || pictureRows(p[0][9:]) != 12 {
+		t.Fatalf("shrink: %d pages, %q", len(p), p)
+	}
+	// 12 rows leave 9: too little, the picture starts the next page whole.
+	p = journalPages(append(fill(12), pic(19)...))
+	if len(p) != 2 || pictureRows(p[1]) != 19 {
+		t.Fatalf("next page: %d pages, %q", len(p), p)
+	}
+}

@@ -100,7 +100,7 @@ func (e *Engine) journalPrinted(s string, clear bool) {
 				if im := journalPicture(p[1 : len(p)-1]); im != nil {
 					lines = append(lines, "\x01"+p[1:len(p)-1])
 					_, h := pictureSize(im)
-					for range (h+7)/8 - 1 {
+					for range min((h+7)/8, jrRows) - 1 {
 						lines = append(lines, "\x02") // rows the picture covers
 					}
 				}
@@ -145,23 +145,25 @@ func wrapText(s string, w int) []string {
 }
 
 // showJournal pages through lines ("\x00" marks a title) until the last
-// page or Esc, then puts the screen back.
+// page or Esc, then puts the screen back. On a page with a tall picture,
+// Up and Down (and the wheel) scroll it.
 func (e *Engine) showJournal(lines []string) {
 	e.ext.modal++
 	e.ext.paging = true
 	defer func() { e.ext.modal--; e.ext.paging = false }()
 	restore := e.saveScreen()
 	pages := journalPages(lines)
-	for p, page := range pages {
+	draw := func(p, off int) (maxOff int) {
 		e.setOverlays(nil)
 		e.DrawBoxTitled(1, 1, 0x26, 0x17, 0, 0xF, "Adventurer's Journal")
 		e.ClearCells(2, 2, 0x25, 0x17)
+		page := pages[p]
 		for i, l := range page {
 			switch {
 			case strings.HasPrefix(l, "\x00"):
 				e.DisplayString(2, 2+i, 0xE, l[1:])
 			case strings.HasPrefix(l, "\x01"):
-				e.drawPicture(journalPicture(l[1:]), 2*8+jrWidth*4, (2+i)*8)
+				maxOff = max(maxOff, e.drawPicture(journalPicture(l[1:]), 2*8+jrWidth*4, (2+i)*8, pictureRows(page[i:])*8, off))
 			case l != "\x02":
 				e.DisplayString(2, 2+i, 0xF, l)
 			}
@@ -170,8 +172,28 @@ func (e *Engine) showJournal(lines []string) {
 		if p < len(pages)-1 {
 			more = "more: " + strconv.Itoa(p+1) + "/" + strconv.Itoa(len(pages))
 		}
+		if maxOff > 0 {
+			more = "up/down: scroll, " + more
+		}
 		e.DisplayString(0x25-len(more), 0x17, 0xA, more)
-		if e.ReadKey() == 27 {
+		return maxOff
+	}
+	for p := 0; p < len(pages); p++ {
+		for off := 0; ; {
+			maxOff := draw(p, off)
+			k := e.ReadKey()
+			if k == 27 {
+				p = len(pages)
+				break
+			}
+			if maxOff > 0 && k == 0x4800 {
+				off = max(off-16, 0)
+				continue
+			}
+			if maxOff > 0 && k == 0x5000 && off < maxOff { // at the bottom, Down pages on
+				off = min(off+16, maxOff)
+				continue
+			}
 			break
 		}
 	}
@@ -186,12 +208,25 @@ func (e *Engine) setOverlays(o []ega.Overlay) {
 }
 
 // journalPages cuts lines into pages of at most jrRows; a page does not
-// start with a blank line or end with a title, and a picture is not split.
+// start with a blank line or end with a title, and a picture is not split:
+// one that overruns the page shrinks into the rows left when they hold
+// half of it (it stays sharp, at the window's resolution), else it starts
+// the next page.
 func journalPages(lines []string) [][]string {
+	lines = append([]string(nil), lines...)
 	var pages [][]string
 	for len(lines) > 0 {
 		for len(lines) > 0 && lines[0] == "" {
 			lines = lines[1:]
+		}
+		for i := 0; i < min(jrRows, len(lines)); i++ {
+			if !strings.HasPrefix(lines[i], "\x01") {
+				continue
+			}
+			rows := pictureRows(lines[i:])
+			if left := jrRows - i; rows > left && left*2 >= rows {
+				lines = append(lines[:i+left], lines[i+rows:]...) // drop the rows it no longer covers
+			}
 		}
 		n := min(jrRows, len(lines))
 		for n < len(lines) && n > 1 && lines[n] == "\x02" { // back to the picture's first row
@@ -226,23 +261,52 @@ var pictures = map[string]image.Image{} // the engine goroutine's alone
 
 // pictureSize is the screen area a picture covers: the scans are 300 dpi,
 // shown at about 90 screen pixels an inch, at most the text width wide
-// and 19 rows high (with a title and a line it fills a page).
+// and, unless taller than wide (those scroll), 19 rows high (with a title
+// and a line it fills a page).
 func pictureSize(im image.Image) (w, h int) {
 	b := im.Bounds()
-	s := min(0.3, float64(jrWidth*8)/float64(b.Dx()), 152/float64(b.Dy()))
+	s := min(0.3, float64(jrWidth*8)/float64(b.Dx()))
+	if !tall(im) {
+		s = min(s, 152/float64(b.Dy()))
+	}
 	return int(float64(b.Dx()) * s), int(float64(b.Dy()) * s)
 }
 
-// drawPicture puts a journal picture centred on x, top at y: paper white
-// on the screen, the scan itself over it at the window's resolution.
-func (e *Engine) drawPicture(im image.Image, x, y int) {
+func tall(im image.Image) bool { return im.Bounds().Dy() > im.Bounds().Dx() }
+
+// pictureRows counts the rows of the picture starting lines.
+func pictureRows(lines []string) int {
+	n := 1
+	for n < len(lines) && lines[n] == "\x02" {
+		n++
+	}
+	return n
+}
+
+// drawPicture puts a journal picture centred on x, top at y, at most maxH
+// high: paper white on the screen, the scan itself over it at the window's
+// resolution. One taller than that shrinks to fit, or, if taller than
+// wide, shows maxH of it from off pixels down; it returns how far it
+// scrolls (0: not at all).
+func (e *Engine) drawPicture(im image.Image, x, y, maxH, off int) (maxOff int) {
 	if im == nil {
-		return
+		return 0
 	}
 	w, h := pictureSize(im)
+	src := im.Bounds()
+	switch {
+	case h > maxH && tall(im):
+		maxOff = h - maxH
+		off = min(off, maxOff)
+		src.Min.Y, src.Max.Y = src.Min.Y+off*src.Dy()/h, src.Min.Y+(off+maxH)*src.Dy()/h
+		h = maxH
+	case h > maxH:
+		w, h = w*maxH/h, maxH
+	}
 	r := image.Rect(x-w/2, y, x-w/2+w, y+h)
 	e.S.Lock()
 	e.S.Fill(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y, 15)
-	e.S.Overlays = append(e.S.Overlays, ega.Overlay{Img: im, At: r})
+	e.S.Overlays = append(e.S.Overlays, ega.Overlay{Img: im, Src: src, At: r})
 	e.S.Unlock()
+	return maxOff
 }

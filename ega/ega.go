@@ -42,10 +42,19 @@ const (
 )
 
 // Overlay is a picture the window draws over the screen at its own
-// resolution, scaled into the screen rectangle At (the journal's scans).
+// resolution: the part Src of Img (empty: all of it) scaled into the
+// screen rectangle At (the journal's scans).
 type Overlay struct {
-	Img image.Image
-	At  image.Rectangle
+	Img     image.Image
+	Src, At image.Rectangle
+}
+
+// Part is the rectangle of Img the overlay shows.
+func (o Overlay) Part() image.Rectangle {
+	if o.Src.Empty() {
+		return o.Img.Bounds()
+	}
+	return o.Src
 }
 
 // Screen is the shared frame buffer. The engine goroutine writes it; the
