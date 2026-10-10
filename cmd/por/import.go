@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"por/adf"
+	"por/amiga"
 	"por/dax"
 	"por/ega"
 )
@@ -142,6 +143,7 @@ var amigaGfx = map[string]struct {
 // writes its graphics, converted to DOS-layout archives, to dst/DISK2.
 func importDisk2(src, dst string) error {
 	var disk []adf.File
+	var snd []byte // disk 1's program: the Amiga sound players and samples
 	look := func(img []byte) bool {
 		_, files, err := adf.Read(img)
 		if err != nil {
@@ -149,6 +151,9 @@ func importDisk2(src, dst string) error {
 		}
 		n := 0
 		for _, f := range files {
+			if strings.EqualFold(f.Path, "program") && snd == nil {
+				snd = amiga.Image(f.Data)
+			}
 			if _, ok := amigaGfx[strings.TrimSuffix(strings.ToLower(f.Path), ".dax")]; ok {
 				n++
 			}
@@ -156,7 +161,7 @@ func importDisk2(src, dst string) error {
 		if n >= 8 { // the POOLDATA disk; the program disk has none
 			disk = files
 		}
-		return disk != nil
+		return disk != nil && snd != nil
 	}
 	filepath.WalkDir(src, func(p string, d fs.DirEntry, _ error) error {
 		if d == nil || d.IsDir() {
@@ -190,12 +195,17 @@ func importDisk2(src, dst string) error {
 		}
 		return nil
 	})
-	if disk == nil {
-		return errors.New("no Amiga Pool of Radiance data disk found")
+	if disk == nil && snd == nil {
+		return errors.New("no Amiga Pool of Radiance disk found")
 	}
 	out := filepath.Join(dst, "DISK2")
 	if err := os.MkdirAll(out, 0o755); err != nil {
 		return err
+	}
+	if snd != nil {
+		if err := os.WriteFile(filepath.Join(out, "SOUND.BIN"), snd, 0o644); err != nil {
+			return err
+		}
 	}
 	for _, f := range disk {
 		name := strings.TrimSuffix(strings.ToLower(f.Path), ".dax")

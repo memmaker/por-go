@@ -392,6 +392,7 @@ func (e *Engine) AfterCombat() {
 		e.run.treasure = nil
 	} else {
 		putWord(e.game, 0x58E, 0x80)
+		e.Music(5) // Amiga 0x4602E
 		e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "The END!")
 		e.msgCol, e.msgRow = 2, 6
 		e.DisplayTextBlock(2, 5, 0x25, 0x16, 0xA, true, "The monsters rejoice for the party has been destroyed")

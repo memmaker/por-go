@@ -2,8 +2,12 @@ package engine
 
 import (
 	"math"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
+
+	"por/amiga"
 )
 
 // The sound driver, segment 08AE of START.EXE: a four channel sequencer run
@@ -51,6 +55,22 @@ type sound struct {
 	tickLeft float64
 	tandy    bool // Tandy sound chip present (config 'T'): render the SN76489
 	sn       sn76489
+	am       *amiga.Player // DISK2/SOUND.BIN imported: the Amiga players instead
+}
+
+// amigaFx maps PlaySound 2..12 to Amiga effects: the Amiga's table at
+// 0x8A8A8 parallels DS:2618.
+var amigaFx = [...]int{5, 9, 8, 10, 12, 11, 6, 11, 4, 7, 0}
+
+// Music = the Amiga's playMusic (0x62E54): 1 title and camp, 2 battle,
+// 3 party menu, 5 party killed, 0 stop. The DOS game has no music.
+func (e *Engine) Music(n int) {
+	s := &e.snd
+	s.mu.Lock()
+	if s.am != nil && s.on {
+		s.am.Song(n)
+	}
+	s.mu.Unlock()
 }
 
 // sn76489 is the Tandy/PCjr sound chip: three square wave tones and a noise
@@ -165,6 +185,9 @@ func (e *Engine) SoundReader() *soundReader {
 	}
 	s.wait = 0x64 // ovr12:045D: soundWait(0x64) at start-up
 	s.on = true
+	if img, err := os.ReadFile(filepath.Join(e.L.Dir, "DISK2", "SOUND.BIN")); err == nil && len(img) == amiga.End-amiga.Base {
+		s.am = amiga.New(img)
+	}
 	return &soundReader{s}
 }
 
@@ -178,6 +201,14 @@ func (r *soundReader) Read(p []byte) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n := len(p) / 4 * 4
+	if s.am != nil {
+		if s.typ == 2 {
+			clear(p[:n])
+		} else {
+			s.am.Render(p[:n], sndRate)
+		}
+		return n, nil
+	}
 	for i := 0; i < n; i += 4 {
 		v := 0
 		if s.isr {
@@ -469,7 +500,9 @@ func (e *Engine) PlaySound(n int) {
 		s.startTandy(0)
 		s.start(0)
 	default:
-		if s.typ == 1 {
+		if s.am != nil && n >= 2 && n-2 < len(amigaFx) {
+			s.am.Effect(amigaFx[n-2])
+		} else if s.typ == 1 {
 			s.start(n - 1)
 		} else {
 			s.startTandy(n - 1)

@@ -436,6 +436,7 @@ func (e *Engine) opDamage() {
 		}
 	}
 	if e.run.quit {
+		e.Music(5) // Amiga 0x416C2
 		e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "The END!")
 		e.msgCol, e.msgRow = 2, 2
 		e.DisplayTextBlock(1, 1, 0x26, 0x16, 0xA, true, "The entire party is killed!")

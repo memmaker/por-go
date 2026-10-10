@@ -730,6 +730,7 @@ func (e *Engine) o17_382D() {
 			e.LoadIconPic("ICON", 1, 0xC)
 		}
 		if e.YesNo(0xD, 0xA, 0xF, "Is this icon ok? ") == 'Y' {
+			e.Music(3) // Amiga 0x2F33E
 			break
 		}
 	}

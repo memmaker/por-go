@@ -2,6 +2,8 @@ package engine
 
 // Title = ovr02:0626 title_screen.
 func (e *Engine) Title() {
+	e.Music(1) // the Amiga intro, 0x2B580
+	defer e.Music(0)
 	e.DrawPicture(0, 0, e.LoadPic("TITLE", 1), 0)
 	e.WaitSeconds(5)
 	if !e.Cfg.FullIntro {

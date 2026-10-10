@@ -884,6 +884,8 @@ func (e *Engine) alterMenu() {
 // CampMenu = ovr16:1E6F: true when resting was interrupted (the caller
 // then runs the encounter).
 func (e *Engine) CampMenu() bool {
+	e.Music(1) // Amiga 0x17FBC .. 0x1813C
+	defer e.Music(0)
 	saved := e.beginFlag
 	e.beginFlag = 2
 	e.camp.heal = 0
