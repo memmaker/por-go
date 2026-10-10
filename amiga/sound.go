@@ -5,7 +5,10 @@
 // game's), driving a model of Paula.
 package amiga
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"math"
+)
 
 // Base and End bound the memory image Image cuts out of the flattened
 // program (hunks at 4K-aligned bases from 0x10000).
@@ -24,6 +27,7 @@ type Player struct {
 	dma   uint16
 	Trace func(off, size int, v uint32) // every custom-chip write, for tests
 	frac  float64
+	lp    [2]float64 // output filter state
 }
 
 type voice struct {
@@ -910,41 +914,59 @@ func (p *Player) hw(a uint32, size int, v uint32) {
 }
 
 func (v *voice) restart() {
+	v.reload()
+	v.pos = 0
+}
+
+// reload = Paula at the end of a sample: start again from the registers.
+func (v *voice) reload() {
 	n := uint32(v.len)
 	if n == 0 {
 		n = 0x10000
 	}
-	v.ptr, v.end, v.pos = v.lc&^1, v.lc&^1+2*n, 0
+	v.ptr, v.end = v.lc&^1, v.lc&^1+2*n
 }
 
 // Render mixes the four voices into s16 stereo at rate Hz (0 and 3 left,
-// 1 and 2 right), ticking the players at 50 Hz.
+// 1 and 2 right), ticking the players at 50 Hz. Paula holds each byte for
+// its period, so each output sample is that held signal averaged over the
+// sample's time, then the A500's fixed RC low-pass (about 4.4 kHz).
 func (p *Player) Render(out []byte, rate int) {
+	k := 1 - math.Exp(-2*math.Pi*4420/float64(rate))
 	for i := 0; i+3 < len(out); i += 4 {
 		if p.frac -= 50; p.frac < 0 {
 			p.frac += float64(rate)
 			p.Tick()
 		}
-		var lr [2]int
+		var lr [2]float64
 		for c := range p.ch {
 			ch := &p.ch[c]
 			if p.dma&(1<<c) == 0 || ch.per == 0 {
 				continue
 			}
-			vol := int(ch.vol)
-			if vol > 64 {
-				vol = 64
-			}
-			lr[(c+1)>>1&1] += int(int8(p.rb(ch.ptr))) * vol
-			ch.pos += pal / float64(ch.per) / float64(rate)
-			for ; ch.pos >= 1; ch.pos-- {
+			step := pal / float64(ch.per) / float64(rate) // bytes per output sample
+			sum := 0.0
+			for t := step; t > 0; {
+				v := float64(int8(p.rb(ch.ptr)))
+				if left := 1 - ch.pos; left > t {
+					sum += v * t
+					ch.pos += t
+					break
+				} else {
+					sum += v * left
+					t -= left
+				}
+				ch.pos = 0
 				if ch.ptr++; ch.ptr >= ch.end {
-					ch.restart()
+					ch.reload()
 				}
 			}
+			lr[(c+1)>>1&1] += sum / step * float64(min(ch.vol, 64))
 		}
-		binary.LittleEndian.PutUint16(out[i:], uint16(int16(lr[0]*2)))
-		binary.LittleEndian.PutUint16(out[i+2:], uint16(int16(lr[1]*2)))
+		for s := range lr {
+			p.lp[s] += k * (lr[s]*2 - p.lp[s])
+			binary.LittleEndian.PutUint16(out[i+2*s:], uint16(int16(p.lp[s])))
+		}
 	}
 }
 
