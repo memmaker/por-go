@@ -1,0 +1,420 @@
+package engine
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+// The full-screen map (extra): M on the command bar
+// or a click on the minimap. It shows the minimap's area at 10 pixels a
+// square with a letter on every labelled square and a legend beside it. A
+// cursor (arrows, click) picks a square; Walk goes there (walk.go), Label
+// names it, Remove clears it.
+// New Phlan starts with its buildings labelled (phlanLabels); the labels of
+// every area the player changed are kept in MAPNOTES.TXT in the game folder.
+
+// Label kinds, each with its colour on the maps.
+const (
+	poiUser   = 0
+	poiShop   = 1
+	poiTemple = 2
+	poiInn    = 3
+	poiCivic  = 4
+)
+
+var poiColour = [5]uint8{15, 10, 13, 14, 11}
+
+type mapLabel struct {
+	text string
+	kind byte
+}
+
+// phlanLabels are the buildings of New Phlan (ECL3 block 0, GEO3 block 0):
+// the squares whose event id (cell byte & 0x7F, the script's [6E82]) leads
+// to a shop, temple, inn, tavern or office in the block's step event (ECL
+// 9B4C ONGOTO).
+var phlanLabels = func() map[int]mapLabel {
+	m := map[int]mapLabel{}
+	add := func(text string, kind byte, sq ...[2]int) {
+		for _, s := range sq {
+			m[s[1]<<4|s[0]] = mapLabel{text, kind}
+		}
+	}
+	add("Boats", poiCivic, [2]int{15, 1})                                          // 1
+	add("Harbor master", poiCivic, [2]int{11, 1})                                  // 2
+	add("Bishop Braccio", poiTemple, [2]int{10, 5})                                // 5
+	add("Temple of Tyr", poiTemple, [2]int{11, 3}, [2]int{8, 4}, [2]int{8, 6})     // 6
+	add("Temple of Sune", poiTemple, [2]int{1, 1}, [2]int{3, 1}, [2]int{1, 3})     // 7
+	add("Inn", poiInn, [2]int{4, 12}, [2]int{6, 12}, [2]int{4, 13}, [2]int{6, 13}, // 9
+		[2]int{0, 14}, [2]int{1, 14}, [2]int{2, 14})
+	add("Training Hall", poiCivic, [2]int{6, 1}, [2]int{6, 2}, [2]int{9, 0})          // 10, 17
+	add("Shop", poiShop, [2]int{15, 8}, [2]int{9, 10}, [2]int{12, 10}, [2]int{9, 11}, // 19
+		[2]int{11, 11})
+	add("Tavern", poiInn, [2]int{10, 8}, [2]int{8, 9}, [2]int{14, 10}, [2]int{15, 10}, // 20
+		[2]int{15, 12}, [2]int{15, 13}, [2]int{15, 14})
+	add("Jeweler", poiShop, [2]int{8, 10})                                       // 21
+	add("Arms and Armor", poiShop, [2]int{13, 8}, [2]int{8, 11}, [2]int{11, 12}, // 22
+		[2]int{8, 13}, [2]int{9, 13})
+	add("Silver Shop", poiShop, [2]int{11, 10}, [2]int{10, 13})                        // 23
+	add("Temple of Tempus", poiTemple, [2]int{0, 12}, [2]int{2, 12})                   // 24
+	add("Gate to slums", poiCivic, [2]int{0, 4})                                       // 25
+	add("City Hall", poiCivic, [2]int{4, 4}, [2]int{4, 3}, [2]int{3, 4}, [2]int{5, 4}) // 27, 26
+	return m
+}()
+
+const phlanKey = 0 // areaKey of New Phlan: ECL block 0, GEO block 0
+
+const notesFile = "MAPNOTES.TXT"
+
+// labels are the current area's labels (square y<<4|x -> label).
+func (e *Engine) labels() map[int]mapLabel {
+	k := e.areaKey()
+	if m, ok := e.ext.labels[k]; ok {
+		return m
+	}
+	if e.ext.labels == nil {
+		e.ext.labels = map[int]map[int]mapLabel{}
+	}
+	m := map[int]mapLabel{}
+	if k == phlanKey && e.symDAX == "8X8D3" {
+		for s, l := range phlanLabels {
+			m[s] = l
+		}
+	}
+	e.ext.labels[k] = m
+	return m
+}
+
+// loadNotes reads MAPNOTES.TXT: "area KEY" starts an area, then
+// "X Y KIND TEXT" per label.
+func (e *Engine) loadNotes() {
+	f, err := os.Open(filepath.Join(e.L.Dir, notesFile))
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	e.ext.labels = map[int]map[int]mapLabel{}
+	var cur map[int]mapLabel
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		var k, x, y, kind int
+		line := sc.Text()
+		if _, err := fmt.Sscanf(line, "area %d", &k); err == nil {
+			cur = map[int]mapLabel{}
+			e.ext.labels[k] = cur
+			continue
+		}
+		var text string
+		if n, _ := fmt.Sscanf(line, "%d %d %d", &x, &y, &kind); n == 3 && cur != nil && onMap(x, y) && kind < len(poiColour) {
+			if f := strings.SplitN(line, " ", 4); len(f) == 4 {
+				text = f[3]
+			}
+			cur[y<<4|x] = mapLabel{text, byte(kind)}
+		}
+	}
+}
+
+// saveNotes writes the labels of every area that was looked at.
+func (e *Engine) saveNotes() {
+	var b strings.Builder
+	keys := make([]int, 0, len(e.ext.labels))
+	for k := range e.ext.labels {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+	for _, k := range keys {
+		fmt.Fprintf(&b, "area %d\n", k)
+		m := e.ext.labels[k]
+		sq := make([]int, 0, len(m))
+		for s := range m {
+			sq = append(sq, s)
+		}
+		sort.Ints(sq)
+		for _, s := range sq {
+			fmt.Fprintf(&b, "%d %d %d %s\n", s&15, s>>4, m[s].kind, m[s].text)
+		}
+	}
+	os.WriteFile(filepath.Join(e.L.Dir, notesFile), []byte(b.String()), 0o644)
+}
+
+// legend gives every label text a letter (in order of the texts).
+func legend(m map[int]mapLabel) (texts []string, letter map[string]byte, kind map[string]byte) {
+	letter, kind = map[string]byte{}, map[string]byte{}
+	for _, l := range m {
+		if _, ok := letter[l.text]; !ok {
+			letter[l.text] = 0
+			kind[l.text] = l.kind
+			texts = append(texts, l.text)
+		}
+	}
+	sort.Slice(texts, func(i, j int) bool { return strings.ToLower(texts[i]) < strings.ToLower(texts[j]) })
+	for i, t := range texts {
+		c := byte('A' + i)
+		if i >= 26 {
+			c = byte('a' + i - 26)
+		}
+		letter[t] = c
+	}
+	return texts, letter, kind
+}
+
+// Full map geometry: 16x16 squares of fmCell pixels; the legend is to the
+// right, from text column fmLegend.
+const (
+	fmCell   = 10
+	fmX, fmY = 8, 16
+	fmLegend = 0x16
+	fmRows   = 0x15 // legend lines: rows 2..0x16
+)
+
+// saveScreen keeps the picture and its text cells; the func puts them back.
+func (e *Engine) saveScreen() func() {
+	var saved [0x140 * 0xC8]uint8
+	e.S.Lock()
+	for i := range saved {
+		saved[i] = e.S.Get(i%0x140, i/0x140)
+	}
+	cells := e.ext.cells
+	e.S.Unlock()
+	return func() {
+		e.S.Lock()
+		for i, c := range saved {
+			e.S.Set(i%0x140, i/0x140, c)
+		}
+		e.ext.cells = cells
+		e.S.Unlock()
+	}
+}
+
+// FullMap shows the full-screen map until Exit. It runs from the command
+// bar's key handling and puts the screen back as it was.
+func (e *Engine) FullMap() {
+	if !e.minimapAllowed() {
+		e.DisplayMessageWait(0xE, "Not Here")
+		return
+	}
+	restore := e.saveScreen()
+	inCommand, sel, extra := e.ext.inCommand, e.menuSel, e.menuExtra
+	e.ext.inCommand, e.ext.fullMap = false, true
+	defer func() {
+		restore()
+		e.ext.inCommand, e.menuSel, e.menuExtra, e.ext.fullMap = inCommand, sel, extra, false
+	}()
+	cx, cy := e.posX, e.posY
+	if !onMap(cx, cy) {
+		cx, cy = 0, 0
+	}
+	m := e.labels()
+	mark := e.regionMark()
+	defer e.regionCut(mark)
+	e.addRegion(region{x0: fmX / 8, y0: fmY / 8, x1: (fmX + 16*fmCell - 1) / 8, y1: (fmY + 16*fmCell - 1) / 8, click: func(tx, ty int) uint16 {
+		x, y := (tx*8+4-fmX)/fmCell, (ty*8+4-fmY)/fmCell
+		if !onMap(x, y) {
+			return 0
+		}
+		if x == cx && y == cy {
+			return 'L' // a second click names the square
+		}
+		cx, cy = x, y
+		return keyNone
+	}})
+	texts := []string(nil)
+	var firstSq map[string]int
+	e.addRegion(region{x0: fmLegend, y0: 2, x1: 0x27, y1: 2 + fmRows - 1, click: func(_, y int) uint16 {
+		if i := y - 2; i < len(texts) {
+			s := firstSq[texts[i]]
+			cx, cy = s&15, s>>4
+			return keyNone
+		}
+		return 0
+	}})
+	defer e.rawArrows("arrows, click=square|W=walk there|L=label|R=remove|Esc=back")()
+	for {
+		texts, firstSq = e.drawFullMap(m, cx, cy)
+		k, ext := e.DisplayInput("", "Walk Label Remove Exit", 0xD, 0xA, 0xF, true, false)
+		if ext {
+			switch k {
+			case 0x48:
+				cy = max(cy-1, 0)
+			case 0x50:
+				cy = min(cy+1, 15)
+			case 0x4B:
+				cx = max(cx-1, 0)
+			case 0x4D:
+				cx = min(cx+1, 15)
+			}
+			continue
+		}
+		switch k {
+		case 'W':
+			if e.startWalk(cx, cy) {
+				return
+			}
+			e.DisplayMessageWait(0xE, "No known way there")
+		case 'L':
+			old := m[cy<<4|cx]
+			if s, ok := e.labelInput(old.text); ok {
+				if s == "" {
+					delete(m, cy<<4|cx)
+				} else {
+					kind := byte(poiUser)
+					if s == old.text {
+						kind = old.kind
+					}
+					m[cy<<4|cx] = mapLabel{s, kind}
+				}
+				e.saveNotes()
+			}
+		case 'R':
+			if _, ok := m[cy<<4|cx]; ok {
+				delete(m, cy<<4|cx)
+				e.saveNotes()
+			}
+		case 'E', 0:
+			return
+		}
+	}
+}
+
+// labelInput reads a label on row 24 in upper and lower case; Esc gives up.
+func (e *Engine) labelInput(s string) (string, bool) {
+	e.ext.typing = true
+	defer func() { e.ext.typing = false }()
+	const prompt, max = "Label: ", 0x20
+	b := []byte(s)
+	for {
+		e.ClearRow24()
+		e.DisplayString(0, 24, 0xD, prompt)
+		e.DisplayString(len(prompt), 24, 0xF, string(b)+"_")
+		e.showHint()
+		k := e.ReadKey()
+		switch {
+		case k == 13:
+			e.ClearRow24()
+			return strings.TrimSpace(string(b)), true
+		case k == 27:
+			e.ClearRow24()
+			return s, false
+		case k == 8:
+			if len(b) > 0 {
+				b = b[:len(b)-1]
+			}
+		case k >= 0x20 && k < 0x7F && len(b) < max:
+			b = append(b, byte(k))
+		}
+	}
+}
+
+// drawFullMap draws the map, the cursor at (cx, cy) and the legend; it
+// returns the legend's texts and the first square of each.
+func (e *Engine) drawFullMap(m map[int]mapLabel, cx, cy int) ([]string, map[string]int) {
+	e.ClearScreen()
+	e.DisplayString(1, 0, 0xF, "Map")
+	e.DisplayString(fmLegend, 0, 0xF, "Labels")
+	texts, letter, kind := legend(m)
+	first := map[string]int{}
+	for s := 0; s < 256; s++ {
+		if l, ok := m[s]; ok {
+			if _, ok := first[l.text]; !ok {
+				first[l.text] = s
+			}
+		}
+	}
+	for i, t := range texts {
+		if i >= fmRows {
+			break
+		}
+		e.DisplayString(fmLegend, 2+i, int(poiColour[kind[t]]), string(letter[t]))
+		e.DisplayString(fmLegend+2, 2+i, 0xA, cut(t, 0x28-fmLegend-2))
+	}
+	info := fmt.Sprintf("%d,%d", cx, cy)
+	if l, ok := m[cy<<4|cx]; ok {
+		info += " " + l.text
+	}
+	e.DisplayString(1, 0x17, 0xB, cut(info, 0x26))
+	seen := e.ext.seen[e.areaKey()]
+	if seen == nil {
+		seen = &[256]uint8{}
+	}
+	e.S.Lock()
+	defer e.S.Unlock()
+	for y := 0; y < 16; y++ {
+		for x := 0; x < 16; x++ {
+			s := seen[y<<4|x]
+			px, py := fmX+x*fmCell, fmY+y*fmCell
+			switch s {
+			case seenSeen:
+				e.S.Fill(px, py, px+fmCell, py+fmCell, 8)
+			case seenVisited:
+				e.S.Fill(px, py, px+fmCell, py+fmCell, 1)
+			}
+			e.mapWalls(x, y, px, py, fmCell, s)
+			if l, ok := m[y<<4|x]; ok && (x != e.posX || y != e.posY) {
+				g, _ := e.glyph(letter[l.text], true)
+				for r := 0; r < 8; r++ {
+					for b := 0; b < 8; b++ {
+						if g[r]&(0x80>>b) != 0 {
+							e.S.Set(px+1+b, py+1+r, poiColour[l.kind])
+						}
+					}
+				}
+			}
+		}
+	}
+	e.mapParty(fmX, fmY, fmCell, 2)
+	px, py := fmX+cx*fmCell, fmY+cy*fmCell
+	e.S.Fill(px, py, px+fmCell, py+1, 14)
+	e.S.Fill(px, py+fmCell-1, px+fmCell, py+fmCell, 14)
+	e.S.Fill(px, py, px+1, py+fmCell, 14)
+	e.S.Fill(px+fmCell-1, py, px+fmCell, py+fmCell, 14)
+	return texts, first
+}
+
+// mapWalls draws the walls of square (x, y) as lines at the edges of a
+// size-pixel cell at (px, py): doors and locked doors in their colours,
+// walls of squares not seen yet dim (s: the square's seen state).
+func (e *Engine) mapWalls(x, y, px, py, size int, s uint8) {
+	for _, d := range [4]int{0, 2, 4, 6} {
+		if e.WallAt(x, y, d) == 0 {
+			continue
+		}
+		c := uint8(15)
+		switch e.DoorAt(x, y, d) {
+		case 1:
+			c = 11
+		case 2, 3:
+			c = 14
+		}
+		if s == 0 {
+			c = 8 // not seen yet: dim, doors not told apart (as Area)
+		}
+		switch d {
+		case 0:
+			e.S.Fill(px, py, px+size, py+1, c)
+		case 2:
+			e.S.Fill(px+size-1, py, px+size, py+size, c)
+		case 4:
+			e.S.Fill(px, py+size-1, px+size, py+size, c)
+		case 6:
+			e.S.Fill(px, py, px+1, py+size, c)
+		}
+	}
+}
+
+// mapParty draws the party on a map at (ox, oy): a dot of 2r-1 pixels with
+// a tick towards the facing.
+func (e *Engine) mapParty(ox, oy, size, r int) {
+	if !onMap(e.posX, e.posY) {
+		return
+	}
+	cx, cy := ox+e.posX*size+size/2, oy+e.posY*size+size/2
+	e.S.Fill(cx-r+1, cy-r+1, cx+r, cy+r, 12)
+	for i := r + 1; i <= r+2; i++ {
+		tx, ty := cx+i*dirDX[e.facing], cy+i*dirDY[e.facing]
+		e.S.Fill(tx, ty, tx+1, ty+1, 14)
+	}
+}

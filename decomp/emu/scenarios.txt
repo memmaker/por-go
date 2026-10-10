@@ -1,0 +1,39 @@
+# name[@fixture]: key tokens (run by all.sh; each must be identical in trace and state).
+# @fixture starts from the save fixture saves/fixture (see saves/README.md).
+load: enter l a
+walk: enter l a up up left up up right up down
+area: enter l a a esc
+look: enter l a l
+search: enter l a s up up
+view: enter l a v enter esc esc
+encamp: enter l a e esc
+create: enter c enter enter enter enter enter enter enter enter enter enter enter enter y b o b enter enter enter enter enter enter enter enter enter h h b k
+
+# Later areas and the endgame, from save fixtures (saves/build.sh).
+finale@finale: enter l a up enter enter a a a a a a q q q q q q q q q q q q q q q q q q q q  n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n  enter e y enter enter enter
+pyramid@pyramid: enter l a up enter enter enter enter
+recovered@recovered: enter l a up enter enter
+area1@area1: enter l a l enter enter up up left up right up enter enter esc
+area10@area10: enter l a l enter enter up up left up right up enter enter esc
+area11@area11: enter l a l enter enter up up left up right up enter enter esc
+area13@area13: enter l a l enter enter up up left up right up enter enter esc
+area14@area14: enter l a l enter enter up up left up right up enter enter esc
+area15@area15: enter l a l enter enter up up left up right up enter enter esc
+area16@area16: enter l a l enter enter up up left up right up enter enter esc
+area17@area17: enter l a l enter enter up up left up right up enter enter esc
+area18@area18: enter l a l enter enter up up left up right up enter enter esc
+area2@area2: enter l a l enter enter up up left up right up enter enter esc
+area20@area20: enter l a l enter enter up up left up right up enter enter esc
+area21@area21: enter l a l enter enter up up left up right up enter enter esc
+area22@area22: enter l a l enter enter up up left up right up enter enter esc
+area23@area23: enter l a l enter enter up up left up right up enter enter esc
+area24@area24: enter l a l enter enter up up left up right up enter enter esc
+area28@area28: enter l a l enter enter up up left up right up enter enter esc
+area29@area29: enter l a l enter enter up up left up right up enter enter esc
+area3@area3: enter l a l enter enter up up left up right up enter enter esc
+area4@area4: enter l a l enter enter up up left up right up enter enter esc
+area5@area5: enter l a l enter enter up up left up right up enter enter esc
+area6@area6: enter l a l enter enter up up left up right up enter enter esc
+area7@area7: enter l a l enter enter up up left up right up enter enter esc
+area8@area8: enter l a l enter enter up up left up right up enter enter esc
+area9@area9: enter l a l enter enter up up left up right up enter enter esc

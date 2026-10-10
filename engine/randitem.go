@@ -1,0 +1,350 @@
+package engine
+
+// RandomItem = ovr22:1010 (type, var item): a new item of the given base
+// type with a random bonus, or a magic item from the DS:0970 table.
+func (e *Engine) RandomItem(typ byte) *Item {
+	it := &Item{}
+	r := it.Raw[:]
+	k := 0 // DS:0970 record of a table item
+	r[itReadied] = 0
+	r[itHidden] = 6
+	r[itMagic] = 0
+	r[itType] = typ
+	putWord(r, 0x37, 0)
+	switch {
+	case typ >= 1 && typ <= 0x3B, typ == 0x49, typ == 0x4D, typ == 0x5D:
+		r[itPlus] = byte(e.randomItemClass())
+		bonus := r[itPlus] + 0xA1
+		switch {
+		case typ == 0x15:
+			if e.Dice(1, 5) == 5 {
+				k = 0x90 // (sic: one word before the 0x91 record)
+			}
+			r[0x31], r[0x30] = 0x15, bonus
+		case typ == 0x1C:
+			r[0x31], r[0x30] = 0x1C, bonus
+		case typ == 0x32, typ == 0x33:
+			r[0x31], r[0x30], r[0x2F], r[itHidden] = typ, 0x31, bonus, 4
+		case typ == 0x34:
+			r[0x31], r[0x30], r[0x2F], r[itHidden] = typ, 0x32, bonus, 4
+		case typ >= 0x35 && typ <= 0x3A:
+			r[0x31], r[0x30], r[0x2F], r[itHidden] = typ, 0x30, bonus, 4
+		case typ == 0x49:
+			r[0x31], r[0x30] = 0x3D, bonus
+		case typ == 0x4D:
+			r[0x31], r[0x30] = 0x4F, 0xA7
+			r[itPlus] = r[itPlus]*2 + 2
+			switch r[itPlus] {
+			case 4:
+				r[0x2F] = 0xDD
+			case 6:
+				r[0x2F] = 0xDE
+			case 8:
+				r[0x2F] = 0xDC
+			}
+		case typ == 0x5D:
+			r[0x31], r[0x30], r[0x2F] = 0x42, 0xE0, bonus
+		default:
+			r[0x31], r[0x30] = typ, bonus
+		}
+		r[itPlus2] = 0
+		r[itCount] = 0
+		putWord(r, 0x37, randomItemWeight(typ, r))
+		mul := uint16(2000)
+		switch typ {
+		case 0x3B:
+			mul = 2500
+		case 0x49, 0x1C:
+			mul = 150
+		case 0x35, 0x36, 0x4D:
+			mul = 3000
+		case 0x37, 0x38:
+			mul = 3500
+		case 0x39:
+			mul = 4000
+		case 0x3A:
+			mul = 5000
+		}
+		putWord(r, 0x3A, uint16(int16(int8(r[itPlus])))*mul)
+	case typ == 0x3D, typ == 0x3E:
+		// scrolls: 1-3 spells, clerical (0x3D) or magic-user
+		n := e.Dice(1, 3)
+		if typ == 0x3D {
+			r[0x31] = 0xD1
+		} else {
+			r[0x31] = 0xD0
+		}
+		r[0x30] = byte(n + 0xD1)
+		r[0x2F] = 0
+		r[itPlus] = 1
+		putWord(r, 0x37, 0x19)
+		r[itCount] = 0
+		putWord(r, 0x3A, 0)
+		for i := 1; i <= n; i++ {
+			lvl := e.Dice(1, 3)
+			var s int
+			if typ == 0x3D {
+				switch lvl {
+				case 1:
+					s = e.Dice(1, 0xD) + 8
+				case 2:
+					s = e.Dice(1, 7) + 0x1C
+				case 3:
+					s = e.Dice(1, 0xB) + 0x2C
+				}
+			} else {
+				switch lvl {
+				case 1:
+					s = e.Dice(1, 8)
+				case 2:
+					s = e.Dice(1, 7) + 0x15
+				case 3:
+					s = e.Dice(1, 9) + 0x23
+				}
+			}
+			r[0x3B+i] = byte(s)
+			putWord(r, 0x3A, wordAt(r, 0x3A)+uint16(lvl)*300)
+		}
+	case typ == 0x3F:
+		k = 0x49
+	case typ == 0x43:
+		k = 0x91
+	case typ == 0x45:
+		switch d := e.Dice(1, 10); {
+		case d == 1:
+			k = 0x29
+		case d <= 6:
+			k = 0x79
+		default:
+			k = 0x81
+		}
+	case typ == 0x4E:
+		switch e.Dice(1, 3) + 1 { // (sic: 1 can never come up, 4 gives nothing)
+		case 2:
+			k = 0x41
+		case 3:
+			k = 0x71
+		}
+	case typ == 0x4F:
+		k = 0x39
+	case typ == 0x54:
+		k = 9
+	case typ == 0x5C:
+		k = 0x61
+	case typ == 0x47:
+		switch d := e.Dice(1, 0xB); {
+		case d <= 5:
+			k = 0x11
+		case d <= 8:
+			k = 1
+		case d == 9:
+			k = 0x19
+		case d == 10:
+			k = 0x51
+		}
+	case typ == 0x46:
+		if e.Dice(1, 10) <= 7 {
+			k = 0x59
+		} else {
+			k = 0x89
+		}
+	}
+	if k != 0 {
+		w := func(i int) uint16 { return wordAt(e.X.Bytes(0x970+2*i, 2), 0) }
+		for j := 0; j <= 2; j++ {
+			r[0x2F+j] = byte(w(k + j))
+		}
+		r[itPlus], r[itPlus2] = 1, 1
+		if k == 0x61 {
+			r[itPlus], r[itPlus2] = 2, 2
+		}
+		putWord(r, 0x37, w(k+3))
+		r[itCount] = 0
+		putWord(r, 0x3A, w(k+4))
+		for j := 1; j <= 3; j++ {
+			r[0x3B+j] = byte(w(k + 4 + j))
+		}
+	}
+	return it
+}
+
+// randomItemWeight = ovr22:1295..14A2: weight by base type (arrows and
+// darts also get a count).
+func randomItemWeight(typ byte, r []byte) uint16 {
+	switch typ {
+	case 1, 0xD, 0xE, 0x23:
+		return 0x4B
+	case 2, 0x14, 0x1D, 0x1F, 0x20, 0x21, 0x27, 0x2A, 0x2C, 0x2E, 0x3B:
+		return 0x32
+	case 3, 0x18, 0x28:
+		return 0x7D
+	case 4, 0xF, 0x17, 0x22, 0x2B, 0x2D, 0x33:
+		return 0x64
+	case 5, 0xC, 0x11, 0x13, 0x32:
+		return 0x96
+	case 6:
+		return 0xF
+	case 7:
+		return 0x1E
+	case 8, 0x4D:
+		return 0xA
+	case 9:
+		r[itCount] = 5
+		return 0x19
+	case 0xA, 0x1A, 0x24:
+		return 0x3C
+	case 0xB, 0x10, 0x19, 0x1B, 0x29, 0x2F:
+		return 0x50
+	case 0x12:
+		return 0xAF
+	case 0x15:
+		return 0x14
+	case 0x16, 0x1E:
+		return 0x28
+	case 0x25:
+		return 0x23
+	case 0x26, 0x35:
+		return 0xFA
+	case 0x34:
+		return 0xC8
+	case 0x36, 0x38:
+		return 0x190
+	case 0x37:
+		return 0x12C
+	case 0x39:
+		return 0x15E
+	case 0x3A:
+		return 0x1C2
+	case 0x5D:
+		return 1
+	}
+	r[itCount] = 0xA
+	return 0x28
+}
+
+const (
+	coinGems    = 5
+	coinJewelry = 6
+)
+
+// Appraise = ovr22:19B2 (var any): the shop and temple "Appraise" command.
+// Each gem or piece of jewelry is valued and sold (a fifth of the value in
+// platinum) or kept as an item. any is false when there is nothing to show.
+func (e *Engine) Appraise() (any bool) {
+	any = true
+	c := e.selected()
+	if c.coins(coinGems) == 0 && c.coins(coinJewelry) == 0 {
+		e.BottomMessage("No Gems or Jewelry")
+		return false
+	}
+	for done := false; !done; {
+		if c.coins(coinGems) == 0 && c.coins(coinJewelry) == 0 {
+			done = true
+			continue
+		}
+		count := func(n uint16, one, many string) string {
+			switch n {
+			case 0:
+				return ""
+			case 1:
+				return cut(itoa(int(n))+one, 0x28)
+			}
+			return cut(itoa(int(n))+many, 0x28)
+		}
+		gems := count(c.coins(coinGems), " Gem", " Gems")
+		jewels := count(c.coins(coinJewelry), " piece of Jewelry", " pieces of Jewelry")
+		e.ClearBox(1, 1, 0x26, 0x16)
+		e.displayName(c, 1, 1, false) // 00BA:1816
+		e.DisplayString(1, 7, 0xF, "You have a fine collection of:")
+		e.DisplayString(1, 9, 0xF, gems)
+		e.DisplayString(1, 0xA, 0xF, jewels)
+		menu := ""
+		if c.coins(coinGems) != 0 {
+			menu = "  Gems"
+		}
+		if c.coins(coinJewelry) != 0 {
+			menu = cut(menu+"  Jewelry", 0x28)
+		}
+		menu = cut(menu+" Exit", 0x28)
+		key, _ := e.DisplayInput("Appraise : ", menu, 0xD, 0xA, 0xF, true, false)
+		switch key {
+		case 'G':
+			if c.coins(coinGems) == 0 {
+				break
+			}
+			c.setCoins(coinGems, c.coins(coinGems)-1)
+			var v uint16
+			switch d := e.Dice(1, 100); {
+			case d <= 25:
+				v = 10
+			case d <= 50:
+				v = 50
+			case d <= 70:
+				v = 100
+			case d <= 90:
+				v = 500
+			case d <= 99:
+				v = 1000
+			default:
+				v = 5000
+			}
+			e.DisplayString(1, 0xC, 0xF, cut("The Gem is Valued at "+itoa(int(v))+" gp.", 0x28))
+			e.sellOrKeep(c, v, 0x65)
+		case 'J':
+			if c.coins(coinJewelry) == 0 {
+				break
+			}
+			c.setCoins(coinJewelry, c.coins(coinJewelry)-1)
+			var v uint16
+			switch d := e.Dice(1, 100); {
+			case d <= 10:
+				v = uint16(e.Random(900) + 100)
+			case d <= 20:
+				v = uint16(e.Random(1000) + 200)
+			case d <= 40:
+				v = uint16(e.Random(1500) + 300)
+			case d <= 50:
+				v = uint16(e.Random(2500) + 500)
+			case d <= 70:
+				v = uint16(e.Random(5000) + 1000)
+			case d <= 90:
+				v = uint16(e.Random(6000) + 2000)
+			default:
+				v = uint16(e.Random(10000) + 2000)
+			}
+			e.DisplayString(1, 0xC, 0xF, cut("The Jewel is Valued at "+itoa(int(v))+" gp.", 0x28))
+			e.sellOrKeep(c, v, 0xD6)
+		case 'E', 0:
+			done = true
+		}
+		e.ApplyItems(c)
+	}
+	return any
+}
+
+// sellOrKeep is the shared tail of the gem and jewel branches of 19B2:
+// "Sell Keep" when the character can carry one more item, else only Sell.
+func (e *Engine) sellOrKeep(c *Character, v uint16, word byte) {
+	var room uint16
+	sellOnly := e.overweight(c, 1, &room) || c.Raw[chItemCount] >= 0x10
+	menu := "Sell Keep"
+	if sellOnly {
+		menu = "Sell"
+	}
+	key, _ := e.DisplayInput("You can : ", menu, 0xD, 0xA, 0xF, true, false)
+	if key == 'K' && !sellOnly {
+		it := &Item{}
+		it.Raw[0x31] = word
+		it.Raw[itType] = 0x46
+		putWord(it.Raw[:], 0x3A, v)
+		putWord(it.Raw[:], 0x37, 1)
+		it.Raw[itHidden] = 0
+		// The original appends to the item list but, when the list is empty,
+		// only to its local copy: the gem is lost. Kept as written.
+		if len(c.Items) > 0 {
+			c.Items = append(c.Items, it)
+		}
+		return
+	}
+	e.addPlatinum(v / 5)
+}

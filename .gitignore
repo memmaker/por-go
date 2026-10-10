@@ -1,0 +1,12 @@
+por
+bin/
+.DS_Store
+__pycache__/
+decomp/out/
+decomp/emu/.venv/
+decomp/emu/scratch/
+decomp/emu/out/
+decomp/emu/saves/
+*.DAX
+*.EXE
+SAVE/

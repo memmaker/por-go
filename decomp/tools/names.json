@@ -1,0 +1,10 @@
+{
+ "0AF8:0B0B": "@StrCopy(dst,src) [sys]",
+ "0AF8:0B25": "@StrCopyN(dst,src,max) [sys]",
+ "0709:0626": "displayString(x,y,color,str)",
+ "03F1:02E8": "drawBoxTitled(x1,y1,x2,y2,c1,c2,title)",
+ "0709:0C3F": "getTicks()",
+ "0A40:02FD": "keypressed()",
+ "0899:0104": "clearKeyboard()",
+ "0464:2A0D": "setPaletteColor(color,index)"
+}

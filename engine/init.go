@@ -1,0 +1,67 @@
+package engine
+
+import "os"
+
+// Init = ovr12:002D: allocate the global records, set the start state and
+// load the always-resident assets. Everything the DOS code zeroed with
+// FillChar is zero-valued here.
+func (e *Engine) Init() {
+	e.game = make([]byte, 0x800)         // DS:49D6
+	e.area = make([]byte, 0x800)         // DS:49D2
+	e.aux = make([]byte, 0x400)          // DS:49DA
+	e.ecl = make([]byte, 0x1E00)         // DS:49DE, ECL code at pc-0x9900
+	e.posX, e.posY, e.facing = 0xF, 1, 6 // DS:6AAD/6AAE/6AAF
+	e.eclPC = 0x9900                     // DS:49ED
+	e.msgDelay = 1                       // DS:49E2
+	e.symDAX = "8X8D1"                   // DS:5376 = 1
+	e.viewMode, e.prevViewMode = 1, 1
+	e.saved = false
+	e.flag49F5, e.flag49F6 = 1, 1         // DS:49F5/49F6
+	e.slowText = true                     // DS:4A00
+	e.listTop = 1                         // DS:6B29
+	e.mapPairA[1], e.mapPairA[2] = -1, -1 // DS:6AAE+4i, i = 2..3
+	e.mapPairB[1], e.mapPairB[2] = -1, -1 // DS:6AB0+4i
+	e.es.v6F69, e.es.v6F68 = 0xE8, 0xDB   // DS:6F69/6F68
+	e.symPrev = e.symDAX                  // DS:5377
+
+	e.font = e.L.Block(e.symDAX, 201) // 0709:017C
+	e.ClearRow24()
+	e.DisplayString(0, 24, 0xA, "Loading...Please Wait")
+	e.LoadSymbolSet(4, 202) // ovr35:003B
+	e.LoadSymbolSet(0, 203)
+	e.sqrpaci[0] = e.LoadPic("SQRPACI", 1) // 0464:0111 → DS:5E52
+	e.sqrpaci[1] = e.LoadPic("SQRPACI", 2) // DS:5E56
+	for i := 0; i <= 0xB; i++ {
+		e.LoadIconPic("COMSPR", i, i+0xD) // ovr33:01C8
+	}
+	e.LoadIconPic("COMSPR", 0x19, 0x19)
+	e.items = e.readItems() // ITEMS file, 2-byte header then 0x810 bytes → DS:5582
+	e.ClearRow24()
+	e.Randomize()      // 0AF8:1247
+	e.spellTableInit() // ovr23:3413
+	e.o13_31A2()       // fills the affect handler table
+}
+
+// readItems reads the base item table: skips the 2-byte count and takes up
+// to 0x810 bytes of 16-byte records.
+func (e *Engine) readItems() []byte {
+	p := e.L.Path("ITEMS")
+	if p == "" {
+		return make([]byte, 0x810)
+	}
+	b, err := os.ReadFile(p)
+	if err != nil || len(b) < 2 {
+		return make([]byte, 0x810)
+	}
+	out := make([]byte, 0x810)
+	copy(out, b[2:])
+	return out
+}
+
+// InitGraphics loads the font and symbol sets 4 and 0 the way Init does
+// (for tools that skip Init).
+func (e *Engine) InitGraphics() {
+	e.font = e.L.Block(e.symDAX, 201)
+	e.LoadSymbolSet(4, 202)
+	e.LoadSymbolSet(0, 203)
+}

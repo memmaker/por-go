@@ -1,0 +1,443 @@
+package engine
+
+// After combat, ported from ovr06: the fight's outcome, experience, the
+// hired NPCs' share and the treasure screen. ECL COMBAT without monsters
+// runs this directly, which is how scripts hand out treasure.
+
+// afterCombat holds the ovr06 globals.
+type afterCombat struct {
+	monsters  bool  // DS:443A: there were monsters to beat
+	fled      bool  // DS:443B
+	idle      int   // DS:84D5: members who get no experience
+	exp       int32 // DS:84D6
+	won       bool  // DS:84DA
+	treasures int   // items taken from monsters (computeExp)
+}
+
+func (e *Engine) duel() bool { return e.run.f84D4 != 0 }
+
+// combatParty returns the party members before the first combat monster
+// (Combat +0x13 = 1).
+func (e *Engine) combatParty() []*Character {
+	for i, c := range e.party {
+		if c.Combat != nil && c.Combat.Raw[0x13] == 1 {
+			return e.party[:i]
+		}
+	}
+	return e.party
+}
+
+// computeExp = ovr06:0000 (var exp): the beaten monsters' worth, their
+// money and (some of) their items go to the treasure, and the treasure's
+// worth counts too; the sum is split over the members that earn it.
+func (e *Engine) computeExp() int32 {
+	sel := e.selected()
+	if e.duel() && wordAt(e.game, 0x5CC) != 0 {
+		return int32(int16(int8(sel.Raw[0x73])) * 100)
+	}
+	var total int32
+	taken := 0
+	for _, c := range e.party {
+		if c.Raw[chNPC] != 1 || c.Raw[chStatus] == 3 {
+			continue
+		}
+		e.ac.monsters = true
+		for i := 0; i <= 6; i++ {
+			e.money[i] += uint32(c.coins(i))
+		}
+		// the byte product is a 16-bit mul, sign-extended
+		total += int32(wordAt(c.Raw[:], 0xB8)) + int32(int16(uint16(c.Raw[0xB1])*uint16(c.Raw[0xBA])))
+		if wordAt(e.game, 0x5C6) == 1 {
+			continue
+		}
+		for _, it := range c.Items {
+			if wordAt(it.Raw[:], 0x3A) != 0 || taken < 8 && e.Dice(1, 10) <= 3 {
+				taken++
+				e.ItemName(c, it, 0, 0, false, false)
+				cp := &Item{Raw: it.Raw}
+				cp.Raw[itReadied] = 0
+				e.run.treasure = append([]*Item{cp}, e.run.treasure...)
+			}
+		}
+	}
+	m := e.money
+	total += int32(m[0])/200 + int32(m[1])/20 + int32(m[2])/2 + int32(m[3]) +
+		int32(m[4])*5 + int32(m[5])*250 + int32(m[6])*2200
+	// (the original stops at DS:5D9A, an item the combat code marks; it is
+	// never set outside a fight)
+	for _, it := range e.run.treasure {
+		if p := int8(it.Raw[itPlus]); p > 0 {
+			total += int32(p) * 400
+		}
+	}
+	// ponytail: the original divides by zero when d is 0
+	if d := int32(uint16(wordAt(e.game, gsPartyCount) - uint16(e.ac.idle))); d > 0 {
+		total /= d
+	}
+	return total
+}
+
+// giveExp = ovr06:0355 (exp): every member still standing gets it, with
+// a tenth more for a high prime requisite; multi-class characters split it.
+func (e *Engine) giveExp(exp int32) {
+	for _, c := range e.party {
+		if c.Raw[chOkay] == 0 || c.Raw[chStatus] == 1 {
+			continue
+		}
+		g := exp
+		prime := -1
+		switch c.Raw[chClass] {
+		case 0:
+			prime = 0x12
+		case 2:
+			prime = 0x10
+		case 5:
+			prime = 0x11
+		case 6:
+			prime = 0x13
+		case 8, 10, 11, 12, 13, 14, 16:
+			g = exp / 2
+		case 9, 15:
+			g = exp / 3
+		}
+		if prime >= 0 && c.Raw[prime] > 15 {
+			g += g / 10
+		}
+		putLongAt(c.Raw[:], chExp, uint32(int32(longAt(c.Raw[:], chExp))+g))
+	}
+}
+
+// combatResult = ovr06:04C9: who won, experience, and what happens to the
+// fallen. quit (DS:49FF) is left set when the whole party is lost.
+func (e *Engine) combatResult() {
+	e.ac.idle = 0
+	e.run.quit = true
+	e.ac.fled = false
+	for _, c := range e.combatParty() {
+		if c.Raw[chStatus] == 3 {
+			e.ac.fled = true
+		}
+	}
+	if e.duel() {
+		e.run.quit = false
+	}
+	e.ac.won = false
+	if !e.duel() {
+		for _, c := range e.combatParty() {
+			st := c.Raw[chStatus]
+			if (st == 3 || st == 1 || st == 0 || wordAt(e.game, 0x5CC) == 1) &&
+				c.Raw[chNPC] == 0 && c.Raw[chPlayerFlag] < 0x80 {
+				e.run.quit = false
+			}
+			if st == 1 || st == 0 {
+				e.ac.won = true
+				e.ac.fled = false
+			}
+			if c.Raw[chOkay] == 0 || st == 1 {
+				e.ac.idle++
+			}
+		}
+		if e.ac.won {
+			e.ac.exp = e.computeExp()
+			e.giveExp(e.ac.exp)
+		}
+		if !e.run.quit {
+			if !e.ac.fled {
+				for _, c := range e.combatParty() {
+					switch st := c.Raw[chStatus]; {
+					case st == 3:
+						c.Raw[chStatus], c.Raw[chOkay] = 0, 1
+					case st == 5:
+						c.Raw[chStatus] = 4
+					case st == 4 && c.Raw[chHP] > 0:
+						c.Raw[chStatus], c.Raw[chOkay] = 0, 1
+					}
+				}
+			} else {
+				putWord(e.game, 0x58E, 0x81)
+				for i := 0; i < len(e.combatParty()); {
+					c := e.party[i]
+					if c.Raw[chStatus] == 3 {
+						c.Raw[chStatus], c.Raw[chOkay] = 0, 1
+						i++
+						continue
+					}
+					e.partySel = i
+					e.RemoveSelected(false, true)
+				}
+			}
+		} else {
+			for n := len(e.combatParty()); n > 0; n-- {
+				e.partySel = 0
+				e.RemoveSelected(false, true)
+			}
+			putWord(e.game, gsPartyCount, 0)
+		}
+		return
+	}
+	for _, c := range e.party {
+		if c.Raw[chOkay] == 1 && c.Raw[chStatus] == 0 && c.Raw[chNPC] != 1 {
+			e.ac.won = true
+			e.ac.exp = e.computeExp()
+			e.giveExp(e.ac.exp)
+		}
+	}
+	for _, c := range e.party {
+		switch c.Raw[chStatus] {
+		case 0, 1:
+			c.Raw[chOkay] = 1
+		case 5:
+			c.Raw[chStatus] = 4
+		}
+	}
+}
+
+// cleanupCombatants = ovr06:11AC: the monsters leave the party list
+// (game +0x590 counts the ones that were beaten); the members drop their
+// combat blocks.
+func (e *Engine) cleanupCombatants() {
+	putWord(e.game, 0x590, 0)
+	for i := 0; i < len(e.party); {
+		c := e.party[i]
+		monster := c.Combat != nil && c.Combat.Raw[0x13] == 1
+		if monster || c.Raw[chNPC] == 1 {
+			if c.Raw[chOkay] != 1 {
+				putWord(e.game, 0x590, wordAt(e.game, 0x590)+1)
+			}
+			e.partySel = i
+			e.RemoveSelected(monster, true)
+			continue
+		}
+		c.Combat = nil
+		i++
+	}
+	e.run.monCount = 0
+	e.partySel = 0
+}
+
+// hiredShare = ovr06:12E8: hired NPCs (+0x84 > 0x7F) take their shares
+// (+0x85 & 7) of every coin before the party gets to the treasure.
+func (e *Engine) hiredShare() {
+	shares, parts := 0, 0
+	for _, c := range e.party {
+		if c.Raw[chPlayerFlag] > 0x7F && c.Raw[chStatus] == 0 {
+			shares += int(c.Raw[0x85] & 7)
+			parts += int(c.Raw[0x85] & 7)
+		} else {
+			parts++
+		}
+	}
+	taken := false
+	if shares > 0 {
+		for i := 0; i <= 6; i++ {
+			if int32(e.money[i]) > 0 {
+				// the original keeps the quotient in a byte and multiplies in 16 bits
+				q := byte(e.money[i] / uint32(parts))
+				e.money[i] -= uint32(int32(int16(uint16(q) * uint16(shares))))
+				taken = true
+			}
+		}
+	}
+	if !taken {
+		return
+	}
+	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "")
+	k := 0
+	for _, c := range e.party {
+		if c.Raw[chPlayerFlag] > 0x7F && c.Raw[chStatus] == 0 && c.Raw[0x85] > 0 {
+			e.DisplayTextBlock(5, 5+2*k, 0x22, 0x16, 0xA, true, c.Name()+" takes and hides his share.")
+			k++
+		}
+	}
+	e.DisplayInput("", "press <enter>/<return> to continue", 0xF, 0xF, 0xF, true, false)
+}
+
+// showResult = ovr06:0916 (exp).
+func (e *Engine) showResult(exp int32) {
+	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "")
+	switch {
+	case e.ac.monsters || e.duel():
+		switch {
+		case e.duel() && !e.ac.won:
+			e.DisplayString(1, 3, 0xA, "You have lost the duel.")
+			exp = 0
+		case e.duel():
+			e.DisplayString(1, 3, 0xA, "You have won the duel.")
+		default:
+			e.DisplayString(1, 3, 0xA, "The party has won.")
+		}
+	case e.ac.fled:
+		e.DisplayString(1, 3, 0xA, "The party has fled.")
+		exp = 0
+	default:
+		e.DisplayString(1, 3, 0xA, "The party has found Treasure!")
+	}
+	s := "Each character receives "
+	if e.duel() {
+		s = "The duelist receives "
+	}
+	e.DisplayString(1, 5, 0xA, cut(s+itoa(int(exp)), 0xFF))
+	e.DisplayString(1, 7, 0xA, "experience points.")
+	e.DisplayInput("", "press <enter>/<return> to continue", 0xF, 0xF, 0xF, true, false)
+}
+
+// lootList = ovr06:0B14 (var index, var item): the treasure in a "Loot" box.
+func (e *Engine) lootList(index *int, item **Item) byte {
+	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "Loot")
+	list := make([]*ListNode, len(e.run.treasure))
+	for i, it := range e.run.treasure {
+		e.ItemName(nil, it, 0, 0, false, false)
+		list[i] = &ListNode{Text: it.Name()}
+	}
+	redraw := true
+	var sel *ListNode
+	key := e.ListMenu("Items: ", "Take", 0xD, 0xA, 0xF, 1, 4, 0x26, 0x16, list, true, &redraw, index, &sel)
+	*item = nil
+	for i, n := range list {
+		if n == sel {
+			*item = e.run.treasure[i]
+		}
+	}
+	return key
+}
+
+// lootTake = ovr06:0C06: take items until Exit or nothing is left.
+func (e *Engine) lootTake() {
+	index := 0
+	for len(e.run.treasure) > 0 {
+		var it *Item
+		key := e.lootList(&index, &it)
+		if key != 'T' && key != 13 || it == nil {
+			break
+		}
+		if !e.buyItem(it) {
+			for i, t := range e.run.treasure {
+				if t == it {
+					e.run.treasure = append(e.run.treasure[:i], e.run.treasure[i+1:]...)
+					break
+				}
+			}
+		}
+	}
+	e.DrawMainScreen()
+}
+
+// takeMenu = ovr06:0D38 (var money, var items).
+func (e *Engine) takeMenu(money, items *bool) {
+	switch {
+	case *money && *items:
+		for *money && *items {
+			key, _ := e.DisplayInput("Take: ", "Money Items Exit", 0xD, 0xA, 0xF, true, true) // ovr06:0D8C: anim
+			done := false
+			switch key {
+			case 'M':
+				e.TakeMoneyMenu()
+				e.DrawMainScreen()
+			case 'I':
+				e.lootTake()
+			case 'E', 0:
+				done = true
+			case 'G', 'O':
+				e.partyKeypad(key)
+			}
+			e.DisplayPartyList()
+			*money, *items = e.treasureFlags()
+			if done {
+				break
+			}
+		}
+	case !*money:
+		e.lootTake()
+	default:
+		e.TakeMoneyMenu()
+		e.DrawMainScreen()
+	}
+}
+
+// lootMenu = ovr06:0ECD: the treasure screen.
+func (e *Engine) lootMenu() {
+	e.DrawMainScreen()
+	for {
+		money, items := e.treasureFlags()
+		exit := " Exit"
+		detect := byte(0)
+		if items {
+			if c := e.selected(); c != nil {
+				for i := 0; i <= 0x14; i++ {
+					if s := c.Raw[chSpells+i]; s == 5 || s == 0xB {
+						detect = s
+						exit = " Detect Exit"
+						break
+					}
+				}
+			}
+		}
+		menu := "View Pool Exit"
+		if money {
+			menu = "View Take Pool Share" + exit
+		} else if items {
+			menu = "View Take Pool" + exit
+		}
+		key, extra := e.DisplayInput("", menu, 0xD, 0xA, 0xF, true, true) // ovr06:101F: anim
+		switch key {
+		case 'V':
+			e.ViewCharacter()
+		case 'T':
+			e.takeMenu(&money, &items)
+		case 'P':
+			if !extra {
+				e.PoolMoney()
+			}
+		case 'S':
+			e.ShareMoney()
+		case 'D':
+			quit := false
+			e.CastSpell(detect, 0, 0, &quit)
+		case 'E', 0:
+			money, items = e.treasureFlags()
+			if !money && !items {
+				return
+			}
+			e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, true, "There is still treasure left.  ")
+			e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xF, false, "Do you want to go back and claim your treasure?")
+			if e.MenuInput(false, 0xF, 0xA, 0xD, "~Yes ~No", "") == 1 {
+				return
+			}
+			e.ClearBox(1, 0x11, 0x26, 0x16)
+		case 'G', 'O':
+			e.partyKeypad(key)
+			e.DisplayPartyList()
+		}
+	}
+}
+
+// AfterCombat = ovr06:1527.
+func (e *Engine) AfterCombat() {
+	putWord(e.game, 0x58E, 0)
+	e.ac.monsters = false
+	e.beginFlag = 6
+	e.combatResult()
+	e.cleanupCombatants()
+	if !e.run.quit || e.duel() {
+		e.hiredShare()
+		e.showResult(e.ac.exp)
+		e.lootMenu()
+		e.run.treasure = nil
+	} else {
+		putWord(e.game, 0x58E, 0x80)
+		e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "The END!")
+		e.msgCol, e.msgRow = 2, 6
+		e.DisplayTextBlock(2, 5, 0x25, 0x16, 0xA, true, "The monsters rejoice for the party has been destroyed")
+		e.MessageRow24b(0xD, "Press any key to continue")
+	}
+	e.slowText = true
+	for _, w := range []int{0x6E0, 0x6E2, 0x6E4, 0x5C6, 0x5CC} {
+		putWord(e.game, w, 0)
+	}
+}
+
+func longAt(b []byte, o int) uint32 { return uint32(wordAt(b, o)) | uint32(wordAt(b, o+2))<<16 }
+func putLongAt(b []byte, o int, v uint32) {
+	putWord(b, o, uint16(v))
+	putWord(b, o+2, uint16(v>>16))
+}

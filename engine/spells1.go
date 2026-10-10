@@ -1,0 +1,882 @@
+package engine
+
+// ovr23 (spells), first part (0x0000..0x100F) and the tail (0x2540..0x37B5).
+// The spell effects between are in spells2.go. The spell record is
+// DS:31FA + 16*spell (see spellRec): [0] class (casterLevel), [1] list
+// group, [2]/[3] duration base/per level, [4]/[5] amount base/per level,
+// [6] minimum 1 flag, [7] targeting kind, [8] save mode, [9] save type,
+// [0xA] affect type.
+
+// tgt / setTgt = DS:6C91 + 4*i: the spell target list (1-based). Slot 1 is
+// DS:6C95, kept in e.spellTarget.
+func (e *Engine) tgt(i int) *Character {
+	if i == 1 {
+		return e.spellTarget
+	}
+	return e.spellTargets[i]
+}
+
+func (e *Engine) setTgt(i int, c *Character) {
+	if i == 1 {
+		e.spellTarget = c
+	} else {
+		e.spellTargets[i] = c
+	}
+}
+
+// spellName = DS:28E9 + 0x29*spell.
+func (e *Engine) spellName(spell int) string { return e.X.PString(0x28E9 + spell*0x29) }
+
+// spellMenu = ovr23:008A (mode, var index): shows the list built by
+// buildSpellList (mode 1 cast, 2 memorize, 3 scribe, 4 learn) and returns
+// the chosen spell, 0 for none. For mode 3 DS:6B80 is the scroll chosen.
+func (e *Engine) spellMenu(mode int, index *int) byte {
+	menu := ""
+	switch mode {
+	case 1:
+		menu = "Cast"
+	case 2:
+		menu = "Memorize"
+	case 3:
+		menu = "Scribe"
+	case 4:
+		menu = "Learn"
+	}
+	title := ""
+	if mode >= 1 && mode <= 4 { // set {1,2,3,4} at cs:001B
+		title = "Choose Spell: "
+	}
+	y2 := 0x16
+	if mode == 2 {
+		y2 = 0xF
+	}
+	showExit := mode != 4
+	redraw := false
+	if *index < 0 {
+		e.DrawBoxTitled(1, 3, 0x26, y2, 0, 0, "")
+		redraw = true
+		*index = 0
+	}
+	if mode == 4 || mode == 1 {
+		redraw = true
+	}
+	var sel *ListNode
+	var key byte
+	for {
+		key = e.ListMenu(title, menu, 0xD, 0xA, 0xF, 1, 5, 0x26, y2, e.spellList, showExit, &redraw, index, &sel)
+		// set {0, 13, 'C', 'E', 'L', 'M', 'S'} at cs:004A
+		if key == 0 || key == 13 || key == 'C' || key == 'E' || key == 'L' || key == 'M' || key == 'S' {
+			break
+		}
+	}
+	// the number of entries (not headers) before the selected one
+	idx := 0
+	for _, n := range e.spellList {
+		if n == sel {
+			break
+		}
+		if n.Flag == 0 {
+			idx++
+		}
+	}
+	var res byte
+	if key != 0 && key != 'E' { // set {0, 'E'} at cs:006A
+		if idx < len(e.spellIDs) {
+			res = e.spellIDs[idx]
+		}
+	}
+	if mode == 3 && idx < len(e.spellItems) {
+		e.usedScroll = e.spellItems[idx]
+	}
+	e.spellList = nil // ovr26:11F3 frees the list
+	return res
+}
+
+// addSpellLine = ovr23:028D (spell): appends the spell to the menu list,
+// behind a class header when the group changes. Bit 7 marks the spell as
+// "to be memorised" (" *"). The asm's id array holds 0x15 bytes and runs
+// into the item array when the book is listed; the slice has no limit.
+func (e *Engine) addSpellLine(spell byte) {
+	group := byte(0) // bp-6 is 0 for the first line
+	if n := len(e.spellIDs); n > 0 {
+		group = e.spellRec(e.spellIDs[n-1], 1)
+	}
+	if g := e.spellRec(spell&0x7F, 1); g != group {
+		e.spellList = append(e.spellList, &ListNode{Text: cut(e.X.PString(0xA79+int(g)*0x29), 0x28), Flag: 1})
+	}
+	prefix := "  "
+	if spell > 0x7F {
+		prefix = " *"
+	}
+	e.spellList = append(e.spellList, &ListNode{Text: cut(prefix+e.spellName(int(spell&0x7F)), 0x28)})
+	e.spellIDs = append(e.spellIDs, spell&0x7F)
+}
+
+// addScrollSpells = ovr23:044E (all): lists the spells on the scroll in
+// DS:6B80 (all: only those still to be scribed, > 0x80; else any), unless
+// the scroll is hidden or too hard for the reader; remembers the scroll.
+func (e *Engine) addScrollSpells(all byte) {
+	sel := e.selected()
+	// 00BA:2199 (sel, 0x10, out): the character has the affect
+	if e.FindAffect(sel, 0x10) != nil || sel.Raw[chLevel] > 0 && sel.Raw[chLevel] < 0x80 && e.items[int(e.usedScroll.Raw[itType])<<4] == 0xC {
+		e.usedScroll.Raw[itHidden] = 0
+	}
+	if e.usedScroll.Raw[itHidden] != 0 {
+		return
+	}
+	for i := 1; ; i++ {
+		v := e.usedScroll.Raw[0x3B+i]
+		if all != 0 && v > 0x80 || all == 0 && v > 0 {
+			e.addSpellLine(v)
+			if e.spellItemCount < len(e.spellItems) {
+				e.spellItems[e.spellItemCount] = e.usedScroll
+			}
+			e.spellItemCount++
+		}
+		if i == 3 {
+			break
+		}
+	}
+}
+
+// addAllScrolls = ovr23:051C (all): the spells on every scroll carried;
+// DS:6B80 walks the item list and is nil at the end.
+func (e *Engine) addAllScrolls(all byte) {
+	e.spellItems = [0x31]*Item{}
+	e.spellItemCount = 0
+	for _, it := range e.selected().Items {
+		e.usedScroll = it
+		if e.isScroll(it) {
+			e.addScrollSpells(all)
+		}
+	}
+	e.usedScroll = nil
+}
+
+// buildSpellList = ovr23:059C (kind): fills the menu list; kinds as in
+// SpellList. True when there is at least one line.
+func (e *Engine) buildSpellList(kind int) bool {
+	any := false
+	e.spellList = nil
+	e.spellIDs = nil
+	c := e.selected()
+	switch kind {
+	case 0:
+		for i := 0; i <= 0x14; i++ {
+			if v := c.Raw[0x17+i]; v > 0 && v < 0x80 {
+				e.addSpellLine(v)
+			}
+		}
+	case 5:
+		for i := 0; i <= 0x14; i++ {
+			if v := c.Raw[0x17+i]; v > 0x7F {
+				e.addSpellLine(v)
+			}
+		}
+	case 1:
+		for i := 1; i <= 0x37; i++ {
+			if c.Raw[chSpellBook+i] != 0 {
+				e.addSpellLine(byte(i))
+			}
+		}
+	case 2:
+		e.addScrollSpells(0)
+	case 3:
+		e.addAllScrolls(0)
+	case 6:
+		e.addAllScrolls(1)
+	case 4:
+		for i := 1; i <= 0x38; i++ {
+			if c.Raw[chSlots+3*int(e.spellRec(byte(i), 0))+int(e.spellRec(byte(i), 1))] > 0 && c.Raw[chSpellBook+i] == 0 {
+				e.addSpellLine(byte(i))
+			}
+		}
+	}
+	if len(e.spellList) > 0 {
+		any = true
+	}
+	return any
+}
+
+// o23_0729 = ovr23:0729 (spell): the duration of the spell in rounds (or
+// turns); never 0 when the record says so.
+func (e *Engine) o23_0729(spell int) int {
+	s := byte(spell)
+	var v byte
+	if !e.usingItem {
+		v = e.spellRec(s, 2) + byte(int(e.spellRec(s, 3))*e.casterLevel(spell))
+	} else {
+		v = e.spellRec(s, 2) + byte(int(e.spellRec(s, 3))*6)
+	}
+	if v == 0 && e.spellRec(s, 6) != 0 {
+		v = 1
+	}
+	if v == 0xFF {
+		v = 1
+	}
+	return int(v)
+}
+
+// o23_07D6 = ovr23:07D6 (spell): the amount (damage or rounds) of the
+// spell; a near procedure of the overlay.
+func (e *Engine) o23_07D6(spell int) int {
+	var v int
+	switch spell {
+	case 0x28:
+		v = e.Dice(1, 6) * 10
+	case 0x39, 0x3D:
+		v = e.Dice(5, 4)
+	case 0x3B:
+		v = e.Dice(1, 4)*10 + 0x28
+	case 0x3F:
+		if e.beginFlag == 5 {
+			v = e.Dice(2, 10) * 10
+		} else {
+			v = (e.Dice(1, 10) + 10) * 10
+		}
+	case 0x43:
+		v = 0x5A0
+	default:
+		v = int(e.spellRec(byte(spell), 4)) + int(e.spellRec(byte(spell), 5))*e.casterLevel(spell)
+	}
+	return int(int16(v))
+}
+
+// o23_08C3 = ovr23:08C3 (spell, level, call, dmg, dmgType, msg): applies
+// the spell record to every target: saving throw, damage and affect.
+// level 0 means the caster level; dmg is also the flag that sets the damage
+// type (DS:6819); dmg is cleared for the rest when an attack misses.
+func (e *Engine) o23_08C3(spell, level, call, dmg, dmgType int, msg string) {
+	msg = cut(msg, 0x28)
+	if dmg == 0 {
+		e.rv.dmgType = 0
+	} else {
+		e.rv.dmgType = byte(dmgType)
+	}
+	if e.nSpellTargets == 0 {
+		return
+	}
+	lvl := byte(level)
+	if level == 0 {
+		lvl = byte(e.casterLevel(spell))
+	}
+	s := byte(spell)
+	for i := 1; i <= e.nSpellTargets; i++ {
+		t := e.tgt(i)
+		if t == nil {
+			continue
+		}
+		saved := false
+		if e.spellRec(s, 8) != 0 {
+			saved = e.SavingThrow(t, int(e.spellRec(s, 9)), 0)
+		}
+		if e.spellRec(e.curSpell, 2) == 0xFF {
+			e.ApplyItems(t)
+			e.affectGroup(t, 0xB)
+			if !e.AttackHits(e.selected(), t, int(t.Raw[chAC])) {
+				dmg = 0
+				saved = true
+			}
+		}
+		if dmg > 0 {
+			e.Damage(t, dmg, e.spellRec(s, 8), saved)
+		}
+		if e.spellRec(s, 0xA) > 0 {
+			e.AddAffectMsg(t, e.spellRec(s, 0xA), e.o23_07D6(spell), lvl, byte(call), e.spellRec(s, 8), saved, msg)
+		}
+	}
+	e.rv.dmgType = 0
+}
+
+// spellTargetHook = lcall [DS:6B84].
+func (e *Engine) spellTargetHook(spell, mode int, ok *bool) {
+	if e.combatTargets {
+		e.o14_20C3(spell, mode, ok)
+	} else {
+		e.spellTargetSetup(spell, mode, ok)
+	}
+}
+
+// spellTargetSetup = ovr23:0A91 (spell, mode, var ok): fills the target
+// list by the targeting kind of the spell (1 the caster, 2 a chosen member,
+// 4 the whole party); ok is false for any other kind or when the choice is
+// cancelled. This is slot 0 of the DS:6B84 table; mode is not used.
+func (e *Engine) spellTargetSetup(spell, mode int, ok *bool) {
+	if e.spellCaster == nil {
+		e.spellCaster = e.selected()
+	}
+	e.spellTarget = e.selected()
+	e.nSpellTargets = 1
+	*ok = true
+	switch e.spellRec(byte(spell), 7) {
+	case 1:
+	case 2:
+		e.DrawMainScreen()
+		e.spellCaster = e.SelectCharacter("Cast Spell on whom", true, e.spellCaster)
+		if e.spellCaster == nil {
+			e.spellTarget = nil
+			e.nSpellTargets = 0
+			*ok = false
+		} else {
+			e.spellTarget = e.spellCaster
+		}
+	case 4:
+		for i, c := range e.party {
+			e.setTgt(i+1, c)
+		}
+		if len(e.party) > 0 {
+			e.nSpellTargets = len(e.party)
+		}
+	default:
+		*ok = false
+	}
+}
+
+// o23_0F4F = ovr23:0F4F (side, msg): drops the targets of the other side
+// (and, for spell 1 in combat, those with an enemy next to them), then
+// applies the spell record to the rest.
+func (e *Engine) o23_0F4F(side int, msg string) {
+	msg = cut(msg, 0x28)
+	e.spellFlag6820 = 1
+	for i := 1; i <= e.nSpellTargets; i++ {
+		t := e.tgt(i)
+		if t == nil || int(t.Raw[chSide]) != side ||
+			e.curSpell == 1 && e.beginFlag == 5 && e.nearEnemies(t, 1) > 0 {
+			e.setTgt(i, nil)
+		}
+	}
+	e.o23_08C3(int(e.curSpell), 0, 0, 0, 0, msg)
+}
+
+// CastSpell = ovr23:0C20 (spell, mode, b, var quit): casts the spell of
+// the selected character. b non-zero announces it ("casts"); quit is set
+// when a combat-only item was used up. A combat-only spell or item outside
+// a fight asks to lose it / use it.
+func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
+	caster := e.selected()
+	ok := true
+	if e.beginFlag != 5 && e.spellRec(spell, 7) == 0 {
+		if !e.usingItem {
+			e.DisplayString(1, 0x13, 0xA, e.spellName(int(spell)))
+			e.DisplayString(1, 0x14, 0xA, "is a combat-only spell...")
+			if e.YesNo(0xD, 0xF, 0xA, "Lose it? ") == 'Y' {
+				e.forgetSpell(spell)
+			}
+		} else {
+			e.DisplayString(1, 0x13, 0xA, "That Item")
+			e.DisplayString(1, 0x14, 0xA, "is a combat-only item...")
+			if e.YesNo(0xD, 0xF, 0xA, "Use it? ") == 'Y' {
+				*quit = true
+			}
+		}
+		b = 0
+		ok = false
+	}
+	if b != 0 && !e.usingItem {
+		e.o23_331A(caster, "casts", int(spell))
+	}
+	for ok {
+		e.spellTargetHook(int(spell), int(mode), quit) // the asm passes the caller's var
+		if *quit {
+			ok = false
+			if e.beginFlag == 5 {
+				e.hitColours(0x12)
+				x, y := e.combatX(caster), e.combatY(caster)
+				dir := 0
+				for !e.inArc(x, y, e.tgtX, e.tgtY, dir) {
+					dir++
+				}
+				e.combatTurn(caster, byte(dir), 1, false)
+				e.soundWait(0)
+				switch spell {
+				case 0x2F:
+					e.PlaySound(int(wordAt(e.X.Bytes(0x262A, 2), 0)))
+				case 0x33:
+					e.PlaySound(int(wordAt(e.X.Bytes(0x2624, 2), 0)))
+				default:
+					e.PlaySound(int(wordAt(e.X.Bytes(0x2618, 2), 0)))
+				}
+				e.flyMissile(x, y, e.tgtX, e.tgtY, 4, 0x1E)
+				e.soundWait(0xA)
+				if e.combatOnScreen(caster, false) {
+					e.combatTurn(caster, caster.Combat.Raw[9], 1, true)
+					e.combatTurn(caster, caster.Combat.Raw[9], 0, false)
+				}
+			}
+			e.removeInvisibility(caster)
+			if !e.usingItem {
+				e.forgetSpell(spell)
+			}
+			e.curSpell = spell
+			e.spellFx[spell]()
+			e.curSpell = 0
+			e.spellFlag6820 = 0
+		} else if e.beginFlag != 5 {
+			ok = false
+		} else {
+			if mode == 0 && e.YesNo(0xE, 0xA, 0xF, "Abort Spell? ") != 'Y' {
+				continue
+			}
+			e.BottomMessage("Spell Aborted")
+			if !e.usingItem {
+				e.forgetSpell(spell)
+			}
+			ok = false
+		}
+	}
+	e.ClearMessageArea()
+	if e.beginFlag == 5 {
+		e.ClearCells(0, 0x17, 0x27, 0x17)
+	}
+}
+
+// spellRemoveCurse = ovr23:2540: the target (DS:6C95) loses the curse
+// affect, or else the curse of its first cursed item.
+func (e *Engine) spellRemoveCurse() {
+	t := e.spellTarget
+	if e.CureAffect(t, 0x24) {
+		e.hitMessage(t, true, "is un-cursed")
+		return
+	}
+	found := false
+	for _, it := range t.Items {
+		if found {
+			break
+		}
+		if it.Raw[itMagic] != 0 {
+			found = true
+			it.Raw[itMagic] = 0
+		}
+	}
+	if found {
+		e.hitMessage(t, true, "'s item is un-cursed")
+	}
+}
+
+// fxCursed = ovr23:2604.
+func (e *Engine) fxCursed() { e.o23_08C3(int(e.curSpell), 0, 0, 0, 0, "has been cursed!") }
+
+// fxBlinking = ovr23:263D.
+func (e *Engine) fxBlinking() { e.o23_08C3(int(e.curSpell), 0, 0, 0, 0, "is blinking") }
+
+// fxFireball = ovr23:266B: a burst of radius 2 round the target square,
+// level d6 of fire (spell 0x40 rolls its own level); the near list only
+// becomes the target list when the area holds no word at +0x1CC.
+func (e *Engine) fxFireball() {
+	var lvl int
+	if e.curSpell == 0x40 {
+		lvl = int(byte(e.Dice(1, 3)*2 + 1))
+	} else {
+		lvl = e.casterLevel(int(e.curSpell))
+	}
+	if wordAt(e.area, 0x1CC) == 0 {
+		e.buildNear(e.tgtX, e.tgtY, 2, 0xFF, 1)
+		for i, n := range e.near.list {
+			e.setTgt(i+1, e.combatant(n.index))
+		}
+		e.nSpellTargets = len(e.near.list)
+	}
+	e.combatCentre(e.tgtX, e.tgtY, 0, 8)
+	e.o23_08C3(int(e.curSpell), 0, 0, e.RollDice(lvl, 6), 9, "")
+}
+
+// removeAffectFromSide = ovr23:2764 (type, side, msg): the first casterLevel
+// targets of that side lose the affect; the others are dropped. A nil
+// target (garbage in the asm) is dropped as well.
+func (e *Engine) removeAffectFromSide(typ, side int, msg string) {
+	msg = cut(msg, 0x28)
+	e.spellFlag6820 = 1
+	lvl := byte(e.casterLevel(int(e.curSpell)))
+	for i := 1; i <= e.nSpellTargets; i++ {
+		t := e.tgt(i)
+		if t != nil && int(t.Raw[chSide]) == side && lvl > 0 {
+			lvl--
+			if e.CureAffect(t, byte(typ)) {
+				e.setTgt(i, nil)
+			}
+		} else {
+			e.setTgt(i, nil)
+		}
+	}
+	e.o23_08C3(int(e.curSpell), 0, 0, 0, 0, msg)
+	for i := 1; i <= e.nSpellTargets; i++ {
+		if t := e.tgt(i); t != nil {
+			e.affectGroup(t, 0x12)
+		}
+	}
+}
+
+// fxHaste = ovr23:2892: slow is removed from the caster's side.
+func (e *Engine) fxHaste() { e.removeAffectFromSide(0x2A, int(e.selected().Raw[chSide]), "is Hasted") }
+
+// strikeSquare = ovr23:28BC (x, y, dmg, saveType): whoever stands on the
+// square takes dmg (half on a save, DS:6819 = 0xC); true when the ground
+// there stops a bolt.
+func (e *Engine) strikeSquare(x, y, dmg, saveType int) bool {
+	blocked := false
+	who, ground := e.mapAt(x, y)
+	if ground > 0 && e.X.Bytes(0x2744+int(ground)*4, 1)[0] == 0xFF {
+		blocked = true
+	}
+	if who > 0 {
+		t := e.combatant(who)
+		e.rv.dmgType = 0xC
+		e.Damage(t, int(byte(dmg)), 2, e.SavingThrow(t, saveType, 0))
+		e.hitColours(0x13)
+		e.rv.dmgType = 0
+	}
+	return blocked
+}
+
+// boltPath = ovr23:295B (reach, dmg, saveType, bounce): the bolt goes on
+// past the target square, away from the caster, for reach*2 steps, hitting
+// each square; where it is stopped it comes back toward the caster (once,
+// when bounce is set, those squares count extra) with the direction
+// reversed.
+func (e *Engine) boltPath(reach, dmg, saveType, bounce int) {
+	e.hitColours(0x13)
+	prevWho, _ := e.mapAt(e.tgtX, e.tgtY)
+	dirSign := 1
+	sel := e.selected()
+	cx, cy := e.combatX(sel), e.combatY(sel)
+	flag := bounce
+	if cx == e.tgtX && cy == e.tgtY {
+		return
+	}
+	var who, ground byte // who is uninitialised in the asm until the first step
+	_, ground = e.mapAt(e.tgtX, e.tgtY)
+	r := byte(reach * 2)
+	e.spellFlag6820 = 1
+	for r > 0 {
+		x0, y0 := e.tgtX, e.tgtY
+		x1 := int(int16(e.tgtX + (e.tgtX-cx)*dirSign*int(r)))
+		y1 := int(int16(e.tgtY + (e.tgtY-cy)*dirSign*int(r)))
+		l := newLine(x0, y0, x1, y1)
+		for {
+			lastX, lastY := byte(l.x), byte(l.y)
+			if !(x0 == x1 && y0 == y1) {
+				for {
+					more := e.step(l)
+					who, ground = e.mapAt(int(byte(l.x)), int(byte(l.y)))
+					if !more {
+						break
+					}
+					if who > 0 && who != prevWho {
+						break
+					}
+					if ground == 0 || e.X.Bytes(0x2744+int(ground)*4, 1)[0] > 1 {
+						break
+					}
+					if byte(l.steps) >= r {
+						break
+					}
+				}
+			}
+			prevWho = who
+			if ground == 0 {
+				r = 0
+			}
+			e.flyMissile(int(lastX), int(lastY), int(byte(l.x)), int(byte(l.y)), 4, 0x32)
+			blocked := e.strikeSquare(int(byte(l.x)), int(byte(l.y)), dmg, saveType)
+			if blocked {
+				e.tgtX, e.tgtY = int(byte(l.x)), int(byte(l.y))
+				back := newLine(e.tgtX, e.tgtY, cx, cy)
+				for e.step(back) {
+				}
+				if flag != 0 && byte(back.steps) <= 8 {
+					l.steps += 8
+				}
+				dirSign = -dirSign
+				flag = 0
+				prevWho = 0
+			}
+			if byte(l.steps) < r {
+				r -= byte(l.steps)
+			} else {
+				r = 0
+			}
+			if blocked || r == 0 {
+				break
+			}
+		}
+	}
+	e.spellFlag6820 = 0
+}
+
+// fxLightning = ovr23:2BB7: level d6 down the line, bouncing.
+func (e *Engine) fxLightning() {
+	d := byte(e.Dice(e.casterLevel(int(e.curSpell)), 6))
+	e.strikeSquare(e.tgtX, e.tgtY, int(d), 4)
+	e.boltPath(8, int(d), 4, 1)
+}
+
+// fxSlow = ovr23:2C09.
+func (e *Engine) fxSlow() {
+	e.removeAffectFromSide(0x27, b2i(isParty(e.selected())), "is Slowed")
+}
+
+// fxRestore = ovr23:2C43: gives back one drained level (the class that
+// needs the fewest experience points) and the points lost with it.
+func (e *Engine) fxRestore() {
+	t := e.spellTarget
+	if t.Raw[0x74] == 0 {
+		return
+	}
+	q := t.Raw[0x75] / t.Raw[0x74]
+	t.Raw[chMaxHP] += q
+	t.Raw[chHP] += q
+	t.Raw[chSlots] += q
+	t.Raw[0x75] -= q
+	t.Raw[0x74]--
+	best := int8(0xD)
+	bestXP := int32(0x989680)
+	var bestClass int // uninitialised in the asm when nothing qualifies
+	for k := 0; k <= 7; k++ {
+		lvl := int8(t.Raw[chLevel+k])
+		if lvl <= 0 || lvl > best {
+			continue
+		}
+		xp := int32(longAt(e.X.Bytes(0x409B+k*0x38+int(byte(lvl+1))*4, 4), 0))
+		if xp <= 0 || xp >= bestXP {
+			continue
+		}
+		if atRaceLimit(t, k) {
+			continue
+		}
+		best, bestClass, bestXP = lvl, k, xp
+	}
+	t.Raw[chLevel+bestClass]++
+	if int32(longAt(t.Raw[:], chExp)) < bestXP {
+		putWord(t.Raw[:], chExp, uint16(bestXP))
+		putWord(t.Raw[:], chExp+2, uint16(bestXP>>16))
+	}
+	e.RecomputeCharacter(t)
+	e.CharMessage(t, "is restored", 0xA, true)
+}
+
+// fxSpeedy = ovr23:2E02.
+func (e *Engine) fxSpeedy() {
+	if !e.CureAffect(e.spellTarget, 0x2A) {
+		e.o23_08C3(int(e.curSpell), 0, 0, 0, 0, "is Speedy")
+	}
+}
+
+// fxCureParalysis = ovr23:2E4D: affect 0x37 is cured (and the affect 0x16
+// that goes with it removed); otherwise a small heal.
+func (e *Engine) fxCureParalysis() {
+	t := e.spellTarget
+	if e.CureAffect(t, 0x37) {
+		e.rv.cure = 1
+		e.RemoveAffect(t, 0x16, nil)
+		e.rv.cure = 0
+		return
+	}
+	if e.cureDiseaseAffects() {
+		return
+	}
+	if e.Heal(t, e.Dice(1, 4)+8, false) {
+		e.hitMessage(t, true, "is Healed")
+	}
+}
+
+// fxStronger = ovr23:2EE5: strength 0x15 for the spell's duration.
+func (e *Engine) fxStronger() {
+	t := e.spellTarget
+	out, ok := e.SetStrength(t, 0x15, 0)
+	if ok {
+		e.CharMessage(t, "is stronger", 0xA, true)
+	}
+	e.AddAffect(t, 0x26, e.o23_07D6(int(e.curSpell)), out, 1)
+}
+
+// fxBolt = ovr23:2F4D: Dice(1,6)+0x14 on the target square, then a fixed
+// 0x14 along the line.
+func (e *Engine) fxBolt() {
+	e.strikeSquare(e.tgtX, e.tgtY, e.Dice(1, 6)+0x14, 4)
+	e.boltPath(3, 0x14, 4, 0)
+}
+
+// fxParalyzed = ovr23:2F99.
+func (e *Engine) fxParalyzed() { e.o23_08C3(int(e.curSpell), 0, 0, 0, 0, "is paralyzed") }
+
+// fxHeal2d4 = ovr23:2FD0.
+func (e *Engine) fxHeal2d4() {
+	t := e.spellTarget
+	if e.Heal(t, e.Dice(2, 4)+2, false) {
+		e.hitMessage(t, true, "is Healed")
+	}
+}
+
+// fxInvisible = ovr23:302A.
+func (e *Engine) fxInvisible() { e.o23_08C3(int(e.curSpell), 0, 0, 0, 0, "is invisible") }
+
+// fxDamage2d4 = ovr23:3058: 2d4+2 of damage type 8.
+func (e *Engine) fxDamage2d4() {
+	e.o23_08C3(int(e.curSpell), 0, 0, e.RollDice(2, 4)+2, 8, "")
+}
+
+// fxNone = ovr23:3092: does nothing.
+func (e *Engine) fxNone() {}
+
+// fxReading = ovr23:30A2: level 0xFF, call 1.
+func (e *Engine) fxReading() { e.o23_08C3(int(e.curSpell), 0xFF, 1, 0, 0, "is Reading") }
+
+// o23_30D9 = ovr23:30D9 (char, affect, flag): the breath weapon affect
+// (type 0x58). Half the time (when DS:6DE3 is set) nothing happens; the
+// monster breathes at the target square with its hit points as damage.
+func (e *Engine) o23_30D9(c *Character, a *Affect, flag int) {
+	if e.v6DE3 != 0 && e.Dice(1, 100) <= 0x32 {
+		return
+	}
+	cx, cy := e.combatX(c), e.combatY(c)
+	e.CharMessage(c, "Breathes!", 0xA, true)
+	var ok bool // DS:70C6 receives the result
+	e.spellTargetHook(0x33, 1, &ok)
+	e.tgtX = cx + sign(e.tgtX-cx)
+	e.tgtY = cy + sign(e.tgtY-cy)
+	if cx+1 == e.tgtX {
+		e.tgtX++
+	}
+	if cy+1 == e.tgtY {
+		e.tgtY++
+	}
+	e.removeInvisibility(c)
+	e.hitColours(0x13)
+	e.flyMissile(cx, cy, e.tgtX, e.tgtY, 4, 0x32)
+	e.strikeSquare(e.tgtX, e.tgtY, int(c.Raw[chMaxHP]), 3)
+	e.boltPath(0xA, int(c.Raw[chMaxHP]), 3, 0)
+	if a.Raw[afData] > 0xFD {
+		a.Raw[afData]--
+	} else {
+		e.RemoveAffect(c, 0x58, a)
+	}
+	e.clearCombatInfo(c)
+}
+
+// isScroll = ovr23:323D (item): the base item type is a scroll (11..13).
+func (e *Engine) isScroll(it *Item) bool {
+	if it == nil {
+		return false
+	}
+	t := e.items[int(it.Raw[itType])<<4]
+	return t > 0xA && t < 0xE
+}
+
+// scrollUsed = ovr23:328A (char, item, spell): the spell is wiped from the
+// scroll; the scroll goes when the item byte +0x30 falls under 0xD2.
+func (e *Engine) scrollUsed(c *Character, it *Item, spell byte) {
+	s := spell & 0x7F
+	idx := 0
+	for i := 1; i <= 3; i++ {
+		if it.Raw[0x3B+i]&0x7F == s {
+			idx = i
+		}
+	}
+	if idx == 0 {
+		return
+	}
+	it.Raw[0x3B+idx] = 0
+	it.Raw[0x30]--
+	if it.Raw[0x30] < 0xD2 {
+		e.RemoveItem(c, it)
+	}
+}
+
+// o23_331A = ovr23:331A (char, msg, spell): announces the cast, in the
+// side panel in combat, else in the message box.
+func (e *Engine) o23_331A(c *Character, msg string, spell int) {
+	msg = cut(msg, 0x28)
+	if e.beginFlag == 5 {
+		e.CharMessage(c, "Casts a Spell", 0xA, true)
+		e.ClearCells(0, 0x17, 0x27, 0x17)
+		e.DisplayString(0, 0x17, 0xA, "Spell:"+e.spellName(spell))
+		return
+	}
+	e.ClearCells(1, 0x12, 0x26, 0x16)
+	e.displayName(c, 1, 0x13, false)
+	e.DisplayString(len(c.Name())+2, 0x13, 0xA, msg)
+	e.DisplayString(1, 0x14, 0xA, e.spellName(spell))
+	e.MsgDelay()
+	e.ClearMessageArea()
+}
+
+// spellTableInit = ovr23:3413: the DS:6B84 table of spell effects (indexed
+// by spell, slot 0 is spellTargetSetup), the breath affect handler (type
+// 0x58, DS:6988) and the spell globals.
+func (e *Engine) spellTableInit() {
+	e.rv.cure = 0 // DS:681F
+	e.usingItem = false
+	e.spellCaster = nil
+	e.itemsRedraw = true // DS:6821
+	affectHandlers[0x58] = func(e *Engine, c *Character, a *Affect, flag byte) { e.o23_30D9(c, a, int(flag)) }
+	e.spellFx[1] = e.o23_100F
+	e.spellFx[2] = e.o23_1040
+	e.spellFx[3] = e.o23_106B
+	e.spellFx[4] = e.o23_10A7
+	e.spellFx[5] = e.o23_10E9
+	e.spellFx[6] = e.o23_1123
+	e.spellFx[7] = e.o23_1123
+	e.spellFx[8] = e.o23_1162
+	e.spellFx[9] = e.o23_1190
+	e.spellFx[10] = e.o23_11DD
+	e.spellFx[11] = e.o23_10E9
+	e.spellFx[12] = e.o23_12A5
+	e.spellFx[13] = e.o23_136E
+	e.spellFx[14] = e.o23_13D8
+	e.spellFx[15] = e.o23_1439
+	e.spellFx[16] = e.o23_1123
+	e.spellFx[17] = e.o23_1123
+	e.spellFx[18] = e.o23_10E9
+	e.spellFx[19] = e.o23_1499
+	e.spellFx[20] = e.o23_14C7
+	e.spellFx[21] = e.o23_151B
+	e.spellFx[22] = e.o23_10E9
+	e.spellFx[23] = e.o23_1658
+	e.spellFx[24] = e.o23_17E9
+	e.spellFx[25] = e.o23_1822
+	e.spellFx[26] = e.o23_185B
+	e.spellFx[27] = e.o23_190F
+	e.spellFx[28] = e.o23_19C3
+	e.spellFx[29] = e.o23_10E9
+	e.spellFx[30] = e.o23_1A16
+	e.spellFx[31] = e.o23_1A4F
+	e.spellFx[32] = e.o23_1A8A
+	e.spellFx[33] = e.o23_1ACC
+	e.spellFx[34] = e.o23_1B11
+	e.spellFx[35] = e.o23_1F41
+	e.spellFx[36] = e.o23_206F
+	e.spellFx[37] = e.o23_2217
+	e.spellFx[38] = e.o23_225D
+	e.spellFx[39] = e.o23_232F
+	e.spellFx[40] = e.o23_234C
+	e.spellFx[41] = e.o23_2385
+	e.spellFx[42] = e.o23_24D6
+	e.spellFx[43] = e.spellRemoveCurse
+	e.spellFx[44] = e.fxCursed
+	e.spellFx[45] = e.fxBlinking
+	e.spellFx[46] = e.o23_2385
+	e.spellFx[47] = e.fxFireball
+	e.spellFx[48] = e.fxHaste
+	e.spellFx[49] = e.o23_1658
+	e.spellFx[50] = e.o23_1A16
+	e.spellFx[51] = e.fxLightning
+	e.spellFx[52] = e.o23_1123
+	e.spellFx[53] = e.o23_1123
+	e.spellFx[54] = e.o23_1123
+	e.spellFx[55] = e.fxSlow
+	e.spellFx[56] = e.fxRestore
+	e.spellFx[57] = e.fxSpeedy
+	e.spellFx[58] = e.fxCureParalysis
+	e.spellFx[59] = e.fxStronger
+	e.spellFx[60] = e.fxBolt
+	e.spellFx[61] = e.fxParalyzed
+	e.spellFx[62] = e.fxHeal2d4
+	e.spellFx[63] = e.fxInvisible
+	e.spellFx[64] = e.fxFireball
+	e.spellFx[65] = e.fxDamage2d4
+	e.spellFx[66] = e.fxNone
+	e.spellFx[67] = e.fxReading
+}
+
+// o23_37B0 = ovr23:37B0: empty (entry 0).
+func (e *Engine) o23_37B0() {}

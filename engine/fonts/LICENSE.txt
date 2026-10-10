@@ -1,0 +1,8 @@
+The *.f8 files are the 8x8 code page 437 fonts of The Ultimate Oldschool PC
+Font Pack v2.2 by VileR (https://int10h.org/oldschool-pc-fonts/), converted
+from its Windows bitmap (.FON) versions to raw 256x8-byte glyph tables with
+decomp/tools/fon2f8.py. Identical fonts were dropped.
+
+They are licensed under the Creative Commons Attribution-ShareAlike 4.0
+International License (CC BY-SA 4.0):
+https://creativecommons.org/licenses/by-sa/4.0/

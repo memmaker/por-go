@@ -1,0 +1,729 @@
+package engine
+
+import (
+	"encoding/binary"
+	"strconv"
+	"strings"
+)
+
+// ECL virtual-machine support, ported from ovr08. Addresses are ECL
+// addresses; the code image is loaded at base 0x9900 (DS:49DE buffer).
+
+const eclBase = 0x9900
+
+// eclState mirrors the DS globals used by the interpreter.
+type eclState struct {
+	argType                                                       [64]byte   // DS:7005
+	argLo                                                         [64]byte   // DS:7085
+	argHi                                                         [64]byte   // DS:7045
+	str                                                           [64]string // DS:6FC8 + 0x100*k (k = 1..)
+	retStack                                                      []int      // DS:6F70 chain
+	flags                                                         [6]bool    // DS:6F78..6F7D: eq ne lt gt le ge
+	op                                                            byte       // DS:6F7F
+	prevOp                                                        byte       // DS:6F7E
+	v6F68                                                         byte       // DS:6F68 (init 0x41)
+	v6F69                                                         byte       // DS:6F69 (init 9)
+	v6F6A                                                         uint16     // read-only specials 0xFB/0xFC/0xB1
+	v6F6C                                                         uint16
+	v6F6E                                                         uint16
+	v6F83                                                         byte   // CPIC id for ROLF clone (8)
+	stop                                                          bool   // DS:442E
+	events                                                        [5]int // DS:49E3,49E5,49E7,49E9,49EB
+	wallAhead                                                     byte   // DS:6AB0
+	cell                                                          byte   // DS:6AB1
+	f84C8                                                         [2]byte
+	f84CC, f84CE, f84D0                                           uint16
+	f84D2, f84D3, f84D4                                           byte
+	f84E0, f84E1, f84E2, f84E3, f84E5, f84E6, f84E8, f84E9, f84EA byte
+	f70C6                                                         byte
+	f49FD, f49FE                                                  byte
+}
+
+func (e *Engine) eclByte(a int) byte       { return e.ecl[(a+0x6700)&0xFFFF] }
+func (e *Engine) setEclByte(a int, v byte) { e.ecl[(a+0x6700)&0xFFFF] = v }
+
+func wordAt(b []byte, o int) uint16     { return binary.LittleEndian.Uint16(b[o:]) }
+func putWord(b []byte, o int, v uint16) { binary.LittleEndian.PutUint16(b[o:], v) }
+
+// addrKind = ovr08:06FB.
+func addrKind(a int) int {
+	switch {
+	case a >= 0x4900 && a <= 0x4CFF:
+		return 0
+	case a >= 0x6B00 && a <= 0x6EFF:
+		return 1
+	case a >= 0x9700 && a <= 0x98FF:
+		return 2
+	case a >= 0x9900 && a <= 0xB6FF:
+		return 3
+	}
+	return 4
+}
+
+func (e *Engine) areaVar(a int) uint16         { return wordAt(e.area, 2*(a-0x4900)) }
+func (e *Engine) setAreaVar(a int, v uint16)   { putWord(e.area, 2*(a-0x4900), v) }
+func (e *Engine) globalVar(a int) uint16       { return wordAt(e.game, 2*(a-0x6B00)) }
+func (e *Engine) setGlobalVar(a int, v uint16) { putWord(e.game, 2*(a-0x6B00), v) }
+func (e *Engine) blk3Var(a int) uint16         { return wordAt(e.aux, 2*(a-0x9700)) }
+func (e *Engine) setBlk3Var(a int, v uint16)   { putWord(e.aux, 2*(a-0x9700), v) }
+
+func (e *Engine) selected() *Character {
+	if len(e.party) == 0 {
+		return &Character{}
+	}
+	return e.party[e.partySel]
+}
+
+func (e *Engine) partyIndex(c *Character) int { // ovr08:0756
+	for i, p := range e.party {
+		if p == c {
+			return i
+		}
+	}
+	return len(e.party)
+}
+
+// readSpecialGlobal = ovr08:07BC.
+func (e *Engine) readSpecialGlobal(a int) (uint16, bool) {
+	c := e.selected()
+	r := c.Raw[:]
+	switch off := a - 0x6B00; off {
+	case 0x18:
+		return uint16(r[0x14]), true
+	case 0x9B:
+		return uint16(r[0x6E]), true
+	case 0xA0:
+		return uint16(int16(int8(r[0x73]))), true
+	case 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xAB, 0xAC:
+		return uint16(r[0x76+(off-0xA4)]), true
+	case 0xB8:
+		return uint16(r[0x84]), true
+	case 0xBB:
+		return wordAt(r, 0x88), true
+	case 0xBD:
+		return wordAt(r, 0x8A), true
+	case 0xBF:
+		return wordAt(r, 0x8C), true
+	case 0xC1:
+		return wordAt(r, 0x8E), true
+	case 0xC3:
+		return wordAt(r, 0x90), true
+	case 0xD8:
+		return uint16(int16(int8(r[0xA0]))), true
+	case 0xF7:
+		return wordAt(r, 0xB8), true
+	case 0xF9:
+		return uint16(r[0xBA]), true
+	case 0x100:
+		if r[0x10D] != 0 {
+			return 1, true
+		}
+		return 0x80, true
+	case 0x10C:
+		switch {
+		case r[0x10E] == 0 && r[0x10F] != 0:
+			return 0x80, true
+		case r[0x10E] == 1:
+			return 0x81, true
+		}
+		return 0, true
+	case 0x10D:
+		return 0, true // undefined in the original
+	case 0x11B:
+		return uint16(r[0x11C]), true
+	case 0x2B1, 0x2B4:
+		return uint16(e.partyIndex(c)), true
+	case 0x2CF:
+		switch v := r[0x15]; {
+		case v == 3:
+			return 0, true
+		case v == 4:
+			return 5, true
+		case v == 5:
+			return 0xA, true
+		case v == 6:
+			return 0xF, true
+		case v == 7:
+			return 0x14, true
+		case v >= 8 && v <= 0xC:
+			return 0x19, true
+		case v == 0xD:
+			return 0x1E, true
+		case v == 0xE:
+			return 0x23, true
+		case v == 0xF:
+			return 0x28, true
+		case v == 0x10:
+			return 0x32, true
+		case v == 0x11:
+			return 0x37, true
+		case v >= 0x12 && v <= 0x19:
+			return 0x3C, true
+		}
+		return 0, true
+	case 0x312:
+		return uint16(e.symDAX[4] - '0'), true
+	case 0x33E:
+		return uint16(e.partyCount()), true
+	}
+	return 0, false
+}
+
+// writeSpecialGlobal = ovr08:0A74.
+func (e *Engine) writeSpecialGlobal(a int, v uint16) {
+	c := e.selected()
+	r := c.Raw[:]
+	off := a - 0x6B00
+	switch {
+	case off == 0:
+		if v == 0 {
+			e.es.f84D3 = 1
+		}
+	case off >= 0x20 && off <= 0x70:
+		r[0x17+(off-0x1F)] = byte(v)
+	case off == 0xB8:
+		if v > 0xB2 {
+			v -= 0x32
+		}
+		r[0x84] = byte(v)
+	case off == 0xBB:
+		putWord(r, 0x88, v)
+	case off == 0xBD:
+		putWord(r, 0x8A, v)
+	case off == 0xBF:
+		putWord(r, 0x8C, v)
+	case off == 0xC1:
+		putWord(r, 0x8E, v)
+	case off == 0xC3:
+		putWord(r, 0x90, v)
+	case off == 0xF7:
+		putWord(r, 0xB8, v)
+	case off == 0xF9:
+		r[0xBA] = byte(v)
+	case off == 0x100:
+		if v >= 0x80 {
+			r[0x10D] = 0
+		}
+		if v == 0x87 {
+			r[0x10C] = 7
+		}
+		if v == 0 {
+			e.es.f84D2 = 1
+		}
+	case off == 0x10C:
+		switch v {
+		case 0:
+			r[0x10E], r[0x10F] = 0, 0
+		case 0x80:
+			r[0x10E], r[0x10F] = 0, 1
+		case 0x81:
+			r[0x10E], r[0x10F] = 1, 1
+		}
+	case off == 0x312:
+		e.symPrev = e.symDAX // 0802:094A
+		e.symDAX = "8X8D" + strconv.Itoa(int(byte(v)))
+	case off == 0x322, off == 0x324, off == 0x326:
+		if v > 0x80 {
+			e.LoadWalldef(int(v&0x7F), (off-0x322)/2+1)
+		}
+	}
+}
+
+// WriteVar = ovr08:0C77.
+func (e *Engine) WriteVar(a int, v uint16) {
+	switch addrKind(a) {
+	case 0:
+		e.setAreaVar(a, v)
+		if a == 0x49FD || a == 0x49FE {
+			e.es.f84E8 = 1
+		}
+	case 1:
+		e.setGlobalVar(a, v)
+		e.writeSpecialGlobal(a, v)
+	case 2:
+		e.setBlk3Var(a, v)
+	case 3:
+		e.setEclByte(a, byte(v))
+	case 4:
+		if a < 0xBF68 {
+			switch a {
+			case 0x3DE:
+				e.es.f84CC = v
+			case 0xB8:
+				e.es.f84CE = v
+			case 0xB9:
+				e.es.f84D0 = v
+			}
+			return
+		}
+		switch a - 0xBF68 {
+		case 0xE3:
+			e.es.f84E6 = 1
+			e.posX = int(v)
+		case 0xE4:
+			e.posY = int(v)
+			e.es.f84E6 = 1
+		case 0xE5:
+			e.facing = [4]int{0, 2, 4, 6}[v%4]
+			e.es.f84E6 = 1
+		case 0xF1:
+			e.es.v6F68 = byte(v)
+			e.es.f84E5 = 1
+		case 0xF7:
+			e.es.v6F69 = byte(v)
+			e.es.f84E5 = 1
+		}
+	}
+}
+
+// ReadVar = ovr08:0E0C.
+func (e *Engine) ReadVar(a int) uint16 {
+	switch addrKind(a) {
+	case 0:
+		return e.areaVar(a)
+	case 1:
+		if r, ok := e.readSpecialGlobal(a); ok {
+			return r
+		}
+		return e.globalVar(a)
+	case 2:
+		return e.blk3Var(a)
+	case 3:
+		return uint16(e.eclByte(a))
+	}
+	if a < 0xC04B {
+		switch a {
+		case 0xB1:
+			return e.es.v6F6E
+		case 0xFB:
+			return e.es.v6F6A
+		case 0xFC:
+			return e.es.v6F6C
+		case 0x33D:
+			return uint16(e.facing)
+		}
+		return 0
+	}
+	switch a - 0xC04B {
+	case 0:
+		return uint16(int16(int8(e.posX)))
+	case 1:
+		return uint16(int16(int8(e.posY)))
+	case 2:
+		return uint16(e.facing >> 1)
+	case 3:
+		return uint16(e.es.wallAhead)
+	case 4:
+		return uint16(e.es.cell)
+	}
+	return 0 // the original returns its unset result word (stack residue); emu.py pins it to 0
+}
+
+// WriteStringVar = ovr08:0F53.
+func (e *Engine) WriteStringVar(a int, s string) {
+	if addrKind(a) == 1 && a == 0x6B00 {
+		e.selected().SetName(s)
+		return
+	}
+	for i := 0; i <= len(s); i++ {
+		var v uint16
+		if i < len(s) {
+			v = uint16(s[i])
+		}
+		switch addrKind(a) {
+		case 0:
+			e.setAreaVar(a+i, v)
+		case 1:
+			e.setGlobalVar(a+i, v)
+		case 2:
+			e.setBlk3Var(a+i, v)
+		case 3:
+			e.setEclByte(a+i, byte(v))
+		}
+	}
+}
+
+// readStringVar = ovr08:12FB.
+func (e *Engine) readStringVar(a int) string {
+	if addrKind(a) == 1 && a == 0x6B00 {
+		return e.selected().Name()
+	}
+	var b []byte
+	for i := 0; i < 255; i++ {
+		var v uint16
+		switch addrKind(a) {
+		case 0:
+			v = e.areaVar(a + i)
+		case 1:
+			v = e.globalVar(a + i)
+		case 2:
+			v = e.blk3Var(a + i)
+		case 3:
+			v = uint16(e.eclByte(a + i))
+		}
+		if v == 0 {
+			break
+		}
+		b = append(b, byte(v))
+	}
+	return string(b)
+}
+
+func unpackChar(c byte) byte { // ovr08:06D3
+	if c <= 0x1F {
+		return c + 0x40
+	}
+	return c
+}
+
+// decodePackedString = ovr08:1153: 6-bit packed text at pc+1.., length n chars.
+func (e *Engine) decodePackedString(n int) string {
+	var out []byte
+	count, state := 0, 1
+	var prev, cur byte
+	for count < n {
+		if state < 4 {
+			e.eclPC++
+			prev, cur = cur, e.eclByte(e.eclPC)
+			count++
+		}
+		var c byte
+		switch state {
+		case 1:
+			c = cur >> 2
+		case 2:
+			c = (prev&3)<<4 | cur>>4
+		case 3:
+			c = (prev&0xF)<<2 | cur>>6
+		case 4:
+			c = cur & 0x3F
+		}
+		if state < 4 {
+			state++
+		} else {
+			state = 1
+		}
+		if c != 0 && len(out) < 255 {
+			out = append(out, unpackChar(c))
+		}
+	}
+	if state == 4 {
+		if c := cur & 0x3F; c != 0 && len(out) < 255 {
+			out = append(out, unpackChar(c))
+		}
+	}
+	return string(out)
+}
+
+// FetchArgs = ovr08:0000 (n): decode n operands following the opcode.
+func (e *Engine) FetchArgs(n int) {
+	k := 0
+	for i := 1; i <= n; i++ {
+		e.es.argType[i] = e.eclByte(e.eclPC + 1)
+		e.es.argLo[i] = e.eclByte(e.eclPC + 2)
+		e.eclPC += 2
+		switch e.es.argType[i] {
+		case 1, 2, 3:
+			e.eclPC++
+			e.es.argHi[i] = e.eclByte(e.eclPC)
+		case 0x80:
+			k++
+			if l := int(e.es.argLo[i]); l > 0 {
+				e.es.str[k] = e.decodePackedString(l)
+			} else {
+				e.es.str[k] = ""
+			}
+		case 0x81:
+			k++
+			e.eclPC++
+			e.es.argHi[i] = e.eclByte(e.eclPC)
+			e.es.str[k] = e.readStringVar(int(e.es.argHi[i])<<8 | int(e.es.argLo[i]))
+		}
+	}
+	e.eclPC++
+}
+
+// ArgAddr returns hi<<8|lo of operand i (ovr08:06AF mkaddr).
+func (e *Engine) ArgAddr(i int) int { return int(e.es.argHi[i])<<8 | int(e.es.argLo[i]) }
+
+// ArgValue = ovr08:0136.
+func (e *Engine) ArgValue(i int) uint16 {
+	switch e.es.argType[i] {
+	case 0:
+		return uint16(e.es.argLo[i])
+	case 1, 3, 0x80:
+		return e.ReadVar(e.ArgAddr(i))
+	}
+	return uint16(e.ArgAddr(i))
+}
+
+// InitAreaScript = ovr08:01B6.
+func (e *Engine) InitAreaScript() {
+	s := &e.es
+	s.f84E0, s.f84E2, s.f84D2, s.f84D3 = 0, 0, 0, 0
+	s.v6F68, s.v6F69, s.f84E5 = 0x41, 9, 1
+	s.f84C8 = [2]byte{}
+	s.v6F83 = 8
+	e.eclPC = eclBase
+	s.f70C6 = 0
+	s.retStack = nil
+	s.flags = [6]bool{}
+	putWord(e.game, 0x5C2, 0xFF)
+	putWord(e.game, 0x5A4, 0)
+	putWord(e.game, 0x5A6, 0)
+	putWord(e.area, 0x1CA, 0)
+	for i := 0; i < 5; i++ {
+		e.FetchArgs(1)
+		s.events[i] = e.ArgAddr(1)
+	}
+	putWord(e.area, 0x1CC, 1)
+	if !e.loadedGame {
+		for i := 1; i <= 0x20; i++ {
+			e.setAreaVar(0x49FF+i, 0)
+		}
+		for i := 0; i <= 9; i++ {
+			e.setGlobalVar(0x6E79+i, 0)
+		}
+	} else {
+		e.loadedGame = false
+	}
+}
+
+// LoadArea = ovr08:0341: ECL<n>.DAX block areaId → ECL image (first word skipped).
+func (e *Engine) LoadArea(areaID int) {
+	for i := range e.ecl {
+		e.ecl[i] = 0
+	}
+	e.loadingMonster = false
+	e.ClearRow24()
+	e.DisplayString(0, 0x18, 0xF, "Loading...Please Wait")
+	b := e.L.Block("ECL"+e.symDAX[4:], areaID)
+	if len(b) >= 2 {
+		copy(e.ecl, b[2:])
+	}
+	e.ClearRow24()
+}
+
+// FreeSteps = ovr08:0482.
+func (e *Engine) FreeSteps(x, y, dir int) int {
+	if wordAt(e.area, 0x1CC) == 0 {
+		putWord(e.game, 0x582, 2)
+		return 2
+	}
+	n := 0
+	for n < 2 {
+		if e.WallAt(x, y, dir) != 0 {
+			break
+		}
+		n++
+		switch dir {
+		case 0:
+			y--
+		case 2:
+			x++
+		case 4:
+			y++
+		case 6:
+			x--
+		}
+	}
+	return n
+}
+
+// CompareWords = ovr08:18EB; CompareStrings = ovr08:1815.
+func (e *Engine) CompareWords(a, b uint16) {
+	e.es.flags = [6]bool{a == b, a != b, a < b, a > b, a <= b, a >= b}
+}
+func (e *Engine) CompareStrings(a, b string) {
+	e.es.flags = [6]bool{a == b, a != b, a < b, a > b, a <= b, a >= b}
+}
+
+// Gosub = ovr08:1951 (i).
+func (e *Engine) Gosub(i int) {
+	e.es.retStack = append(e.es.retStack, e.eclPC)
+	e.eclPC = e.ArgAddr(i)
+}
+
+// StepForward = ovr08:19DB.
+func (e *Engine) StepForward() {
+	switch e.facing {
+	case 0:
+		if e.posY > 0 {
+			e.posY--
+		} else {
+			e.posY = 15
+		}
+	case 2:
+		if e.posX < 15 {
+			e.posX++
+		} else {
+			e.posX = 0
+		}
+	case 4:
+		if e.posY < 15 {
+			e.posY++
+		} else {
+			e.posY = 0
+		}
+	case 6:
+		if e.posX > 0 {
+			e.posX--
+		} else {
+			e.posX = 15
+		}
+	}
+	e.es.cell = e.MapCell(e.posX, e.posY)
+	e.es.wallAhead = e.WallAt(e.posX, e.posY, e.facing)
+}
+
+// ScaleExp = ovr08:1CC3.
+func (e *Engine) ScaleExp(factor float64, c *Character) {
+	for _, o := range []int{0x88, 0x8A, 0x8C, 0x8E, 0x90, 0x92, 0x94} {
+		putWord(c.Raw[:], o, uint16(float64(wordAt(c.Raw[:], o))*factor))
+	}
+}
+
+// ItemSave = ovr08:1DF0 (c, pct): each item is lost with chance pct. The
+// reductions for big items accumulate over the list, as in the original.
+func (e *Engine) ItemSave(c *Character, pct int) {
+	for _, it := range append([]*Item(nil), c.Items...) {
+		if v := wordAt(it.Raw[:], 0x37); v > 0xFF {
+			if pct > 0x5A {
+				pct -= 0x5A
+			} else {
+				pct = 0
+			}
+		} else if v > 0x18 {
+			if pct > 0x32 {
+				pct -= 0x32
+			} else {
+				pct = 0
+			}
+		}
+		if e.Dice(1, 100) <= pct {
+			e.RemoveItem(c, it) // 00BA:1509
+		}
+	}
+}
+
+// opArgCount = ovr08:1EA6 table.
+var opArgCount = map[byte]int{
+	0x01: 1, 0x02: 1, 0x0A: 1, 0x0E: 1, 0x11: 1, 0x12: 1, 0x1D: 1, 0x20: 1, 0x2D: 1, 0x32: 1, 0x34: 1, 0x36: 1, 0x38: 1, 0x39: 1, 0x3C: 1,
+	0x03: 2, 0x08: 2, 0x09: 2, 0x0C: 2, 0x0F: 2, 0x10: 2, 0x1F: 2, 0x22: 2,
+	0x04: 3, 0x05: 3, 0x06: 3, 0x07: 3, 0x0B: 3, 0x21: 3, 0x28: 3, 0x2A: 3, 0x2F: 3, 0x30: 3, 0x35: 3, 0x37: 3, 0x3B: 3,
+	0x14: 4, 0x23: 4, 0x2E: 5, 0x1E: 6, 0x2C: 6, 0x27: 8, 0x29: 14,
+}
+
+// FetchOpcodeArgs = ovr08:1EA6.
+func (e *Engine) FetchOpcodeArgs() {
+	e.es.op = e.eclByte(e.eclPC)
+	if n, ok := opArgCount[e.es.op]; ok {
+		e.FetchArgs(n)
+	} else {
+		e.eclPC++
+	}
+}
+
+// PartyHpRange = ovr08:1FB1 (&hi, &lo): highest and lowest +0x11C in the
+// party, doubled (special 0x27) or halved (0x2A) in byte arithmetic.
+func (e *Engine) PartyHpRange() (hi, lo int) {
+	if len(e.party) == 0 {
+		return 0, 0
+	}
+	h8 := e.party[0].Raw[0x11C]
+	l8 := h8
+	for _, c := range e.party {
+		h := c.Raw[0x11C]
+		if e.FindAffect(c, 0x27) != nil {
+			h *= 2
+		} else if e.FindAffect(c, 0x2A) != nil {
+			h /= 2
+		}
+		if h > h8 {
+			h8 = h
+		}
+		if h < l8 {
+			l8 = h
+		}
+	}
+	return int(h8), int(l8)
+}
+
+// extractHotkeys = ovr08:156D: "~Yes ~No" → menu "yes no", hotkeys "YN".
+func extractHotkeys(menu string) (hot, out string) {
+	b := []byte(menu)
+	var res []byte
+	for i := 0; i < len(b); i++ {
+		c := b[i]
+		if c == '~' {
+			if i+1 < len(b) {
+				h := upper(b[i+1])
+				if len(hot) < 0x28 {
+					hot += string(h)
+				}
+				res = append(res, h)
+				i++
+			}
+			continue
+		}
+		if isHotkey(c) {
+			c += 'a' - 'A' // digits too: '0'..'9' turn into 'P'..'Y', as in the original
+		}
+		res = append(res, c)
+	}
+	return hot, string(res)
+}
+
+// MenuInput = ovr08:1684 (anim, allowEnter, c3, c2, c1, menu, prompt): index
+// of the chosen hotkey, 0 for Enter, 0xFF for unknown.
+func (e *Engine) MenuInput(allowEnter bool, c3, c2, c1 int, menu, prompt string) int {
+	hot, shown := extractHotkeys(menu)
+	for {
+		key, extra := e.DisplayInput(prompt, shown, c1, c2, c3, true, e.animInput) // ovr08:16DC: the anim parameter
+		if extra {
+			e.partyKeypad(key)
+			e.DisplayPartyList()
+			key = 0
+		}
+		if isHotkey(key) {
+			if i := strings.IndexByte(hot, key); i >= 0 {
+				return i
+			}
+			return 0xFF
+		}
+		if key == 13 && allowEnter {
+			return 0
+		}
+	}
+}
+
+// HitMessage = ovr08:20CC (c, dmg).
+func (e *Engine) HitMessage(c *Character, dmg int) {
+	if c.Raw[chStatus] == 6 {
+		return
+	}
+	var msg string
+	if int(c.Raw[chHP])+10 < dmg {
+		msg = "  " + c.Name() + " dies. "
+	} else {
+		msg = "  " + c.Name() + " is hit FOR " + padLeft(strconv.Itoa(dmg), 3) + " points of Damage."
+	}
+	clear := false
+	if e.msgRow > 0x16 {
+		e.msgRow = 0x11
+		clear = true
+		e.MessageRow24b(0xF, "press <enter>/<return> to continue")
+	}
+	e.msgCol = 0x26
+	e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xF, clear, msg)
+	e.ApplyDamage(c, dmg&0xFF) // 00BA:2228
+	e.ClearBox(0x11, 1, 0x26, 0xF)
+	e.DisplayPartyList()
+}
+
+func padLeft(s string, n int) string {
+	for len(s) < n {
+		s = " " + s
+	}
+	return s
+}
