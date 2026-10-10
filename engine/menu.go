@@ -25,16 +25,35 @@ func menuItems(menu string) (start, end []int) {
 	return
 }
 
+// itemSpan (extra): the cells highlighted for item j, the word holding its
+// hotkey ("color-1" for 1, where the original lights "1 color-"); the
+// original span when the word holds more than one hotkey.
+func itemSpan(menu string, start, end []int, j int) (a, b int) {
+	if j < 1 || j >= len(start) || start[j] < 1 {
+		return 0, 0
+	}
+	a, b = start[j], start[j]
+	for a > 1 && menu[a-2] != ' ' {
+		a--
+	}
+	for b < len(menu) && menu[b] != ' ' {
+		b++
+	}
+	for i := a; i <= b; i++ {
+		if i != start[j] && isHotkey(menu[i-1]) {
+			return start[j], max(end[j], start[j])
+		}
+	}
+	return a, b
+}
+
 // drawMenu = ovr26:01DA.
 func (e *Engine) drawMenu(prompt, menu string, start, end []int, sel, normal, highlight int) {
 	if len(menu) == 0 {
 		return
 	}
 	x0 := len(prompt)
-	s0, e0 := 0, 0
-	if sel < len(start) {
-		s0, e0 = start[sel], end[sel]
-	}
+	s0, e0 := itemSpan(menu, start, end, sel)
 	e.ext.padHot = 0
 	for i := s0; i >= 1 && i <= e0 && i <= len(menu); i++ {
 		if isHotkey(menu[i-1]) {
@@ -229,7 +248,8 @@ func (e *Engine) menuRegions(prompt, menu string, start, end []int, normal, high
 			continue
 		}
 		j, hot := j, menu[start[j]-1]
-		e.addRegion(region{x0: len(prompt) + start[j] - 1, y0: 24, x1: len(prompt) + end[j] - 1, y1: 24,
+		a, b := itemSpan(menu, start, end, j)
+		e.addRegion(region{x0: len(prompt) + a - 1, y0: 24, x1: len(prompt) + b - 1, y1: 24,
 			click: func(int, int) uint16 { return uint16(hot) },
 			hover: func() { sel(j) }})
 	}
