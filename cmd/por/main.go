@@ -343,7 +343,9 @@ func main() {
 	}
 	actx := audio.NewContext(44100)
 	if pl, err := actx.NewPlayer(eng.SoundReader()); err == nil {
-		pl.SetBufferSize(40 * time.Millisecond)
+		// at least the 2048 frames (46 ms) a browser pulls at once, or the
+		// rest of each pull plays as silence (goplay)
+		pl.SetBufferSize(50 * time.Millisecond)
 		pl.Play()
 	}
 	eng.Cfg.Param = flag.Arg(0)
