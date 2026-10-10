@@ -211,7 +211,7 @@ func (e *Engine) o13_1E77(c *Character, a *Affect, flag byte) {
 	e.hitColours(0x12)
 	e.flyMissile(e.combatX(c), e.combatY(c), e.combatX(t), e.combatY(t), 4, 0x2D)
 	e.curSpell = 0xA
-	data := byte(int(int8(c.Raw[chSide]))<<7 + 0xC)
+	data := byte(int(int8(c.Side))<<7 + 0xC)
 	saved := e.SavingThrow(t, 4, 0xFE)
 	e.AddAffectMsg(t, 0xB, 0, data, 1, 1, saved, "is charmed")
 	if x := e.FindAffect(t, 0xB); x != nil {
@@ -229,7 +229,7 @@ func (e *Engine) drainLevels(c *Character, n int) {
 		best = 0
 		idx, maxLvl := 0, int8(0)
 		for i := 0; i < 8; i++ {
-			lvl := int8(c.Raw[0x96+i])
+			lvl := int8(c.Levels[i])
 			var cur uint32
 			if lvl > 1 {
 				b := e.X.Bytes(0x409B+0x38*i+4*int(lvl), 4)
@@ -246,54 +246,54 @@ func (e *Engine) drainLevels(c *Character, n int) {
 		msg = cut(itoa(n)+" levels", 0x28)
 	}
 	e.CharMessage(c, "is drained "+msg, 0xA, true)
-	if c.Raw[chStatus] == 1 {
+	if c.Status == 1 {
 		e.killWithMessage(c, 8, "is dead forever")
-		c.Raw[0x32] = 0
+		c.MaxHP = 0
 		return
 	}
 	for lv := 1; lv <= n; lv++ {
-		if c.Raw[chStatus] == 8 {
+		if c.Status == 8 {
 			continue
 		}
-		c.Raw[0x74]++
+		c.Drained++
 		var sum byte
 		for i := 0; i < 8; i++ {
-			sum += c.Raw[0x96+i]
+			sum += c.Levels[i]
 		}
 		per := 0
 		if sum != 0 { // the original divides by zero (runtime error) here
-			per = int(c.Raw[0x32]) / int(sum)
+			per = int(c.MaxHP) / int(sum)
 		}
-		e.debugValues("max,cur,lost", int(c.Raw[0x32]), int(c.Raw[0x11B]), int(c.Raw[0x75]))
+		e.debugValues("max,cur,lost", int(c.MaxHP), int(c.HP), int(c.DrainedHP))
 		for k := 1; k <= per; k++ {
-			if c.Raw[0x32] > 0 {
-				c.Raw[0x32]--
+			if c.MaxHP > 0 {
+				c.MaxHP--
 			}
-			if c.Raw[0xB1] > 0 {
-				c.Raw[0xB1]--
+			if c.HPRoll > 0 {
+				c.HPRoll--
 			}
-			if c.Raw[0x11B] > 0 {
-				c.Raw[0x11B]--
+			if c.HP > 0 {
+				c.HP--
 			}
-			c.Raw[0x75]++
+			c.DrainedHP++
 		}
-		if int8(c.Raw[0x73]) < 2 {
+		if int8(c.MaxLevel) < 2 {
 			e.killWithMessage(c, 8, "is dead forever")
-			c.Raw[0x32] = 0
-			if i := bestClass(); int8(c.Raw[0x96+i]) > 0 && n == 2 {
-				c.Raw[0x96+bestClass()] = 0
+			c.MaxHP = 0
+			if i := bestClass(); int8(c.Levels[i]) > 0 && n == 2 {
+				c.Levels[bestClass()] = 0
 			}
 			// jumps over RecomputeCharacter
 		} else {
-			c.Raw[0x96+bestClass()]--
-			if c.Raw[0x11B] == 0 && c.Raw[chStatus] != 6 {
+			c.Levels[bestClass()]--
+			if c.HP == 0 && c.Status != 6 {
 				e.killWithMessage(c, 6, "is killed")
 			}
 			e.RecomputeCharacter(c)
 		}
 		i := bestClass()
-		c.Raw[0x73] = c.Raw[0x96+i]
-		c.Raw[0xAC], c.Raw[0xAD], c.Raw[0xAE], c.Raw[0xAF] = byte(best), byte(best>>8), byte(best>>16), byte(best>>24)
+		c.MaxLevel = c.Levels[i]
+		c.Exp = uint32(best)
 		e.ApplyItems(c)
 	}
 }
@@ -348,7 +348,7 @@ func levelBonus(level byte) byte {
 // o13_24D9 (c, a, flag): saving throw bonus by level for save type 0.
 func (e *Engine) o13_24D9(c *Character, a *Affect, flag byte) {
 	if e.rv.saveType == 0 {
-		e.rv.save += levelBonus(c.Raw[0x14])
+		e.rv.save += levelBonus(c.Stats[statCon])
 	}
 }
 
@@ -381,7 +381,7 @@ func (e *Engine) o13_25BC(c *Character, a *Affect, flag byte) {
 // o13_2610 (c, a, flag): the affect ends; a living character falls dead.
 func (e *Engine) o13_2610(c *Character, a *Affect, flag byte) {
 	a.Raw[4] = 0
-	if c.Raw[chOkay] != 0 {
+	if c.Okay != 0 {
 		e.killWithMessage(c, 6, "Falls dead")
 	}
 }
@@ -398,15 +398,15 @@ func (e *Engine) o13_264B(c *Character, a *Affect, flag byte) {
 // o13_268A (c, a, flag): like 24D9 for save types 4 and 2.
 func (e *Engine) o13_268A(c *Character, a *Affect, flag byte) {
 	if e.rv.saveType == 4 || e.rv.saveType == 2 {
-		e.rv.save += levelBonus(c.Raw[0x14])
+		e.rv.save += levelBonus(c.Stats[statCon])
 	}
 }
 
 // o13_2700 (c, a, flag): +3 hit points up to the maximum.
 func (e *Engine) o13_2700(c *Character, a *Affect, flag byte) {
-	c.Raw[0x11B] += 3
-	if c.Raw[0x11B] > c.Raw[0x32] {
-		c.Raw[0x11B] = c.Raw[0x32]
+	c.HP += 3
+	if c.HP > c.MaxHP {
+		c.HP = c.MaxHP
 	}
 }
 
@@ -415,10 +415,10 @@ func (e *Engine) o13_2700(c *Character, a *Affect, flag byte) {
 // for 1d4+1 and this affect (0x63) is removed.
 func (e *Engine) o13_2730(c *Character, a *Affect, flag byte) {
 	var n byte
-	if c.Raw[chStatus] == 5 && c.Combat.Raw[ciDying] < 6 {
+	if c.Status == 5 && c.Combat.Raw[ciDying] < 6 {
 		n = 6 - c.Combat.Raw[ciDying]
 	}
-	if c.Raw[chStatus] == 4 {
+	if c.Status == 4 {
 		n = 6
 	}
 	if n > 0 && e.Revive(c, n) {
@@ -445,7 +445,7 @@ func (e *Engine) o13_2814(c *Character, a *Affect, flag byte) {
 
 // o13_2866 (c, a, flag): back up at full hit points, else re-add 0x66.
 func (e *Engine) o13_2866(c *Character, a *Affect, flag byte) {
-	if !e.Revive(c, c.Raw[0x32]) {
+	if !e.Revive(c, c.MaxHP) {
 		e.addAffectNow(c, 0x66, a.Raw[3], 1)
 	}
 }
@@ -576,7 +576,7 @@ func (e *Engine) o13_2B7D(c *Character, a *Affect, flag byte) {
 		return
 	}
 	s := e.selected()
-	if int8(s.Raw[0x2E]) > 0 || int8(s.Raw[0x73]) < 4 {
+	if int8(s.Race) > 0 || int8(s.MaxLevel) < 4 {
 		e.rv.damage = 0
 	}
 }
@@ -687,7 +687,7 @@ func (e *Engine) o13_2EDA(c *Character, a *Affect, flag byte) {
 func (e *Engine) o13_2F57(c *Character, a *Affect, flag byte) {
 	if flag != 0 {
 		found := false
-		giant := c.Raw[0x10] == 0x12 && c.Raw[0x16] == 0x64
+		giant := c.Stats[statStr] == 0x12 && c.Str00 == 0x64
 		for _, p := range append([]*Affect(nil), c.Affects...) {
 			if found {
 				break
@@ -725,7 +725,7 @@ func (e *Engine) o13_30A5(c *Character, a *Affect, flag byte) {
 		return
 	}
 	it := affectItem(a)
-	if it.Raw[0x3D]&0xF != c.Raw[0xA0] {
+	if it.Raw[0x3D]&0xF != c.Alignment {
 		it.Raw[0x34] = 0
 		n := int(it.Raw[0x3D] >> 4)
 		e.rv.dmgType = 8
@@ -739,7 +739,7 @@ func (e *Engine) o13_30A5(c *Character, a *Affect, flag byte) {
 
 // o13_3134 (c, a, flag): the item needs strength 19 or more.
 func (e *Engine) o13_3134(c *Character, a *Affect, flag byte) {
-	if flag == 0 && c.Raw[0x10] < 0x13 {
+	if flag == 0 && c.Stats[statStr] < 0x13 {
 		affectItem(a).Raw[0x34] = 0
 		e.BottomMessage("Must have Giant Strength")
 	}

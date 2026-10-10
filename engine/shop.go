@@ -27,7 +27,7 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 	e.DisplayString(2, 2, 0xE, e.moneyLine())
 	redraw := true
 	var sel *ListNode
-	{ // extra: the cursor starts on something the buyer can use
+	if len(list) > 0 { // extra: the cursor starts on something the buyer can use
 		for k := 0; k < len(list) && list[*index%len(list)].Dim; k++ {
 			*index = (*index + 1) % len(list)
 		}
@@ -120,5 +120,5 @@ func (e *Engine) Shop() {
 // canUseItem (extra): the item's class mask lets c ready it (the Wrong
 // Class test of readyItem).
 func (e *Engine) canUseItem(c *Character, it *Item) bool {
-	return e.baseItem(it.Raw[itType], 0xD)&c.Raw[0xB0] != 0
+	return e.baseItem(it.Raw[itType], 0xD)&c.ClassMask != 0
 }

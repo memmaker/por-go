@@ -42,7 +42,7 @@ func (e *Engine) DevScene(name string) func() {
 		return func() {
 			c := e.selected()
 			e.purse.gold = 10000
-			c.Raw[chHP] = 1
+			c.HP = 1
 			e.Temple()
 			e.DrawMainScreen()
 		}

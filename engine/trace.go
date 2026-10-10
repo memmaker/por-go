@@ -132,12 +132,12 @@ func (e *Engine) TraceState() map[string]string {
 	i := 0
 	for _, c := range e.party {
 		if c != e.tempSel {
-			m[fmt.Sprintf("char%d", i)] = hex.EncodeToString(c.Raw[:])
+			m[fmt.Sprintf("char%d", i)] = hex.EncodeToString(c.record())
 			i++
 		}
 	}
 	if len(e.party) > 0 {
-		m["selected_char"] = hex.EncodeToString(e.selected().Raw[:])
+		m["selected_char"] = hex.EncodeToString(e.selected().record())
 	}
 	return m
 }

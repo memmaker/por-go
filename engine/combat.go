@@ -70,7 +70,7 @@ func (e *Engine) takeTurn(c *Character) {
 	e.combatPanel(c)
 	e.affectGroup(c, 0xF)
 	if int8(ci[3]) > 0 {
-		if c.Raw[0x10F] != 0 {
+		if c.Auto != 0 {
 			e.o10_000F(c)
 		} else {
 			e.playerTurn(c)
@@ -98,7 +98,7 @@ func b2i(b bool) int {
 // playerTurn = ovr09:031A (char): a spell being cast goes off, otherwise
 // the combat menu until the turn is used.
 func (e *Engine) playerTurn(c *Character) {
-	if c.Raw[chOkay] == 0 {
+	if c.Okay == 0 {
 		e.clearCombatInfo(c)
 		return
 	}
@@ -158,8 +158,8 @@ func (e *Engine) playerTurn(c *Character) {
 			}
 		case ' ':
 			for _, p := range e.party {
-				if p.Raw[0x84] < 0x80 {
-					p.Raw[0x10F] = 0
+				if p.Control < 0x80 {
+					p.Auto = 0
 				}
 			}
 		case 0x10:
@@ -194,19 +194,19 @@ func (e *Engine) combatMenu(c *Character) byte {
 		m += "Move "
 	}
 	m += "View Aim "
-	if c.Raw[0xC7] > 0 {
+	if c.ItemCount > 0 {
 		m += "Use "
 	}
 	spells := false
 	for i := 0; i <= 0x14; i++ {
-		if c.Raw[0x17+i] > 0 {
+		if c.Memorized[i] > 0 {
 			spells = true
 		}
 	}
 	if spells && ci[1] != 0 && wordAt(e.area, 0x1CA) == 0 {
 		m += "Cast "
 	}
-	if int8(c.Raw[0x96]) > 0 && ci[0x11] == 0 {
+	if int8(c.Levels[clsCleric]) > 0 && ci[0x11] == 0 {
 		m += "Turn "
 	}
 	m += "Quick Done"
@@ -230,10 +230,10 @@ func (e *Engine) endRound(done *bool) {
 	for _, c := range e.party {
 		e.affectGroup(c, 0x13)
 		e.stinkingCloud(c)
-		if c.Raw[chStatus] == 5 {
+		if c.Status == 5 {
 			c.Combat.Raw[0xE]++
 			if c.Combat.Raw[0xE] > 9 {
-				c.Raw[chStatus] = 6
+				c.Status = 6
 			}
 		}
 	}
@@ -330,12 +330,12 @@ func (e *Engine) moveAttack(c *Character, done *int) {
 			e.BottomMessage("Blocked")
 		default:
 			e.o14_08B2(c, d)
-			if c.Raw[chOkay] == 0 {
+			if c.Okay == 0 {
 				*done = b2i(e.clearCombatInfo(c))
 				continue
 			}
 			e.o14_0712(c, d)
-			if c.Raw[chOkay] == 0 {
+			if c.Okay == 0 {
 				*done = b2i(e.clearCombatInfo(c))
 			}
 			e.stinkingCloud(c)
@@ -448,10 +448,10 @@ func (e *Engine) guard(c *Character) bool {
 func (e *Engine) bandage(doIt bool) bool {
 	found := false
 	for _, c := range e.party {
-		if c.Combat.Raw[0x13] == 0 && c.Raw[chSide] == 0 && c.Raw[chStatus] == 5 {
+		if c.Combat.Raw[0x13] == 0 && c.Side == 0 && c.Status == 5 {
 			found = true
 			if doIt {
-				c.Raw[chStatus] = 4
+				c.Status = 4
 				c.Combat.Raw[0xE] = 0
 				e.CharMessage(c, "is bandaged", 0xA, true)
 				doIt = false
@@ -485,8 +485,8 @@ func (e *Engine) speedMenu() {
 // quickOne = ovr09:122B (char): the computer fights for it; a target on
 // its own side is dropped.
 func (e *Engine) quickOne(c *Character) {
-	c.Raw[0x10F] = 1
-	if t := c.Combat.Target; t != nil && t.Raw[chSide] == c.Raw[chSide] {
+	c.Auto = 1
+	if t := c.Combat.Target; t != nil && t.Side == c.Side {
 		c.Combat.Target = nil
 	}
 }
@@ -510,8 +510,8 @@ func (e *Engine) combatPanel(c *Character) {
 		e.DisplayTextBlock(0x17, row+1, 0x26, row+3, 0xA, true, w.Name())
 	}
 	row = e.msgRow + 1
-	if c.Raw[chOkay] == 0 {
-		e.DisplayString(0x17, row+1, 0xF, e.X.PString(0x1047+0xD*int(c.Raw[chStatus])))
+	if c.Okay == 0 {
+		e.DisplayString(0x17, row+1, 0xF, e.X.PString(0x1047+0xD*int(c.Status)))
 	} else if e.hasAffect286B(c) {
 		e.DisplayString(0x17, row+1, 0xF, "(Helpless)")
 	}

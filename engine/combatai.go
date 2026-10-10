@@ -9,7 +9,7 @@ func (e *Engine) o10_000F(c *Character) {
 	done := e.aiKeys(c)
 	e.ClearRow24()
 	e.ClearMessageArea()
-	if c.Raw[chOkay] == 0 {
+	if c.Okay == 0 {
 		done = e.clearCombatInfo(c)
 	}
 	ci := c.Combat
@@ -63,7 +63,7 @@ func (e *Engine) o10_000F(c *Character) {
 // (o14_1351) casts it.
 func (e *Engine) aiTryCast(c *Character) bool {
 	r := false // uninitialised in the original when the test fails: 0
-	if c.Combat.Raw[0x11] == 0 && int8(c.Raw[0x96]) > 0 {
+	if c.Combat.Raw[0x11] == 0 && int8(c.Levels[clsCleric]) > 0 {
 		var t *Character
 		if e.o14_1351(c, &t) {
 			r = true
@@ -103,7 +103,7 @@ func (e *Engine) canCast(c *Character, spell, level int) bool {
 		e.buildNear(x, y, int(e.X.Bytes(0x3209+spell*16, 1)[0]), 0xFF, 1)
 		sel := b2i(isParty(e.selected()))
 		for i := 1; i <= len(e.near.list); i++ {
-			if int(e.combatant(e.near.list[i-1].index).Raw[chSide]) != sel {
+			if int(e.combatant(e.near.list[i-1].index).Side) != sel {
 				r = true
 			}
 		}
@@ -160,8 +160,8 @@ func (e *Engine) aiCastKnown(c *Character) bool {
 	n := 0
 	if c.Combat.Raw[1] != 0 {
 		for i := 0; i <= 0x14; i++ {
-			if c.Raw[0x17+i] > 0 {
-				arr[n] = c.Raw[0x17+i]
+			if c.Memorized[i] > 0 {
+				arr[n] = c.Memorized[i]
 				n++
 			}
 		}
@@ -169,7 +169,7 @@ func (e *Engine) aiCastKnown(c *Character) bool {
 	found := 0
 	lvl := 7
 	rounds := e.Dice(1, 7)
-	if n > 0 && (c.Raw[0x84] > 0x7F || e.v6E30 != 0) && e.rv.side[b2i(isParty(c))] != 0 {
+	if n > 0 && (c.Control > 0x7F || e.v6E30 != 0) && e.rv.side[b2i(isParty(c))] != 0 {
 		for it := 1; it <= rounds && found == 0; it++ {
 			for t := 1; t < 4 && found == 0; t++ {
 				sp := int(arr[e.Dice(1, n)-1])
@@ -234,7 +234,7 @@ func (e *Engine) aiMoveStep(c *Character) {
 	if e.aiKeys(c) {
 		return
 	}
-	if ci.Raw[6]>>1 <= 0 || int8(ci.Raw[3]) <= 0 || (ci.Raw[0x14] == 0 && c.Raw[0x2F] == 5) {
+	if ci.Raw[6]>>1 <= 0 || int8(ci.Raw[3]) <= 0 || (ci.Raw[0x14] == 0 && c.Class == 5) {
 		e.aiGiveUp(c)
 		return
 	}
@@ -245,7 +245,7 @@ func (e *Engine) aiMoveStep(c *Character) {
 		ci.Raw[0x15] = byte(e.Dice(1, 2))
 		f := int(e.facing)
 		dir = f - ((f+2)%4)>>1
-		if c.Raw[chSide] == 0 {
+		if c.Side == 0 {
 			dir += 4
 		}
 		dir %= 8
@@ -294,12 +294,12 @@ func (e *Engine) aiMoveStep(c *Character) {
 	}
 	e.combatTurn(c, byte(d), 0, false)
 	e.o14_08B2(c, int(ci.Raw[9]))
-	if c.Raw[chOkay] == 0 {
+	if c.Okay == 0 {
 		done = e.clearCombatInfo(c)
 		return
 	}
 	e.o14_0712(c, int(ci.Raw[9]))
-	if c.Raw[chOkay] == 0 {
+	if c.Okay == 0 {
 		done = e.clearCombatInfo(c)
 	}
 	e.stinkingCloud(c)
@@ -342,7 +342,7 @@ func (e *Engine) aiAttackLoop(c *Character) bool {
 			rng = 1
 		}
 		tgt := ci.Target
-		if tgt != nil && (tgt.Raw[chOkay] == 0 || tgt.Raw[chSide] == 0) {
+		if tgt != nil && (tgt.Okay == 0 || tgt.Side == 0) {
 			tgt = nil
 		}
 		if tgt != nil && e.o14_1085(c, tgt) {
@@ -396,7 +396,7 @@ func (e *Engine) aiAttackLoop(c *Character) bool {
 		stop = d != 0
 		if stop {
 			cont = false
-		} else if tgt.Raw[chOkay] == 0 {
+		} else if tgt.Okay == 0 {
 			stop = true
 		}
 	}
@@ -432,11 +432,11 @@ func (e *Engine) aiKeys(c *Character) bool {
 			}
 		case 0x20:
 			for _, p := range e.party {
-				if p.Raw[0x84] < 0x80 && p.Raw[chStatus] != 1 {
-					p.Raw[0x10F] = 0
+				if p.Control < 0x80 && p.Status != 1 {
+					p.Auto = 0
 				}
 			}
-			if c.Raw[0x10F] == 0 {
+			if c.Auto == 0 {
 				c.Combat.Raw[3] = 0x14
 				r = true
 			}
@@ -460,22 +460,22 @@ func (e *Engine) aiFleeCheck(c *Character) bool {
 		e.CharMessage(c, "is forced to flee", 10, true)
 		return r
 	}
-	if c.Raw[0x84] <= 0x7F {
+	if c.Control <= 0x7F {
 		return r
 	}
-	e.v6825 = byte(int(c.Raw[0x84]&0x7F) * 2)
+	e.v6825 = byte(int(c.Control&0x7F) * 2)
 	if e.v6825 > 0x66 {
 		e.v6825 = 0
 	}
 	e.affectGroup(c, 0x11)
-	t := 100 - int(c.Raw[0x11B])*100/int(c.Raw[0x32]) // cdq clobbers dx: signed word divide
+	t := 100 - int(c.HP)*100/int(c.MaxHP) // cdq clobbers dx: signed word divide
 	if !(int(e.v6825) < t || e.v6825 == 0) {
 		return r
 	}
 	e.v6825 = e.v6E2F
 	e.affectGroup(c, 0x11)
 	t2 := uint16(100 - wordAt(e.game, 0x58C))
-	if !(uint16(e.v6825) < t2 || e.v6825 == 0 || c.Raw[chSide] == 0) {
+	if !(uint16(e.v6825) < t2 || e.v6825 == 0 || c.Side == 0) {
 		return r
 	}
 	a := e.o14_2908(c)
@@ -485,7 +485,7 @@ func (e *Engine) aiFleeCheck(c *Character) bool {
 		e.RemoveAffect(c, 0x4B, nil)
 		return r
 	}
-	if c.Raw[0x11] > 5 {
+	if c.Stats[statInt] > 5 {
 		e.KillCharacter(c, 4, "Surrenders")
 		r = e.clearCombatInfo(c)
 	}
@@ -506,7 +506,7 @@ func (e *Engine) weaponScore(c *Character, it *Item) int {
 	if int8(t[11]) > 0 {
 		s += byte(int(int8(t[11])) << 1)
 	}
-	if it.Raw[0x2E] == 0x55 && c.Combat.Target != nil && int8(c.Combat.Target.Raw[0x76]) > 0 {
+	if it.Raw[0x2E] == 0x55 && c.Combat.Target != nil && int8(c.Combat.Target.Undead) > 0 {
 		s = 8
 	}
 	if t[14]&8 != 0 {
@@ -515,10 +515,10 @@ func (e *Engine) weaponScore(c *Character, it *Item) int {
 	if t[1] <= 1 {
 		s += 3
 	}
-	if int(c.Raw[0x100])+int(t[1]) > 3 {
+	if int(c.Hands)+int(t[1]) > 3 {
 		s = 0
 	}
-	if it.Raw[0x3E] == 0x84 && it.Raw[0x3D]&0xF != c.Raw[0xA0] {
+	if it.Raw[0x3E] == 0x84 && it.Raw[0x3D]&0xF != c.Alignment {
 		s = 0
 	}
 	if it.Raw[0x3D] == 0x53 {
@@ -535,19 +535,19 @@ func (e *Engine) weaponScore(c *Character, it *Item) int {
 func (e *Engine) aiPickWeapon(c *Character) {
 	tb := func(it *Item, n int) byte { return e.baseItem(it.Raw[0x2E], n) }
 	if w := c.Slots[0]; w != nil {
-		c.Raw[0x100] -= tb(w, 1)
+		c.Hands -= tb(w, 1)
 	}
 	if w := c.Slots[1]; w != nil {
-		c.Raw[0x100] -= tb(w, 1)
+		c.Hands -= tb(w, 1)
 	}
 	var best1, best2, best3 *Item
 	bs1, bs3 := byte(1), byte(0)
-	bs2 := byte(int(c.Raw[0xA3]) * int(c.Raw[0xA5]))
-	if int8(c.Raw[0xA7]) > 0 {
-		bs2 += byte(int(int8(c.Raw[0xA7])) << 1)
+	bs2 := byte(int(c.BaseDice[0]) * int(c.BaseSides[0]))
+	if int8(c.BaseBonus[0]) > 0 {
+		bs2 += byte(int(int8(c.BaseBonus[0])) << 1)
 	}
 	for _, p := range c.Items {
-		if tb(p, 0) == 0 && tb(p, 0xD)&c.Raw[0xB0] != 0 {
+		if tb(p, 0) == 0 && tb(p, 0xD)&c.ClassMask != 0 {
 			sc := byte(e.weaponScore(c, p))
 			f := tb(p, 0xE)
 			if (f&8 != 0 || f&0x10 != 0) && sc > bs1 {
@@ -557,7 +557,7 @@ func (e *Engine) aiPickWeapon(c *Character) {
 				best2, bs2 = p, sc
 			}
 		}
-		if tb(p, 0) == 1 && tb(p, 0xD)&c.Raw[0xB0] > 0 {
+		if tb(p, 0) == 1 && tb(p, 0xD)&c.ClassMask > 0 {
 			sc := byte(0)
 			if int8(p.Raw[0x32]) >= 0 {
 				sc = byte(int(int8(p.Raw[0x32])) + 1)
@@ -600,7 +600,7 @@ func (e *Engine) aiPickWeapon(c *Character) {
 		}
 		e.ApplyItems(c)
 		if w := c.Slots[1]; w != nil && w.Raw[0x36] == 0 {
-			c.Raw[0x100] -= tb(w, 1)
+			c.Hands -= tb(w, 1)
 		}
 		if chosen != nil {
 			e.readyItem(chosen)
@@ -613,7 +613,7 @@ func (e *Engine) aiPickWeapon(c *Character) {
 	if w := c.Slots[1]; w != nil && (w == best3 || w.Raw[0x36] != 0) {
 		ok = false
 	}
-	if c.Raw[0x100] > 2 {
+	if c.Hands > 2 {
 		// the original passes chosen even when nil
 		if w := c.Slots[1]; w == nil || w.Raw[0x36] != 0 {
 			if chosen != nil {
@@ -623,7 +623,7 @@ func (e *Engine) aiPickWeapon(c *Character) {
 			e.readyItem(w)
 		}
 		done = true
-	} else if c.Raw[0x100] < 2 && ok {
+	} else if c.Hands < 2 && ok {
 		if c.Slots[1] != nil {
 			e.readyItem(c.Slots[1])
 		}

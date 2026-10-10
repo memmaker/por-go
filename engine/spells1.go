@@ -118,7 +118,7 @@ func (e *Engine) addSpellLine(spell byte) {
 func (e *Engine) addScrollSpells(all byte) {
 	sel := e.selected()
 	// 00BA:2199 (sel, 0x10, out): the character has the affect
-	if e.FindAffect(sel, 0x10) != nil || sel.Raw[chLevel] > 0 && sel.Raw[chLevel] < 0x80 && e.items[int(e.usedScroll.Raw[itType])<<4] == 0xC {
+	if e.FindAffect(sel, 0x10) != nil || sel.Levels[clsCleric] > 0 && sel.Levels[clsCleric] < 0x80 && e.items[int(e.usedScroll.Raw[itType])<<4] == 0xC {
 		e.usedScroll.Raw[itHidden] = 0
 	}
 	if e.usedScroll.Raw[itHidden] != 0 {
@@ -163,19 +163,19 @@ func (e *Engine) buildSpellList(kind int) bool {
 	switch kind {
 	case 0:
 		for i := 0; i <= 0x14; i++ {
-			if v := c.Raw[0x17+i]; v > 0 && v < 0x80 {
+			if v := c.Memorized[i]; v > 0 && v < 0x80 {
 				e.addSpellLine(v)
 			}
 		}
 	case 5:
 		for i := 0; i <= 0x14; i++ {
-			if v := c.Raw[0x17+i]; v > 0x7F {
+			if v := c.Memorized[i]; v > 0x7F {
 				e.addSpellLine(v)
 			}
 		}
 	case 1:
 		for i := 1; i <= 0x37; i++ {
-			if c.Raw[chSpellBook+i] != 0 {
+			if c.SpellBook[i-1] != 0 {
 				e.addSpellLine(byte(i))
 			}
 		}
@@ -187,7 +187,7 @@ func (e *Engine) buildSpellList(kind int) bool {
 		e.addAllScrolls(1)
 	case 4:
 		for i := 1; i <= 0x38; i++ {
-			if c.Raw[chSlots+3*int(e.spellRec(byte(i), 0))+int(e.spellRec(byte(i), 1))] > 0 && c.Raw[chSpellBook+i] == 0 {
+			if c.spellSlot(int(e.spellRec(byte(i), 0)), int(e.spellRec(byte(i), 1))) > 0 && c.SpellBook[i-1] == 0 {
 				e.addSpellLine(byte(i))
 			}
 		}
@@ -273,7 +273,7 @@ func (e *Engine) o23_08C3(spell, level, call, dmg, dmgType int, msg string) {
 		if e.spellRec(e.curSpell, 2) == 0xFF {
 			e.ApplyItems(t)
 			e.affectGroup(t, 0xB)
-			if !e.AttackHits(e.selected(), t, int(t.Raw[chAC])) {
+			if !e.AttackHits(e.selected(), t, int(t.AC[0])) {
 				dmg = 0
 				saved = true
 			}
@@ -340,7 +340,7 @@ func (e *Engine) o23_0F4F(side int, msg string) {
 	e.spellFlag6820 = 1
 	for i := 1; i <= e.nSpellTargets; i++ {
 		t := e.tgt(i)
-		if t == nil || int(t.Raw[chSide]) != side ||
+		if t == nil || int(t.Side) != side ||
 			e.curSpell == 1 && e.beginFlag == 5 && e.nearEnemies(t, 1) > 0 {
 			e.setTgt(i, nil)
 		}
@@ -489,7 +489,7 @@ func (e *Engine) removeAffectFromSide(typ, side int, msg string) {
 	lvl := byte(e.casterLevel(int(e.curSpell)))
 	for i := 1; i <= e.nSpellTargets; i++ {
 		t := e.tgt(i)
-		if t != nil && int(t.Raw[chSide]) == side && lvl > 0 {
+		if t != nil && int(t.Side) == side && lvl > 0 {
 			lvl--
 			if e.CureAffect(t, byte(typ)) {
 				e.setTgt(i, nil)
@@ -507,7 +507,7 @@ func (e *Engine) removeAffectFromSide(typ, side int, msg string) {
 }
 
 // fxHaste = ovr23:2892: slow is removed from the caster's side.
-func (e *Engine) fxHaste() { e.removeAffectFromSide(0x2A, int(e.selected().Raw[chSide]), "is Hasted") }
+func (e *Engine) fxHaste() { e.removeAffectFromSide(0x2A, int(e.selected().Side), "is Hasted") }
 
 // strikeSquare = ovr23:28BC (x, y, dmg, saveType): whoever stands on the
 // square takes dmg (half on a save, DS:6819 = 0xC); true when the ground
@@ -619,20 +619,20 @@ func (e *Engine) fxSlow() {
 // needs the fewest experience points) and the points lost with it.
 func (e *Engine) fxRestore() {
 	t := e.spellTarget
-	if t.Raw[0x74] == 0 {
+	if t.Drained == 0 {
 		return
 	}
-	q := t.Raw[0x75] / t.Raw[0x74]
-	t.Raw[chMaxHP] += q
-	t.Raw[chHP] += q
-	t.Raw[chSlots] += q
-	t.Raw[0x75] -= q
-	t.Raw[0x74]--
+	q := t.DrainedHP / t.Drained
+	t.MaxHP += q
+	t.HP += q
+	t.HPRoll += q
+	t.DrainedHP -= q
+	t.Drained--
 	best := int8(0xD)
 	bestXP := int32(0x989680)
 	var bestClass int // uninitialised in the asm when nothing qualifies
 	for k := 0; k <= 7; k++ {
-		lvl := int8(t.Raw[chLevel+k])
+		lvl := int8(t.Levels[k])
 		if lvl <= 0 || lvl > best {
 			continue
 		}
@@ -645,10 +645,9 @@ func (e *Engine) fxRestore() {
 		}
 		best, bestClass, bestXP = lvl, k, xp
 	}
-	t.Raw[chLevel+bestClass]++
-	if int32(longAt(t.Raw[:], chExp)) < bestXP {
-		putWord(t.Raw[:], chExp, uint16(bestXP))
-		putWord(t.Raw[:], chExp+2, uint16(bestXP>>16))
+	t.Levels[bestClass]++
+	if int32(t.Exp) < bestXP {
+		t.Exp = uint32(bestXP)
 	}
 	e.RecomputeCharacter(t)
 	e.CharMessage(t, "is restored", 0xA, true)
@@ -743,8 +742,8 @@ func (e *Engine) o23_30D9(c *Character, a *Affect, flag int) {
 	e.removeInvisibility(c)
 	e.hitColours(0x13)
 	e.flyMissile(cx, cy, e.tgtX, e.tgtY, 4, 0x32)
-	e.strikeSquare(e.tgtX, e.tgtY, int(c.Raw[chMaxHP]), 3)
-	e.boltPath(0xA, int(c.Raw[chMaxHP]), 3, 0)
+	e.strikeSquare(e.tgtX, e.tgtY, int(c.MaxHP), 3)
+	e.boltPath(0xA, int(c.MaxHP), 3, 0)
 	if a.Raw[afData] > 0xFD {
 		a.Raw[afData]--
 	} else {

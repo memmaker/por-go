@@ -13,21 +13,6 @@ import (
 // original SAVE files load and save byte for byte.
 
 const (
-	chSpellsPtr = 0x7F  // list head, zeroed on load
-	chItemsPtr  = 0xC8  // list head, zeroed on load
-	chNextPtr   = 0x104 // party link, zeroed on load
-	chCombatPtr = 0x108
-	chIconSize  = 0xC0
-	chIconHead  = 0xBD
-	chIconBody  = 0xBE
-	chOrder     = 0xBF
-	chPortHead  = 0xBB
-	chPortBody  = 0xBC
-	chRandomID  = 0xAB
-	chRace      = 0x2E
-	chGender    = 0x9E
-	chLevels    = 0x96 // 7 class levels
-
 	itemRecSize   = 0x3F
 	affectRecSize = 9
 	gsPartyCount  = 0x67C // game-state word
@@ -170,7 +155,7 @@ func (e *Engine) SaveCharacter(c *Character, name string) {
 		base, ext = name, ".sav"
 	}
 	os.MkdirAll(e.Cfg.SaveDir, 0o755)
-	if err := os.WriteFile(e.savePath(base+ext), c.Raw[:], 0o644); err != nil {
+	if err := os.WriteFile(e.savePath(base+ext), c.record(), 0o644); err != nil {
 		e.fileError("write", e.savePath(base+ext))
 	}
 	os.Remove(e.savePath(base + ".itm"))
@@ -204,11 +189,8 @@ func (e *Engine) LoadCharacter(name string, c *Character, useSav bool) bool {
 		e.fileError("read", e.savePath(nm+ext))
 		return false
 	}
-	copy(c.Raw[:], b)
+	c.setRecord(b)
 	c.Items, c.Affects = nil, nil
-	for i := 0; i < 4; i++ { // pointers zeroed on load
-		c.Raw[chSpellsPtr+i], c.Raw[chItemsPtr+i], c.Raw[chNextPtr+i], c.Raw[chCombatPtr+i] = 0, 0, 0, 0
-	}
 	if b, err := os.ReadFile(e.savePath(nm + ".itm")); err == nil {
 		for i := 0; i+itemRecSize <= len(b); i += itemRecSize {
 			it := &Item{}
@@ -236,22 +218,22 @@ func (e *Engine) LoadMonster(index int, c *Character) bool {
 		e.Exit()
 		return false
 	}
-	copy(c.Raw[:], b)
+	c.setRecord(b)
 	c.Items, c.Affects = nil, nil
-	switch c.Raw[chRace] {
+	switch c.Race {
 	case 1, 3, 5:
-		c.Raw[chIconSize] = 1
+		c.IconSize = 1
 	case 2, 4, 6, 7:
-		c.Raw[chIconSize] = 2
+		c.IconSize = 2
 	}
 	for i := 1; i <= 3; i++ {
 		r := byte(e.Dice(1, 6))
-		c.Raw[chIconSize+i] = (r+8)<<4 | r
+		c.IconColour[i-1] = (r+8)<<4 | r
 	}
-	c.Raw[0xC4] = 0xC4
+	c.IconColour[3] = 0xC4
 	for i := 5; i <= 6; i++ {
 		r := byte(e.Dice(1, 6))
-		c.Raw[chIconSize+i] = (r+8)<<4 | r
+		c.IconColour[i-1] = (r+8)<<4 | r
 	}
 	e.loadingMonster = true // DS:557C
 	if b := e.L.Block("MON"+n+"SPC", index); b != nil {
@@ -289,10 +271,10 @@ func (e *Engine) AddMonsterToParty(index int) {
 	}
 	c := &Character{}
 	e.LoadMonster(index, c)
-	c.Raw[chRandomID] = byte(e.Random(0x100))
+	c.RandomID = byte(e.Random(0x100))
 	var classes []int
 	for cls := 0; cls < 7; cls++ {
-		if int8(c.Raw[chLevels+cls]) > 0 { // jle on a signed byte (ovr18:12CA)
+		if int8(c.Levels[cls]) > 0 { // jle on a signed byte (ovr18:12CA)
 			classes = append(classes, cls)
 		}
 	}
@@ -301,18 +283,18 @@ func (e *Engine) AddMonsterToParty(index int) {
 	}
 	cls := classes[e.Dice(1, len(classes))-1]
 	r := e.Dice(1, 5) - 1
-	g := int(c.Raw[chGender]) & 1
+	g := int(c.Sex) & 1
 	switch cls {
 	case 0:
-		c.Raw[chPortBody] = portBodyCls0[g][r]
+		c.PortBody = portBodyCls0[g][r]
 	case 5:
-		c.Raw[chPortBody] = portBodyCls5[g][r]
+		c.PortBody = portBodyCls5[g][r]
 	case 6:
-		c.Raw[chPortBody] = portBodyCls6[g][r]
+		c.PortBody = portBodyCls6[g][r]
 	default:
-		c.Raw[chPortBody] = portBodyOther[g][r]
+		c.PortBody = portBodyOther[g][r]
 	}
-	c.Raw[chPortHead] = portHeads[g][e.Dice(1, 8)-1]
+	c.PortHead = portHeads[g][e.Dice(1, 8)-1]
 	e.AddToParty(c)
 	e.BuildCharIcon(c, true)
 }
@@ -325,12 +307,12 @@ func (e *Engine) setPartyCount(n int) {
 // AddToParty = ovr18:1446 (c): append, give the lowest free order 0..7;
 // the newcomer's coins go to the party's purse.
 func (e *Engine) AddToParty(c *Character) {
-	c.Raw[chOrder] = 0xFF
+	c.Order = 0xFF
 	e.party = append(e.party, c)
 	var used [8]bool
 	for _, m := range e.party {
-		if m.Raw[chOrder] < 8 {
-			used[m.Raw[chOrder]] = true
+		if m.Order < 8 {
+			used[m.Order] = true
 		}
 	}
 	e.partySel = len(e.party) - 1
@@ -338,7 +320,7 @@ func (e *Engine) AddToParty(c *Character) {
 	for o < 8 && used[o] {
 		o++
 	}
-	c.Raw[chOrder] = byte(o)
+	c.Order = byte(o)
 	e.setPartyCount(e.partyCount() + 1)
 	e.takeRecordCoins(c)
 	e.RecomputeCharacter(c) // ovr24:0000

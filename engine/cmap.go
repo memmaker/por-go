@@ -302,7 +302,7 @@ func (e *Engine) drawOccupant(x, y int) {
 	}
 	c := e.combatant(idx)
 	if c != nil && e.combatOnScreen(c, false) {
-		e.drawIcon(int(e.combatScreenX[idx]), int(e.combatScreenY[idx]), c.Combat.Raw[9], 0, c.Raw[0xBF])
+		e.drawIcon(int(e.combatScreenX[idx]), int(e.combatScreenY[idx]), c.Combat.Raw[9], 0, c.Order)
 	}
 }
 
@@ -445,8 +445,8 @@ func (e *Engine) combatCentre(x, y, r, dir int) {
 	if e.recentre(nx, ny, r) {
 		for i := 1; i <= e.ncomb; i++ {
 			c := e.combatant(byte(i))
-			if c != nil && c.Raw[chOkay] != 0 && e.cpos[i].size > 0 && e.combatOnScreen(c, false) {
-				e.drawIcon(int(e.combatScreenX[i]), int(e.combatScreenY[i]), c.Combat.Raw[9], 0, c.Raw[0xBF])
+			if c != nil && c.Okay != 0 && e.cpos[i].size > 0 && e.combatOnScreen(c, false) {
+				e.drawIcon(int(e.combatScreenX[i]), int(e.combatScreenY[i]), c.Combat.Raw[9], 0, c.Order)
 			}
 		}
 	}
@@ -471,7 +471,7 @@ func (e *Engine) combatTurn(c *Character, dir, pose byte, hide bool) {
 	}
 	c.Combat.Raw[9] = dir
 	if !hide && e.combatOnScreen(c, true) {
-		e.drawIcon(int(e.combatScreenX[idx]), int(e.combatScreenY[idx]), dir, pose, c.Raw[0xBF])
+		e.drawIcon(int(e.combatScreenX[idx]), int(e.combatScreenY[idx]), dir, pose, c.Order)
 		e.Flip()
 	}
 }
@@ -578,7 +578,7 @@ func (e *Engine) combatSquareFree(c *Character, x, y int, uncover bool) bool {
 	}
 	idx := e.combatIndex(c)
 	p := &e.cpos[idx]
-	p.size = c.Raw[0x6C] & 0x7F
+	p.size = c.Size & 0x7F
 	p.x, p.y = byte(x), byte(y)
 	who, g := e.groundAt(c, 8)
 	if who != 0 || g == 0 || e.groundInfo(g)[0] == 0xFF {
@@ -755,10 +755,10 @@ func (e *Engine) nearCombatants(c *Character, x, y, r int) {
 // the DS:3CF5 colours. The original works on the selected character.
 func (e *Engine) BuildCharIcon(c *Character, recolour bool) {
 	e.symPrev, e.symDAX = e.symDAX, "8X8D3" // 0802:094A(3), restored by 0802:095D
-	size := string(e.X.Bytes(0x8C5+int(c.Raw[chIconSize]), 1))
-	slot := int(c.Raw[0xBF])
-	e.LoadIconPic("CHEAD"+size, int(c.Raw[chIconHead]), 0xB)
-	e.LoadIconPic("CBODY"+size, int(c.Raw[chIconBody]), slot)
+	size := string(e.X.Bytes(0x8C5+int(c.IconSize), 1))
+	slot := int(c.Order)
+	e.LoadIconPic("CHEAD"+size, int(c.IconHead), 0xB)
+	e.LoadIconPic("CBODY"+size, int(c.IconBody), slot)
 	for p := 0; p < 2; p++ {
 		head, body := e.icons[0xB][p], e.icons[slot][p]
 		if head == nil || body == nil {
@@ -784,7 +784,7 @@ func (e *Engine) BuildCharIcon(c *Character, recolour bool) {
 		}
 		pos := e.X.Bytes(0x3CF5, 7)
 		for i := 1; i <= 6; i++ {
-			v := c.Raw[chIconSize+i]
+			v := c.IconColour[i-1]
 			to[pos[i]] = v & 0xF
 			to[int(pos[i])+8] = v >> 4
 		}

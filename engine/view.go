@@ -4,17 +4,6 @@ import "strings"
 
 // ovr20: the View screen (character sheet, items, money, spell lists).
 
-const (
-	chPlayerFlag = 0x84 // > 0x7F: hired NPC
-	chSex        = 0x9E
-	chAlignment  = 0xA0
-	chClass      = 0x2F
-	chAge        = 0x30 // word
-	chExp        = 0xAC // long
-	chSpells     = 0x17 // 0x15 spell ids, +0x80 = still to be memorised
-	chStudy      = 0x2C // hours of study the pending spells need (0/4/6)
-)
-
 // ClearScreen = 0709:0CAB.
 func (e *Engine) ClearScreen() {
 	if e.Trace != nil {
@@ -38,19 +27,19 @@ func (e *Engine) CharacterSheet() {
 	e.ClearScreen()
 	e.DrawBorder(1, 1, 0x26, 0x16, 0)
 	e.displayName(c, 1, 1, false)
-	if c.Raw[chPlayerFlag] > 0x7F {
+	if c.Control > 0x7F {
 		e.DisplayString(len(c.Name())+3, 1, 0xA, "(NPC)")
 	}
 	x := 1
-	s := e.X.PString(0xFEC + 7*int(int8(c.Raw[chSex])))
+	s := e.X.PString(0xFEC + 7*int(int8(c.Sex)))
 	e.DisplayString(x, 3, 0xF, s)
 	x += len(s) + 1
-	s = e.X.PString(0xF03 + 0xA*int(int8(c.Raw[chRace])))
+	s = e.X.PString(0xF03 + 0xA*int(int8(c.Race)))
 	e.DisplayString(x, 3, 0xF, s)
 	x += len(s) + 1
-	e.DisplayString(x, 3, 0xF, "Age "+itoa(int(wordAt(c.Raw[:], chAge))))
-	e.DisplayString(1, 4, 0xF, e.X.PString(0xF53+0x11*int(int8(c.Raw[chAlignment]))))
-	e.DisplayString(1, 5, 0xF, e.X.PString(0xD38+0x1B*int(int8(c.Raw[chClass]))))
+	e.DisplayString(x, 3, 0xF, "Age "+itoa(int(c.Age)))
+	e.DisplayString(1, 4, 0xF, e.X.PString(0xF53+0x11*int(int8(c.Alignment))))
+	e.DisplayString(1, 5, 0xF, e.X.PString(0xD38+0x1B*int(int8(c.Class))))
 	for i, l := range []string{"STR ", "INT ", "WIS ", "DEX ", "CON ", "CHA "} {
 		e.DisplayString(1, i+7, 0xA, l)
 		e.showStat(i, false)
@@ -59,7 +48,7 @@ func (e *Engine) CharacterSheet() {
 	e.DisplayString(1, 0xF, 0xF, "Level")
 	s = ""
 	for i := 0; i <= 7; i++ {
-		if l := int8(c.Raw[chLevel+i]); l > 0 {
+		if l := int8(c.Levels[i]); l > 0 {
 			if s != "" {
 				s += "/"
 			}
@@ -67,8 +56,7 @@ func (e *Engine) CharacterSheet() {
 		}
 	}
 	e.DisplayString(7, 0xF, 0xF, s)
-	exp := uint32(wordAt(c.Raw[:], chExp)) | uint32(wordAt(c.Raw[:], chExp+2))<<16
-	e.DisplayString(0x11, 0xF, 0xF, "Exp "+itoa(int(int32(exp))))
+	e.DisplayString(0x11, 0xF, 0xF, "Exp "+itoa(int(int32(c.Exp))))
 	e.showCombatStats()
 	y := 0x14
 	if w := c.Slots[0]; w != nil {
@@ -82,7 +70,7 @@ func (e *Engine) CharacterSheet() {
 	}
 	y++
 	e.DisplayString(1, y, 0xF, "Status")
-	e.DisplayString(8, y, 0xA, e.statusName(c.Raw[chStatus]))
+	e.DisplayString(8, y, 0xA, e.statusName(c.Status))
 	e.sheetEffects(c)
 	if e.flag49F5 != 0 && e.symDAX == "8X8D3" { // DS:5376 == 3
 		e.SheetPortrait()
@@ -135,9 +123,9 @@ func (e *Engine) showCombatStats() {
 	e.displayHP(c, 4, y+1, false)
 	x := 8
 	e.DisplayString(x+1, y, 0xF, "THAC0   ")
-	e.DisplayString(x+7, y, 0xA, itoa(int(byte(0x3C-c.Raw[chTHAC0]))))
-	d := itoa(int(c.Raw[0x115])) + "d" + itoa(int(c.Raw[0x117]))
-	if b := int8(c.Raw[0x119]); b > 0 {
+	e.DisplayString(x+7, y, 0xA, itoa(int(byte(0x3C-c.THAC0))))
+	d := itoa(int(c.Dice[0])) + "d" + itoa(int(c.Sides[0]))
+	if b := int8(c.Bonus[0]); b > 0 {
 		d += "+" + itoa(int(b))
 	} else if b < 0 {
 		d += "-" + itoa(-int(b)) // abs in 16 bits: -128 shows 128
@@ -147,8 +135,8 @@ func (e *Engine) showCombatStats() {
 	e.DisplayString(x+7, y+1, 0xA, d)
 	x = 0x16
 	e.DisplayString(x, y, 0xF, "Encumbrance      ")
-	e.DisplayString(x+0xC, y, 0xA, itoa(int(wordAt(c.Raw[:], chWeight))))
-	m := c.Raw[chMove]
+	e.DisplayString(x+0xC, y, 0xA, itoa(int(c.Weight)))
+	m := c.Move
 	if e.FindAffect(c, 0x2A) != nil {
 		m <<= 1
 	}
@@ -169,17 +157,17 @@ func (e *Engine) showStat(stat int, hi bool) {
 	c := e.selected()
 	x := 5
 	e.ClearCells(5, stat+7, 0xB, stat+7)
-	v := c.Raw[chStr+stat]
+	v := c.Stats[stat]
 	if v < 10 {
 		x++
 	}
 	e.DisplayString(x, stat+7, col, itoa(int(v)))
-	if stat == 0 && v == 0x12 && c.Raw[chStr00] > 0 {
-		s := itoa(int(c.Raw[chStr00]))
-		if c.Raw[chStr00] < 10 {
+	if stat == 0 && v == 0x12 && c.Str00 > 0 {
+		s := itoa(int(c.Str00))
+		if c.Str00 < 10 {
 			s = "0" + s
 		}
-		if c.Raw[chStr00] == 100 {
+		if c.Str00 == 100 {
 			s = "00"
 		}
 		e.DisplayString(7, 7, col, "("+s+")")
@@ -210,7 +198,7 @@ func (e *Engine) ViewCharacter() bool {
 		c := e.viewChar()
 		spells := false
 		for i := 0; i <= 0x14; i++ {
-			if c.Raw[chSpells+i] > 0 {
+			if c.Memorized[i] > 0 {
 				spells = true
 			}
 		}
@@ -291,11 +279,11 @@ func (e *Engine) canLoseItem(it *Item) bool {
 // the top right of the sheet.
 func (e *Engine) SheetPortrait() {
 	c := e.selected()
-	if c.Raw[0xBB] == 0 || c.Raw[0xBC] == 0 {
+	if c.PortHead == 0 || c.PortBody == 0 {
 		return
 	}
 	e.DrawBoxTitled(0x1C, 1, 0x26, 0xB, 0, 0, "")
-	e.LoadPortrait(int(e.X.Bytes(0x286F+int(c.Raw[0xBB]), 1)[0]), int(e.X.Bytes(0x287D+int(c.Raw[0xBC]), 1)[0]))
+	e.LoadPortrait(int(e.X.Bytes(0x286F+int(c.PortHead), 1)[0]), int(e.X.Bytes(0x287D+int(c.PortBody), 1)[0]))
 	e.DrawPortrait(0x1C, 1, true)
 }
 
@@ -309,17 +297,17 @@ func (e *Engine) ItemsMenu() bool {
 	index := 0
 	redraw, full := true, true
 	quit := false
-	for key != 0 && key != 'E' && !quit && c.Raw[chItemCount] > 0 {
-		count := c.Raw[chItemCount]
+	for key != 0 && key != 'E' && !quit && c.ItemCount > 0 {
+		count := c.ItemCount
 		if len(c.Items) == 0 {
-			if c.Raw[chItemCount] != count {
+			if c.ItemCount != count {
 				redraw = true
 			}
 			continue
 		}
-		hired := c.Raw[chPlayerFlag] >= 0x80 && c.Raw[chOkay] != 0 && c.Raw[chStatus] != 1
+		hired := c.Control >= 0x80 && c.Okay != 0 && c.Status != 1
 		menu := "Ready"
-		if c.Raw[chOkay] != 0 && wordAt(e.area, 0x1CA) == 0 &&
+		if c.Okay != 0 && wordAt(e.area, 0x1CA) == 0 &&
 			(e.beginFlag == 2 || e.beginFlag == 3 || e.beginFlag == 4 ||
 				e.beginFlag == 5 && c.Combat != nil && c.Combat.Raw[2] != 0) {
 			menu += " Use"
@@ -328,7 +316,7 @@ func (e *Engine) ItemsMenu() bool {
 			menu += " Trade"
 		}
 		menu += " Drop"
-		if c.Raw[chItemCount] < 0x10 {
+		if c.ItemCount < 0x10 {
 			menu += " Halve"
 		}
 		menu += " Join"
@@ -414,7 +402,7 @@ func (e *Engine) ItemsMenu() bool {
 			}
 		}
 		e.ApplyItems(c) // 146F: also reached with nothing selected
-		if c.Raw[chItemCount] != count {
+		if c.ItemCount != count {
 			redraw = true
 		}
 	}
@@ -439,7 +427,7 @@ func (e *Engine) readyItem(it *Item) {
 	}
 	why := 0
 	typ := it.Raw[itType]
-	if int(e.baseItem(typ, 1))+int(c.Raw[chHands]) > 2 {
+	if int(e.baseItem(typ, 1))+int(c.Hands) > 2 {
 		why = 3
 	}
 	slot := int(e.baseItem(typ, 0))
@@ -459,7 +447,7 @@ func (e *Engine) readyItem(it *Item) {
 	if typ == 0x1C && c.Slots[slotBolts] != nil {
 		why, slot = 2, slotBolts
 	}
-	if e.baseItem(typ, 0xD)&c.Raw[0xB0] == 0 {
+	if e.baseItem(typ, 0xD)&c.ClassMask == 0 {
 		why = 1
 	}
 	switch why {
@@ -480,7 +468,7 @@ func (e *Engine) readyItem(it *Item) {
 		}
 		e.BottomMessage("already using " + name)
 	case 3:
-		if !(e.beginFlag == 5 && c.Raw[0x10F] != 0) {
+		if !(e.beginFlag == 5 && c.Auto != 0) {
 			e.BottomMessage("Your hands are full!")
 		}
 	}
@@ -583,7 +571,7 @@ func (e *Engine) useItem(it *Item) bool {
 		return false
 	}
 	c := e.selected()
-	if e.beginFlag == 5 && c.Raw[0x10F] == 0 {
+	if e.beginFlag == 5 && c.Auto == 0 {
 		e.combatUseHook() // 00BA:2B88
 	}
 	if e.usingItem {
@@ -601,7 +589,7 @@ func (e *Engine) useItem(it *Item) bool {
 		e.ClearMessageArea()
 	}
 	e.usingItem = true
-	e.CastSpell(spell, c.Raw[0x10F], 0, &quit)
+	e.CastSpell(spell, c.Auto, 0, &quit)
 	e.usingItem = false
 	if e.beginFlag == 5 && e.spellRec(spell, 0xB) != 0 {
 		quit = e.clearCombatInfo(c)
@@ -668,12 +656,12 @@ func (e *Engine) identifyItem(it *Item, redraw *bool) {
 // overloaded = ovr20:275B (item, char): no room for one more item.
 func (e *Engine) overloaded(it *Item, c *Character) bool {
 	e.ApplyItems(c)
-	over := c.Raw[chItemCount] > 0xF
+	over := c.ItemCount > 0xF
 	w := wordAt(it.Raw[:], 0x37)
 	if it.Raw[itCount] > 0 {
 		w *= uint16(it.Raw[itCount])
 	}
-	if int32(wordAt(c.Raw[:], chWeight)+w) > int32(strCarry(c))+1500 {
+	if int32(c.Weight+w) > int32(strCarry(c))+1500 {
 		over = true
 	}
 	return over

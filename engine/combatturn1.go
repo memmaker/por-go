@@ -12,17 +12,17 @@ func (e *Engine) o14_0000(c *Character) {
 	cb := &c.Combat.Raw
 	cb[0], cb[1], cb[2], cb[8], cb[4] = 0, 1, 1, 0, 2
 	e.o14_0D23(c)
-	e.v681A = c.Raw[0xA2]
+	e.v681A = c.BaseAttack[1]
 	e.v681D = 0
 	e.affectGroup(c, 0x12)
-	c.Raw[0x114] = byte(e.o14_0E52(e.v681A))
-	cb[5] = c.Raw[0x6B]
-	if c.Raw[chOkay] != 0 {
-		cb[3] = byte(int(dexMissile(c.Raw[chDex])) + e.Dice(1, 6))
+	c.Attacks[1] = byte(e.o14_0E52(e.v681A))
+	cb[5] = c.FightLevel
+	if c.Okay != 0 {
+		cb[3] = byte(int(dexMissile(c.Stats[statDex])) + e.Dice(1, 6))
 		if int8(cb[3]) < 1 {
 			cb[3] = 1
 		}
-		if byte((int(int8(c.Raw[chSide]))+1)&int(wordAt(e.game, 0x596))) != 0 { // only the low byte is tested
+		if byte((int(int8(c.Side))+1)&int(wordAt(e.game, 0x596))) != 0 { // only the low byte is tested
 			cb[3] -= 6
 		}
 		if int8(cb[3]) < 0 || int8(cb[3]) > 0x14 {
@@ -37,8 +37,8 @@ func (e *Engine) o14_0000(c *Character) {
 // o14_0123 (char): movement rate of the turn (half of it is kept in +0x113
 // by o14_0D23); the affects of group 0x12 may change it.
 func (e *Engine) o14_0123(c *Character) int {
-	v := c.Raw[0x11C]
-	if c.Raw[chSide] == 0 {
+	v := c.Move
+	if c.Side == 0 {
 		v += byte(wordAt(e.game, 0x6E4))
 	}
 	e.v681D = 1
@@ -51,15 +51,15 @@ func (e *Engine) o14_0123(c *Character) int {
 	return int(e.v681A)
 }
 
-// o14_0191 (att, vic, slot): damage roll of the attack slot (dice at
-// +0x114/+0x116 plus +0x118), tripled-or-so for a backstab, then the
+// o14_0191 (att, vic, slot): damage roll of the attack slot (1 or 2),
+// tripled-or-so for a backstab, then the
 // affects of groups 4 (attacker) and 5 (victim) may change DS:6818.
 func (e *Engine) o14_0191(a, b *Character, slot int) {
-	d := int(int8(a.Raw[0x118+slot])) + e.RollDice(int(a.Raw[0x114+slot]), int(a.Raw[0x116+slot]))
+	d := int(int8(a.Bonus[slot-1])) + e.RollDice(int(a.Dice[slot-1]), int(a.Sides[slot-1]))
 	e.rv.damage = byte(d)
 	// (the original compares the byte with 0 "above or equal": never clamps)
 	if e.rangedFacing(a, b) {
-		e.rv.damage = byte(int(e.rv.damage) * (int(uint16(int16(int8(a.Raw[0x9C]))))>>2 + 2))
+		e.rv.damage = byte(int(e.rv.damage) * (int(uint16(int16(int8(a.Levels[clsThief]))))>>2 + 2))
 	}
 	e.rv.dmgType = 0
 	e.affectGroup(a, 4)
@@ -118,18 +118,18 @@ func (e *Engine) o14_02F9(a, b *Character, kind, damage, shown, hit int) {
 	} else {
 		e.MsgDelay()
 	}
-	if b.Raw[chOkay] == 0 {
+	if b.Okay == 0 {
 		e.CharMessage(b, "goes down", row, false)
 		row += 2
-		if b.Raw[chStatus] == 5 {
+		if b.Status == 5 {
 			e.DisplayString(0x17, row, 0xA, "and is Dying")
 		}
-		if st := b.Raw[chStatus]; st >= 6 && st <= 8 { // set at CS:02CF
+		if st := b.Status; st >= 6 && st <= 8 { // set at CS:02CF
 			e.CharMessage(b, "is killed", row, false)
 		}
 		e.removeCombatAffects(b)
 		e.affectGroup(b, 0xD)
-		if b.Raw[chOkay] == 0 {
+		if b.Okay == 0 {
 			e.combatRemoveFromMap(b)
 		} else {
 			e.MsgDelay()
@@ -143,7 +143,7 @@ func (e *Engine) o14_02F9(a, b *Character, kind, damage, shown, hit int) {
 func (e *Engine) o14_0627(c *Character) {
 	n := e.nearEnemies(c, 1)
 	for i := 1; i <= n; i++ {
-		if c.Raw[chOkay] == 0 {
+		if c.Okay == 0 {
 			continue
 		}
 		t := e.combatant(e.targets[i])
@@ -175,7 +175,7 @@ func (e *Engine) o14_0712(c *Character, dir int) {
 	nx := ox + byte(int8(e.X.Bytes(0x2736+dir, 1)[0]))
 	ny := oy + byte(int8(e.X.Bytes(0x273F+dir, 1)[0]))
 	margin := 1
-	if c.Raw[0x10F] != 0 {
+	if c.Auto != 0 {
 		margin = 3
 		if !e.combatInView(int(int8(nx))-e.cmap.viewX, int(int8(ny))-e.cmap.viewY) {
 			e.combatCentre(int(ox), int(oy), 2, 8)
@@ -188,7 +188,7 @@ func (e *Engine) o14_0712(c *Character, dir int) {
 	cb[0xF], cb[0x12] = 0, 0
 	e.PlaySound(e.ds2(0x2628))
 	e.o14_0627(c)
-	if c.Raw[chOkay] == 0 || e.hasAffect286B(c) {
+	if c.Okay == 0 || e.hasAffect286B(c) {
 		cb[6] = 0
 	}
 }
@@ -223,7 +223,7 @@ func (e *Engine) o14_08B2(c *Character, dir int) {
 		}
 	}
 	for i := 1; i <= n; i++ {
-		if lst[i] == 0 || c.Raw[chOkay] == 0 {
+		if lst[i] == 0 || c.Okay == 0 {
 			continue
 		}
 		t := e.combatant(lst[i])
@@ -245,23 +245,23 @@ func (e *Engine) o14_08B2(c *Character, dir int) {
 				}
 			}
 			w := 1
-			if t.Raw[0xA1] == 0 {
+			if t.BaseAttack[0] == 0 {
 				w = 2
 			}
 			for s := 1; s <= 2; s++ {
-				if t.Raw[0x112+s] > 0 {
+				if t.Attacks[s-1] > 0 {
 					w = s
 				}
 			}
-			if t.Raw[0x112+w] == 0 {
-				t.Raw[0x112+w] = 1
+			if t.Attacks[w-1] == 0 {
+				t.Attacks[w-1] = 1
 			}
 			tcb[4] = byte(w)
 			saved := t.Combat.Target
 			e.o14_1884(t, c, 1, nil, &e.v6E31)
 			attacked = true
 			t.Combat.Target = saved
-			if c.Raw[chOkay] != 0 {
+			if c.Okay != 0 {
 				e.combatPanel(c)
 			}
 		}
@@ -294,8 +294,8 @@ func (e *Engine) o14_0C6A(c *Character) bool {
 // (+0xA1) or the readied weapon's speed (DS:5582 record +5, at least 2).
 func (e *Engine) o14_0D23(c *Character) {
 	flag := false
-	old := c.Raw[0x113]
-	c.Raw[0x113] = c.Raw[0xA1]
+	old := c.Attacks[0]
+	c.Attacks[0] = c.BaseAttack[0]
 	var it *Item
 	if e.rangedWeapon(c) && e.ammoFor(c, &it) {
 		flag = true
@@ -308,7 +308,7 @@ func (e *Engine) o14_0D23(c *Character) {
 		}
 		e.v681A = v
 	} else {
-		e.v681A = c.Raw[0x113]
+		e.v681A = c.Attacks[0]
 	}
 	e.v681D = 0
 	e.affectGroup(c, 0x12)
@@ -326,7 +326,7 @@ func (e *Engine) o14_0D23(c *Character) {
 	if cb[8] != 0 && r >= old && (int(r) >= int(old)*2 || flag) {
 		return
 	}
-	c.Raw[0x113] = r
+	c.Attacks[0] = r
 }
 
 // o14_0E52 (v): half of v, rounded up when DS:6DE3 is odd.
@@ -343,7 +343,7 @@ func (e *Engine) o14_0E52(v byte) int {
 func (e *Engine) o14_0E82(a, b *Character) bool {
 	res := false
 	acb := &a.Combat.Raw
-	if a.Raw[0x113] < acb[5] && b.Raw[0x73] == 0 && e.rangeTo(a, b) == 1 {
+	if a.Attacks[0] < acb[5] && b.MaxLevel == 0 && e.rangeTo(a, b) == 1 {
 		n := e.nearEnemies(a, 1)
 		cnt := 0
 		bi := 0
@@ -352,11 +352,11 @@ func (e *Engine) o14_0E82(a, b *Character) bool {
 			if t == b {
 				bi = i
 			}
-			if t.Raw[0x73] == 0 {
+			if t.MaxLevel == 0 {
 				cnt++
 			}
 		}
-		if byte(cnt) > a.Raw[0x113] {
+		if byte(cnt) > a.Attacks[0] {
 			if byte(cnt) > acb[5] {
 				cnt = int(acb[5])
 			}
@@ -368,9 +368,9 @@ func (e *Engine) o14_0E82(a, b *Character) bool {
 			for i := 1; i <= n; i++ {
 				if cnt > 0 {
 					t := e.combatant(e.targets[i])
-					if t.Raw[0x73] == 0 {
+					if t.MaxLevel == 0 {
 						e.o14_17F6(a, t)
-						a.Raw[0x113] = 1
+						a.Attacks[0] = 1
 						e.o14_1884(a, t, 0, nil, &e.v6E31)
 						cnt--
 					}
@@ -413,7 +413,7 @@ func (e *Engine) o14_116A(c *Character) {
 	hd := e.Dice(1, 0xC)
 	roll := e.Dice(1, 0x14)
 	var cls int
-	switch lv := int8(c.Raw[0x96]); {
+	switch lv := int8(c.Levels[clsCleric]); {
 	case lv >= 1 && lv <= 8:
 		cls = int(lv)
 	case lv >= 9 && lv <= 13:
@@ -423,7 +423,7 @@ func (e *Engine) o14_116A(c *Character) {
 	}
 	var t *Character
 	for e.o14_1351(c, &t) && hd > 0 && !stop {
-		x := int(int8(e.X.Bytes(0x447+int(t.Raw[0x76])*10+cls, 1)[0]))
+		x := int(int8(e.X.Bytes(0x447+int(t.Undead)*10+cls, 1)[0]))
 		ax := x
 		if ax < 0 {
 			ax = -ax
@@ -441,8 +441,8 @@ func (e *Engine) o14_116A(c *Character) {
 		} else {
 			e.CharMessage(t, "Is destroyed", 0xA, false)
 			e.combatRemoveFromMap(t)
-			t.Raw[chStatus] = 8
-			t.Raw[chOkay] = 0
+			t.Status = 8
+			t.Okay = 0
 		}
 		if limit > 0 {
 			limit--
@@ -470,8 +470,8 @@ func (e *Engine) o14_1351(c *Character, out **Character) bool {
 	found := false
 	for i := 1; i <= n; i++ {
 		t := e.combatant(e.targets[i])
-		if t.Combat.Raw[0x10] == 0 && int8(t.Raw[0x76]) > 0 && int8(t.Raw[0x76]) < best {
-			best = int8(t.Raw[0x76])
+		if t.Combat.Raw[0x10] == 0 && int8(t.Undead) > 0 && int8(t.Undead) < best {
+			best = int8(t.Undead)
 			*out = t
 			found = true
 		}
@@ -491,30 +491,30 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 	acb[8] = 1
 	if e.hasAffect286B(b) {
 		e.PlaySound(e.ds2(0x2622))
-		for a.Raw[0x112+int(acb[4])] == 0 {
+		for acb[4] > 0 && a.Attacks[acb[4]-1] == 0 {
 			acb[4]--
 		}
 		e.shots6E2C[acb[4]]++
-		e.o14_02F9(a, b, 3, (int(b.Raw[chHP])+5)&0xFF, 1, 1)
+		e.o14_02F9(a, b, 3, (int(b.HP)+5)&0xFF, 1, 1)
 		e.removeInvisibility(a)
 		for s := 1; s <= 2; s++ {
-			a.Raw[0x112+s] = 0
+			a.Attacks[s-1] = 0
 		}
 		any = true
 		*done = 1
 	} else {
-		if a.Slots[0] != nil && (b.Raw[0x6C] > 0x80 || b.Raw[0x6C]&7 > 1) {
+		if a.Slots[0] != nil && (b.Size > 0x80 || b.Size&7 > 1) {
 			typ := a.Slots[0].Raw[itType]
-			a.Raw[0x115] = e.baseItem(typ, 2)
-			a.Raw[0x117] = e.baseItem(typ, 3)
-			a.Raw[0x119] = byte(int(int8(a.Raw[0x119])) - int(int8(e.baseItem(typ, 0xB))) + int(int8(e.baseItem(typ, 4))))
+			a.Dice[0] = e.baseItem(typ, 2)
+			a.Sides[0] = e.baseItem(typ, 3)
+			a.Bonus[0] = byte(int(int8(a.Bonus[0])) - int(int8(e.baseItem(typ, 0xB))) + int(int8(e.baseItem(typ, 4))))
 		}
 		e.ApplyItems(b)
 		e.affectGroup(b, 0xB)
 		hand := 0
 		var need byte
 		if e.rangedFacing(a, b) {
-			need = b.Raw[0x112] - 2
+			need = b.AC[1] - 2
 		} else {
 			if b.Combat.Raw[0xF] > 1 && byte(e.o14_263D(a, b)) == b.Combat.Raw[9] && b.Combat.Raw[0x12] > 4 {
 				w = 1
@@ -522,7 +522,7 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 			if w != 0 {
 				hand = 1
 			}
-			need = b.Raw[0x111+hand]
+			need = b.AC[hand]
 		}
 		bonus := int(need)
 		e.o14_1B1E(a, b, &bonus)
@@ -535,8 +535,8 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 			mode = 2
 		}
 		for s := int(acb[4]); s >= 1; s-- {
-			for a.Raw[0x112+s] != 0 && !stop {
-				a.Raw[0x112+s]--
+			for a.Attacks[s-1] != 0 && !stop {
+				a.Attacks[s-1]--
 				acb[4] = byte(s)
 				e.shots6E2C[s]++
 				if e.AttackHits(a, b, int(need)) || e.hasAffect286B(b) {
@@ -545,10 +545,10 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 					any = true
 					e.o14_0191(a, b, s)
 					e.o14_02F9(a, b, mode, int(e.rv.damage), int(e.rv.damage), 1)
-					if b.Raw[chOkay] != 0 {
+					if b.Okay != 0 {
 						e.affectGroup(a, s+1)
 					}
-					if b.Raw[chOkay] == 0 {
+					if b.Okay == 0 {
 						stop = true
 					}
 				}
@@ -560,7 +560,7 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 		}
 		*done = 1
 		for s := 1; s <= 2; s++ {
-			if a.Raw[0x112+s] > 0 {
+			if a.Attacks[s-1] > 0 {
 				*done = 0
 			}
 		}
@@ -607,7 +607,7 @@ func (e *Engine) o14_1884(a, b *Character, flag int, it *Item, done *int) {
 		e.attackAnimation(a, b, a.Slots[0])
 	}
 	*done = 1
-	if a.Raw[0x113] > 0 || a.Raw[0x114] > 0 {
+	if a.Attacks[0] > 0 || a.Attacks[1] > 0 {
 		saved := e.partySel
 		for i, c := range e.party {
 			if c == a {

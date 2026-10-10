@@ -136,22 +136,23 @@ func (e *Engine) randomItemType(prev byte) byte {
 }
 
 // opRob = ovr04:1DB1 (who, pct, -): take pct% of the money and, with the
-// same pct, items; who 0 is the selected member, else everyone. (The
-// third operand is fetched but the original reads operand 2 again.)
+// same pct, items; who 0 is the selected member (and their share of the
+// purse), else everyone. (The third operand is fetched but the original
+// reads operand 2 again.)
 func (e *Engine) opRob() {
 	e.FetchArgs(3)
 	who := byte(e.ArgValue(1))
 	pct := int(byte(e.ArgValue(2)))
-	factor := float64(100-pct) / 100
-	ipct := int(byte(e.ArgValue(2)))
-	if who == 0 {
-		e.ScaleExp(factor, e.selected())
-		e.ItemSave(e.selected(), ipct)
-		return
+	robbed := []*Character{e.selected()}
+	if who != 0 {
+		robbed = e.party
 	}
-	for _, c := range e.party {
-		e.ScaleExp(factor, c)
-		e.ItemSave(c, ipct)
+	share := float64(pct) / 100 * float64(len(robbed)) / float64(max(len(e.party), 1))
+	for _, n := range []*int{&e.purse.gold, &e.purse.gems, &e.purse.jewelry} {
+		*n -= int(float64(*n) * share)
+	}
+	for _, c := range robbed {
+		e.ItemSave(c, pct)
 	}
 }
 
@@ -433,7 +434,7 @@ func (e *Engine) opDamage() {
 	}
 	e.run.quit = true
 	for _, c := range e.party {
-		if c.Raw[chOkay] != 0 {
+		if c.Okay != 0 {
 			e.run.quit = false
 		}
 	}
@@ -497,11 +498,11 @@ func (e *Engine) opAddNPC() {
 	if c == nil {
 		return
 	}
-	c.Raw[0x84] = byte(e.ArgValue(2))>>1 | 0x80
+	c.Control = byte(e.ArgValue(2))>>1 | 0x80
 	if v == 0x18 {
-		c.Raw[chNPC] = 1
+		c.Side = 1
 	} else {
-		c.Raw[chNPC] = 0
+		c.Side = 0
 	}
 	e.ApplyItems(c) // 00BA:0BB8
 	e.DisplayPartyList()
@@ -562,7 +563,7 @@ func (e *Engine) opSpell() {
 	if len(e.party) > 0 {
 		c := e.party[0]
 		for {
-			if c.Raw[0x17+slot] == v {
+			if c.Memorized[slot] == v {
 				break
 			}
 			if slot > 0x51 {

@@ -103,8 +103,7 @@ func (e *Engine) neutralizePoison() {
 // less; the constitution bonus to the maximum hit points shrinks with it.
 func (e *Engine) raiseDead() {
 	c := e.selected()
-	r := c.Raw[:]
-	dead := r[chStatus] == 6 || r[chStatus] == 1
+	dead := c.Status == 6 || c.Status == 1
 	if !e.templeCure(dead, "is not dead.", "Raise Dead", 5500) || !dead {
 		return
 	}
@@ -112,30 +111,29 @@ func (e *Engine) raiseDead() {
 	e.RemoveAffect(c, 0x20, nil)
 	e.RemoveAffect(c, 0x37, nil)
 	e.rv.cure = 0
-	r[chHP] = 1
-	r[chStatus] = 0
-	r[chOkay] = 1
-	const con = 0x14
-	if r[con] > 0 {
-		r[con]--
+	c.HP = 1
+	c.Status = 0
+	c.Okay = 1
+	if c.Stats[statCon] > 0 {
+		c.Stats[statCon]--
 	}
 	var excess byte
-	if r[chMaxHP] > r[0xB1] {
-		excess = r[chMaxHP] - r[0xB1]
+	if c.MaxHP > c.HPRoll {
+		excess = c.MaxHP - c.HPRoll
 	}
-	if r[con] < 0xE {
+	if c.Stats[statCon] < 0xE {
 		return
 	}
 	var levels byte
 	for i := 0; i <= 7; i++ {
-		lvl := int8(r[0x96+i])
+		lvl := int8(c.Levels[i])
 		if lvl <= 0 {
 			continue
 		}
 		switch {
 		case i == 2: // fighters get the exceptional bonus
-			levels += byte(int(lvl) * (int(r[con]) - 0xE))
-		case r[con] > 0xF:
+			levels += byte(int(lvl) * (int(c.Stats[statCon]) - 0xE))
+		case c.Stats[statCon] > 0xF:
 			levels += byte(lvl) * 2
 		default:
 			levels += byte(lvl)
@@ -144,8 +142,8 @@ func (e *Engine) raiseDead() {
 	if levels > 0 {
 		excess = byte(int(excess) / int(levels))
 	}
-	if r[con] < 0x11 || int8(r[0x98]) > 0 {
-		r[chMaxHP] -= excess
+	if c.Stats[statCon] < 0x11 || int8(c.Levels[clsFighter]) > 0 {
+		c.MaxHP -= excess
 	}
 }
 
@@ -172,10 +170,10 @@ func (e *Engine) removeCurse() {
 // stoneToFlesh = ovr05:0928.
 func (e *Engine) stoneToFlesh() {
 	c := e.selected()
-	if e.templeCure(c.Raw[chStatus] == 7, "is not stoned.", "Stone to Flesh", 2000) && c.Raw[chStatus] == 7 {
-		c.Raw[chStatus] = 0
-		c.Raw[chOkay] = 1
-		c.Raw[chHP] = 1
+	if e.templeCure(c.Status == 7, "is not stoned.", "Stone to Flesh", 2000) && c.Status == 7 {
+		c.Status = 0
+		c.Okay = 1
+		c.HP = 1
 	}
 }
 

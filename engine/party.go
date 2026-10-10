@@ -40,7 +40,7 @@ func (e *Engine) drawPartyList() {
 		} else {
 			e.displayName(c, x, y, false)
 		}
-		ac := c.Raw[chAC60]
+		ac := c.AC[0]
 		dx := 0
 		switch {
 		case ac <= 0x32, ac >= 0x3D && ac <= 0x45:
@@ -49,7 +49,7 @@ func (e *Engine) drawPartyList() {
 			dx = 2
 		}
 		e.displayAC(c, 0x20+dx, y)
-		hp := c.Raw[chHP]
+		hp := c.HP
 		dx = 0
 		switch {
 		case hp <= 9:
@@ -385,7 +385,7 @@ func (e *Engine) RemoveSelected(keepCount, freeIcon bool) {
 		return
 	}
 	if freeIcon {
-		e.freeIcon(e.party[i].Raw[0xBF]) // ovr33:014E
+		e.freeIcon(e.party[i].Order) // ovr33:014E
 	}
 	e.party = append(e.party[:i], e.party[i+1:]...)
 	if i > 0 {

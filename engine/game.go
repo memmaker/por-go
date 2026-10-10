@@ -240,7 +240,7 @@ func (e *Engine) commandBar3D() string {
 func (e *Engine) command(k byte, view3D bool) bool {
 	switch k {
 	case 'C':
-		if !view3D || e.selected().Raw[chStatus] == 0 {
+		if !view3D || e.selected().Status == 0 {
 			e.CastMenu() // ovr16:04A1
 		}
 	case 'V':
@@ -407,7 +407,7 @@ func (e *Engine) openDoor() {
 // +0x96+n.
 func (e *Engine) partyHasSkill(n int) bool {
 	for _, c := range e.party {
-		if int8(c.Raw[0x96+n]) > 0 {
+		if int8(c.Levels[n]) > 0 {
 			return true
 		}
 	}
@@ -422,7 +422,7 @@ func (e *Engine) bashDoor() bool {
 		if ok {
 			break
 		}
-		str, exc := c.Raw[0x10], c.Raw[0x16]
+		str, exc := c.Stats[statStr], c.Str00
 		if e.DoorAt(e.posX, e.posY, e.facing) == 3 {
 			switch {
 			case str == 0x12:
@@ -480,7 +480,7 @@ func (e *Engine) pickLock() bool {
 		if ok {
 			break
 		}
-		if e.Dice(1, 100) <= int(c.Raw[0x78]) && c.Raw[chStatus] == 0 {
+		if e.Dice(1, 100) <= int(c.Thief[1]) && c.Status == 0 {
 			ok = true
 		}
 	}
@@ -494,7 +494,7 @@ func (e *Engine) pickLock() bool {
 // spellSlot = ovr15:05AB (c, spell): index of the memorized spell, or 0xFF.
 func spellSlot(c *Character, spell byte) int {
 	for i := 0; i <= 0x14; i++ {
-		if c.Raw[0x17+i] == spell {
+		if c.Memorized[i] == spell {
 			return i
 		}
 	}
@@ -517,7 +517,7 @@ func (e *Engine) knock() bool {
 	if c == nil {
 		return false
 	}
-	c.Raw[0x17+spellSlot(c, 0x1F)] = 0
+	c.Memorized[spellSlot(c, 0x1F)] = 0
 	return true
 }
 
@@ -572,7 +572,7 @@ func (e *Engine) normalizeClock(t *[7]int) {
 		}
 		if i == 6 {
 			for _, c := range e.party {
-				putWord(c.Raw[:], 0x30, wordAt(c.Raw[:], 0x30)+1)
+				c.Age = c.Age + 1
 			}
 			continue
 		}

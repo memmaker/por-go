@@ -1,5 +1,7 @@
 package engine
 
+import "bytes"
+
 // Affect handlers of ovr13, offsets 0x0000..0x1C00. Each o13_XXXX is a
 // DS:6828 table entry: handler(char, affect, flag); flag 1 = removing.
 // The rule globals DS:6816.. are e.rv (v6825 and friends see rules.go).
@@ -25,19 +27,8 @@ func targetOf(c *Character) *Character {
 
 // pascalIs compares the character's name with a Pascal string.
 func pascalIs(c *Character, s []byte) bool {
-	n := int(s[0])
-	if n > 15 {
-		n = 15
-	}
-	if c.Raw[0] != s[0] {
-		return false
-	}
-	for i := 1; i <= n; i++ {
-		if c.Raw[i] != s[i] {
-			return false
-		}
-	}
-	return true
+	n := min(int(s[0]), 15)
+	return c.PName[0] == s[0] && bytes.Equal(c.PName[1:1+n], s[1:1+n])
 }
 
 // nameInDSTable: is the name one of the 16-byte Pascal strings at ds+16*i,
@@ -76,15 +67,15 @@ func (e *Engine) addAffectNow(c *Character, typ, data byte, time int) bool {
 func (e *Engine) killWithMessage(c *Character, status byte, msg string) {
 	msg = cut(msg, 0x28)
 	e.CharMessage(c, msg, 0xA, false)
-	if s := c.Raw[chStatus]; s == 7 || s == 6 || s == 8 {
+	if s := c.Status; s == 7 || s == 6 || s == 8 {
 		return
 	}
-	c.Raw[chStatus] = status
-	c.Raw[chOkay] = 0
-	c.Raw[chHP] = 0
+	c.Status = status
+	c.Okay = 0
+	c.HP = 0
 	e.removeCombatAffects(c)
 	e.affectGroup(c, grpDown)
-	if c.Raw[chOkay] == 0 {
+	if c.Okay == 0 {
 		e.combatRemoveFromMap(c)
 	}
 	e.MsgDelay()
@@ -159,7 +150,7 @@ func (e *Engine) o13_011D(c *Character, a *Affect, flag byte) {
 
 // o13_013B: +2 to hit and damage against a target of race 4.
 func (e *Engine) o13_013B(c *Character, a *Affect, flag byte) {
-	if targetOf(c).Raw[0x9F] == 4 {
+	if targetOf(c).Kind == 4 {
 		e.rv.hitRoll += 2
 		e.rv.damage += 2
 	}
@@ -174,7 +165,7 @@ func (e *Engine) o13_017F(c *Character, a *Affect, flag byte) {
 // o13_01C3: bonus by the target's race, fire-ish magic damage.
 func (e *Engine) o13_01C3(c *Character, a *Affect, flag byte) {
 	var k byte
-	switch targetOf(c).Raw[0x9F] {
+	switch targetOf(c).Kind {
 	case 0xA:
 		k = 1
 	case 9, 0xC:
@@ -190,25 +181,25 @@ func (e *Engine) o13_01C3(c *Character, a *Affect, flag byte) {
 // o13_0233: "is hardier" (the trained Constitution grows).
 func (e *Engine) o13_0233(c *Character, a *Affect, flag byte) {
 	e.CharMessage(c, "is hardier", 0xA, true)
-	c.Raw[0x14]++
-	if c.Raw[0x14] >= 0x14 {
+	c.Stats[statCon]++
+	if c.Stats[statCon] >= 0x14 {
 		e.AddAffect(c, 0x3E, 0x3C, 0xFF, 1)
 		return
 	}
-	gain := c.Raw[chMaxHP] - c.Raw[0xB1]
+	gain := c.MaxHP - c.HPRoll
 	var div byte
-	if c.Raw[0x14] < 0xF {
+	if c.Stats[statCon] < 0xF {
 		return
 	}
 	for i := 0; i <= 7; i++ {
-		v := int8(c.Raw[0x96+i])
+		v := int8(c.Levels[i])
 		if v <= 0 {
 			continue
 		}
 		switch {
 		case i == 2:
-			div += byte(int(v) * (int(c.Raw[0x14]) - 0xF))
-		case c.Raw[0x14] > 0xF:
+			div += byte(int(v) * (int(c.Stats[statCon]) - 0xF))
+		case c.Stats[statCon] > 0xF:
 			div += byte(v * 2)
 		default:
 			div += byte(v)
@@ -218,15 +209,15 @@ func (e *Engine) o13_0233(c *Character, a *Affect, flag byte) {
 		div = 1
 	}
 	gain /= div
-	if c.Raw[0x14] < 0x11 || int8(c.Raw[0x98]) > 0 {
-		c.Raw[chMaxHP] += gain
-		c.Raw[chHP] += gain
+	if c.Stats[statCon] < 0x11 || int8(c.Levels[clsFighter]) > 0 {
+		c.MaxHP += gain
+		c.HP += gain
 	}
 }
 
 // o13_0377: the selected character's class 2/5/8: save +2, to-hit -2.
 func (e *Engine) o13_0377(c *Character, a *Affect, flag byte) {
-	if v := e.selected().Raw[0xA0]; v == 2 || v == 5 || v == 8 {
+	if v := e.selected().Alignment; v == 2 || v == 5 || v == 8 {
 		e.rv.save += 2
 		e.rv.hitRoll -= 2
 	}
@@ -234,7 +225,7 @@ func (e *Engine) o13_0377(c *Character, a *Affect, flag byte) {
 
 // o13_03AC: the same for 0/3/6.
 func (e *Engine) o13_03AC(c *Character, a *Affect, flag byte) {
-	if v := e.selected().Raw[0xA0]; v == 0 || v == 3 || v == 6 {
+	if v := e.selected().Alignment; v == 0 || v == 3 || v == 6 {
 		e.rv.save += 2
 		e.rv.hitRoll -= 2
 	}
@@ -251,18 +242,18 @@ func (e *Engine) o13_03E1(c *Character, a *Affect, flag byte) {
 // o13_0400: charm: the side follows the affect.
 func (e *Engine) o13_0400(c *Character, a *Affect, flag byte) {
 	if flag != 0 {
-		c.Raw[chSide] = (a.Raw[3] & 0x40) >> 6
-		if c.Raw[0x84] == 0xB3 {
-			c.Raw[0x84] = 0
+		c.Side = (a.Raw[3] & 0x40) >> 6
+		if c.Control == 0xB3 {
+			c.Control = 0
 		}
 		return
 	}
 	if a.Raw[3]&0x20 == 0 {
-		a.Raw[3] = a.Raw[3] + 0x20 + c.Raw[chSide]<<6
-		c.Raw[chSide] = a.Raw[3] >> 7
-		c.Raw[0x10F] = 1
-		if c.Raw[0x84] <= 0x7F {
-			c.Raw[0x84] = 0xB3
+		a.Raw[3] = a.Raw[3] + 0x20 + c.Side<<6
+		c.Side = a.Raw[3] >> 7
+		c.Auto = 1
+		if c.Control <= 0x7F {
+			c.Control = 0xB3
 		}
 		combatInfo(c).Target = nil
 		e.countSides()
@@ -275,7 +266,7 @@ func (e *Engine) o13_04BA(c *Character, a *Affect, flag byte) {
 	if a.Raw[3] > 0x7F {
 		return
 	}
-	c.Raw[chStr], c.Raw[chStr00] = strDecode(a)
+	c.Stats[statStr], c.Str00 = strDecode(a)
 	var best *Affect
 	var bs, bs00 byte
 	for _, n := range c.Affects {
@@ -287,17 +278,17 @@ func (e *Engine) o13_04BA(c *Character, a *Affect, flag byte) {
 		}
 	}
 	if best != nil {
-		best.Raw[3] = strValue(c.Raw[chStr], c.Raw[chStr00])
-		c.Raw[chStr], c.Raw[chStr00] = bs, bs00
+		best.Raw[3] = strValue(c.Stats[statStr], c.Str00)
+		c.Stats[statStr], c.Str00 = bs, bs00
 	}
 }
 
 // o13_05D6.
-func (e *Engine) o13_05D6(c *Character, a *Affect, flag byte) { c.Raw[0x15] = a.Raw[3] }
+func (e *Engine) o13_05D6(c *Character, a *Affect, flag byte) { c.Stats[statCha] = a.Raw[3] }
 
 // o13_05EB: poison: damage each round.
 func (e *Engine) o13_05EB(c *Character, a *Affect, flag byte) {
-	if e.addAffectNow(c, 0xF, a.Raw[3], 0xA) && c.Raw[chHP] > 1 {
+	if e.addAffectNow(c, 0xF, a.Raw[3], 0xA) && c.HP > 1 {
 		e.rv.dmgType = 0
 		e.Damage(c, 1, 0, false)
 		if e.beginFlag != 5 {
@@ -311,8 +302,8 @@ func (e *Engine) o13_0647(c *Character, a *Affect, flag byte) {}
 
 // o13_064E: armour class at least 0x39, save +1.
 func (e *Engine) o13_064E(c *Character, a *Affect, flag byte) {
-	if c.Raw[chAC60] < 0x39 {
-		c.Raw[chAC60] = 0x39
+	if c.AC[0] < 0x39 {
+		c.AC[0] = 0x39
 	}
 	e.rv.save++
 	if e.curSpell == 0xF {
@@ -323,7 +314,7 @@ func (e *Engine) o13_064E(c *Character, a *Affect, flag byte) {
 // o13_0679: +1 to hit per matching name in DS:0332 (race 1, class 1).
 func (e *Engine) o13_0679(c *Character, a *Affect, flag byte) {
 	t := targetOf(c)
-	if t.Raw[0x9F] == 1 && t.Raw[0x6C] == 1 {
+	if t.Kind == 1 && t.Size == 1 {
 		e.rv.hitRoll += int8(e.nameMatches(t, 0x332, 4))
 	}
 }
@@ -368,7 +359,7 @@ func (e *Engine) o13_07E0(c *Character, a *Affect, flag byte) {
 	if flag != 0 && it != nil {
 		e.RemoveItem(c, it)
 	}
-	if flag == 0 && it == nil && c.Raw[0xC7] < 0x10 {
+	if flag == 0 && it == nil && c.ItemCount < 0x10 {
 		n := &Item{}
 		n.Raw[0x2E] = 0x14
 		n.Raw[0x30] = 0x14
@@ -393,7 +384,7 @@ func (e *Engine) o13_0918(c *Character, a *Affect, flag byte) {
 // o13_0947: +1 to hit per matching name in DS:0372 (target: race 1, class 1).
 func (e *Engine) o13_0947(c *Character, a *Affect, flag byte) {
 	t := targetOf(c)
-	if t.Raw[0x9F] == 1 && t.Raw[0x6C] == 1 {
+	if t.Kind == 1 && t.Size == 1 {
 		e.rv.hitRoll += int8(e.nameMatches(t, 0x372, 8))
 	}
 }
@@ -424,12 +415,12 @@ func (e *Engine) o13_0A65(c *Character, a *Affect, flag byte) {
 	ci.Raw[2] = 0
 	ci.Raw[1] = 0
 	e.ApplyItems(c)
-	if c.Raw[0x112] > 0x34 {
-		c.Raw[0x112] -= 2
+	if c.AC[1] > 0x34 {
+		c.AC[1] -= 2
 	} else {
-		c.Raw[0x112] = 0x32
+		c.AC[1] = 0x32
 	}
-	c.Raw[chAC60] = c.Raw[0x112]
+	c.AC[0] = c.AC[1]
 	if c == e.selected() {
 		e.combatPanel(c)
 	}
@@ -441,22 +432,22 @@ func (e *Engine) o13_0B1B(c *Character, a *Affect, flag byte) {
 	if e.rv.cure == 0 {
 		e.killWithMessage(c, 6, "collapses")
 	}
-	c.Raw[chSide] = a.Raw[3] >> 4
-	c.Raw[0x10F] = 1
-	c.Raw[0x76] = 0
-	c.Raw[0x6B] = c.Raw[0x98]
-	c.Raw[0x72] = 0xC
-	if c.Raw[0x84] == 0xB3 {
-		c.Raw[0x84] = 0
+	c.Side = a.Raw[3] >> 4
+	c.Auto = 1
+	c.Undead = 0
+	c.FightLevel = c.Levels[clsFighter]
+	c.BaseMove = 0xC
+	if c.Control == 0xB3 {
+		c.Control = 0
 	}
-	c.Raw[0x9F] = 0
+	c.Kind = 0
 }
 
 // o13_0BAC: -4 to hit, armour and save.
 func (e *Engine) o13_0BAC(c *Character, a *Affect, flag byte) {
 	e.rv.hitRoll -= 4
-	c.Raw[chAC60] -= 4
-	c.Raw[0x112] -= 4
+	c.AC[0] -= 4
+	c.AC[1] -= 4
 	e.rv.save -= 4
 }
 
@@ -491,9 +482,7 @@ func (e *Engine) o13_0C4B(c *Character, a *Affect, flag byte) {
 	if a.Raw[3]&0x10 == 0 {
 		a.Raw[3] += 0x10
 		e.CharMessage(c, "ages", 0xA, true)
-		w := int(c.Raw[0x30]) | int(c.Raw[0x31])<<8
-		w++
-		c.Raw[0x30], c.Raw[0x31] = byte(w), byte(w>>8)
+		c.Age++
 	}
 	e.v681A <<= 1
 }
@@ -569,9 +558,9 @@ func (e *Engine) o13_10DE(c *Character, a *Affect, flag byte) {
 	if !e.addAffectNow(c, 0x2B, a.Raw[3], 0x3C) {
 		return
 	}
-	if c.Raw[chStr] > 3 {
+	if c.Stats[statStr] > 3 {
 		e.CharMessage(c, "is weakened", 0xA, true)
-		c.Raw[chStr]--
+		c.Stats[statStr]--
 	} else if e.FindAffect(c, 0x1F) == nil {
 		e.AddAffect(c, 0x1F, 0, 0xFF, 0)
 	}
@@ -582,7 +571,7 @@ func (e *Engine) o13_1168(c *Character, a *Affect, flag byte) {
 	if !e.addAffectNow(c, 0x2C, a.Raw[3], 0xA) {
 		return
 	}
-	if c.Raw[chHP] > 1 {
+	if c.HP > 1 {
 		e.rv.dmgType = 0
 		e.Damage(c, 1, 0, false)
 		if e.beginFlag != 5 {
@@ -596,7 +585,7 @@ func (e *Engine) o13_1168(c *Character, a *Affect, flag byte) {
 // o13_11F9: -4 to hit against the names in DS:03F2 (selected: race 1, race bits 2).
 func (e *Engine) o13_11F9(c *Character, a *Affect, flag byte) {
 	sel := e.selected()
-	if sel.Raw[0x9F] == 1 && sel.Raw[0x6C]&0x7F == 2 {
+	if sel.Kind == 1 && sel.Size&0x7F == 2 {
 		e.rv.hitRoll -= int8(4 * e.nameMatches(targetOf(c), 0x3F2, 8))
 	}
 }
@@ -604,7 +593,7 @@ func (e *Engine) o13_11F9(c *Character, a *Affect, flag byte) {
 // o13_1276: -4 to hit when the selected is a BUGBEAR or GNOLL of race 1.
 func (e *Engine) o13_1276(c *Character, a *Affect, flag byte) {
 	sel := e.selected()
-	if sel.Raw[0x9F] == 1 &&
+	if sel.Kind == 1 &&
 		(pascalIs(sel, []byte("\x07BUGBEAR")) || pascalIs(sel, []byte("\x05GNOLL"))) {
 		e.rv.hitRoll -= 4
 	}
@@ -612,7 +601,7 @@ func (e *Engine) o13_1276(c *Character, a *Affect, flag byte) {
 
 // o13_12B2: same side as the affect: o13_0C06, else -1 to hit and save.
 func (e *Engine) o13_12B2(c *Character, a *Affect, flag byte) {
-	if c.Raw[chSide] == (a.Raw[3]&0x10)>>4 {
+	if c.Side == (a.Raw[3]&0x10)>>4 {
 		e.o13_0C06(c, a, flag)
 	} else {
 		e.rv.hitRoll--
@@ -643,13 +632,13 @@ func (e *Engine) o13_1399(c *Character, a *Affect, flag byte) {
 		return
 	}
 	e.CharMessage(c, "Rots...", 0xA, true)
-	if c.Raw[0x15] > 2 {
-		c.Raw[0x15] -= 2
+	if c.Stats[statCha] > 2 {
+		c.Stats[statCha] -= 2
 	} else {
-		c.Raw[0x15] = 0
+		c.Stats[statCha] = 0
 	}
-	if c.Raw[0x15] < 3 {
-		c.Raw[0x15] = 3
+	if c.Stats[statCha] < 3 {
+		c.Stats[statCha] = 3
 	}
 	if a.Raw[3]>>4 > 1 {
 		a.Raw[3] -= 0x10
@@ -706,7 +695,7 @@ func (e *Engine) o13_1699(c *Character, a *Affect, flag byte) {
 
 // o13_16BB: paralysis for 0x3F unless the target's byte +0x2E is 2.
 func (e *Engine) o13_16BB(c *Character, a *Affect, flag byte) {
-	if targetOf(c).Raw[0x2E] != 2 {
+	if targetOf(c).Race != 2 {
 		e.paralyseTarget(c, 0x3F, 0)
 	}
 }
@@ -739,13 +728,13 @@ func (e *Engine) o13_176F(c *Character, a *Affect, flag byte) {
 	if t == nil {
 		t = &Character{}
 	}
-	if flag != 0 || c.Raw[chOkay] == 0 || t.Raw[chOkay] == 0 {
+	if flag != 0 || c.Okay == 0 || t.Okay == 0 {
 		e.RemoveAffect(t, 0x3A, nil)
 		if flag == 0 {
 			a.Raw[afCall] = 0
 			e.RemoveAffect(c, 0x4B, a)
 		}
-		if c.Raw[chOkay] != 0 && t.Raw[chOkay] != 0 {
+		if c.Okay != 0 && t.Okay != 0 {
 			combatInfo(c).Raw[0x10] = 1
 		}
 		return
@@ -756,7 +745,7 @@ func (e *Engine) o13_176F(c *Character, a *Affect, flag byte) {
 	e.Damage(t, dmg, 0, false)
 	e.clearCombatInfo(c)
 	time := int(a.Raw[afTime]) | int(a.Raw[afTime+1])<<8
-	if t.Raw[chOkay] != 0 && time>>4 > dmg {
+	if t.Okay != 0 && time>>4 > dmg {
 		time -= dmg << 4
 		a.Raw[afTime], a.Raw[afTime+1] = byte(time), byte(time>>8)
 	} else {
@@ -775,7 +764,7 @@ func (e *Engine) o13_18B5(c *Character, a *Affect, flag byte) {
 // o13_1935: hold: a target under 0x13 strength is held fast.
 func (e *Engine) o13_1935(c *Character, a *Affect, flag byte) {
 	t := targetOf(c)
-	if t.Raw[chStr] < 0x13 {
+	if t.Stats[statStr] < 0x13 {
 		e.AddAffect(c, 0x4A, 0, byte(e.combatIndex(t)), 1)
 		e.AddAffect(t, 0x3A, 0, 0xFF, 0)
 		e.callAffect(0x3A, t, nil, 0)
@@ -785,7 +774,7 @@ func (e *Engine) o13_1935(c *Character, a *Affect, flag byte) {
 
 // o13_19D9: back on its feet or affect 0x4E (the local result is unused).
 func (e *Engine) o13_19D9(c *Character, a *Affect, flag byte) {
-	if !e.Revive(c, c.Raw[chHP]) {
+	if !e.Revive(c, c.HP) {
 		e.addAffectNow(c, 0x4E, a.Raw[3], 1)
 	}
 }
@@ -807,11 +796,11 @@ func (e *Engine) o13_1A4C(c *Character, a *Affect, flag byte) {
 // o13_1AAA: fear: the enemies save or are paralysed / weakened (by +0x73).
 func (e *Engine) o13_1AAA(c *Character, a *Affect, flag byte) {
 	for _, p := range e.party {
-		if p.Raw[chOkay] == 0 || byte(b2i(isParty(c))) != p.Raw[chSide] {
+		if p.Okay == 0 || byte(b2i(isParty(c))) != p.Side {
 			continue
 		}
 		saved := e.SavingThrow(p, 4, 0)
-		switch v := int8(p.Raw[0x73]); {
+		switch v := int8(p.MaxLevel); {
 		case v >= 0 && v <= 3:
 			e.AddAffectMsg(p, 0x34, 0, 0xC, 0, 1, saved, "is paralyzed with fear")
 		case v == 4 || v == 5:
@@ -825,14 +814,14 @@ func (e *Engine) o13_1AAA(c *Character, a *Affect, flag byte) {
 func (e *Engine) o13_1BA8(c *Character, a *Affect, flag byte) {
 	for _, p := range e.party {
 		e.RemoveAffect(p, 0x52, nil)
-		if p.Raw[chOkay] == 0 || byte(b2i(isParty(c))) != p.Raw[chSide] {
+		if p.Okay == 0 || byte(b2i(isParty(c))) != p.Side {
 			continue
 		}
 		var bonus int
-		if byte(e.rv.side[p.Raw[chSide]]) >= 6 {
+		if byte(e.rv.side[p.Side]) >= 6 {
 			bonus++
 		}
-		if p.Raw[0x2E] == 7 {
+		if p.Race == 7 {
 			bonus += 2
 		}
 		saved := e.SavingThrow(p, 0, bonus)

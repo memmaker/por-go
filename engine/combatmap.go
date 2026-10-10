@@ -196,7 +196,7 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 }
 
 // isParty = 00BA:23B7 (char): true for the party side.
-func isParty(c *Character) bool { return c.Raw[chSide] == 0 }
+func isParty(c *Character) bool { return c.Side == 0 }
 
 // nearEnemies = 00BA:2433 (char, range): combatants of the other side
 // within range; the near list keeps only them, copied to DS:6DE4.
@@ -208,7 +208,7 @@ func (e *Engine) nearEnemies(c *Character, r int) int {
 		want = 1
 	}
 	for _, n := range e.near.list {
-		if t := e.combatant(n.index); t != nil && t.Raw[chSide] == want {
+		if t := e.combatant(n.index); t != nil && t.Side == want {
 			kept = append(kept, n)
 		}
 	}
@@ -247,9 +247,9 @@ func (e *Engine) casterLevel(spell int) int {
 	lvl := 0
 	switch e.X.Bytes(0x31FA+spell*16, 1)[0] {
 	case 0:
-		lvl = int(e.selected().Raw[chLevel])
+		lvl = int(e.selected().Levels[clsCleric])
 	case 1:
-		lvl = int(e.selected().Raw[chLevel+5])
+		lvl = int(e.selected().Levels[clsMage])
 	case 2:
 		lvl = 0xC
 	}

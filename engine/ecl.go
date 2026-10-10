@@ -86,18 +86,17 @@ func (e *Engine) partyIndex(c *Character) int { // ovr08:0756
 // readSpecialGlobal = ovr08:07BC.
 func (e *Engine) readSpecialGlobal(a int) (uint16, bool) {
 	c := e.selected()
-	r := c.Raw[:]
 	switch off := a - 0x6B00; off {
 	case 0x18:
-		return uint16(r[0x14]), true
+		return uint16(c.Stats[statCon]), true
 	case 0x9B:
-		return uint16(r[0x6E]), true
+		return uint16(c.Saves[1]), true
 	case 0xA0:
-		return uint16(int16(int8(r[0x73]))), true
+		return uint16(int16(int8(c.MaxLevel))), true
 	case 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xAB, 0xAC:
-		return uint16(r[0x76+(off-0xA4)]), true
+		return uint16(c.Thief[off-0xA5]), true
 	case 0xB8:
-		return uint16(r[0x84]), true
+		return uint16(c.Control), true
 	case 0xBB:
 		return e.purseCoin(0), true
 	case 0xBD:
@@ -109,32 +108,32 @@ func (e *Engine) readSpecialGlobal(a int) (uint16, bool) {
 	case 0xC3:
 		return e.purseCoin(4), true
 	case 0xD8:
-		return uint16(int16(int8(r[0xA0]))), true
+		return uint16(int16(int8(c.Alignment))), true
 	case 0xF7:
-		return wordAt(r, 0xB8), true
+		return c.ExpValue, true
 	case 0xF9:
-		return uint16(r[0xBA]), true
+		return uint16(c.ExpPerHP), true
 	case 0x100:
-		if r[0x10D] != 0 {
+		if c.Okay != 0 {
 			return 1, true
 		}
 		return 0x80, true
 	case 0x10C:
 		switch {
-		case r[0x10E] == 0 && r[0x10F] != 0:
+		case c.Side == 0 && c.Auto != 0:
 			return 0x80, true
-		case r[0x10E] == 1:
+		case c.Side == 1:
 			return 0x81, true
 		}
 		return 0, true
 	case 0x10D:
 		return 0, true // undefined in the original
 	case 0x11B:
-		return uint16(r[0x11C]), true
+		return uint16(c.Move), true
 	case 0x2B1, 0x2B4:
 		return uint16(e.partyIndex(c)), true
 	case 0x2CF:
-		switch v := r[0x15]; {
+		switch v := c.Stats[statCha]; {
 		case v == 3:
 			return 0, true
 		case v == 4:
@@ -172,7 +171,6 @@ func (e *Engine) readSpecialGlobal(a int) (uint16, bool) {
 // writeSpecialGlobal = ovr08:0A74.
 func (e *Engine) writeSpecialGlobal(a int, v uint16) {
 	c := e.selected()
-	r := c.Raw[:]
 	off := a - 0x6B00
 	switch {
 	case off == 0:
@@ -180,12 +178,12 @@ func (e *Engine) writeSpecialGlobal(a int, v uint16) {
 			e.es.f84D3 = 1
 		}
 	case off >= 0x20 && off <= 0x70:
-		r[0x17+(off-0x1F)] = byte(v)
+		c.Memorized[(off - 0x1F)] = byte(v)
 	case off == 0xB8:
 		if v > 0xB2 {
 			v -= 0x32
 		}
-		r[0x84] = byte(v)
+		c.Control = byte(v)
 	case off == 0xBB:
 		e.setPurseCoin(0, v)
 	case off == 0xBD:
@@ -197,15 +195,15 @@ func (e *Engine) writeSpecialGlobal(a int, v uint16) {
 	case off == 0xC3:
 		e.setPurseCoin(4, v)
 	case off == 0xF7:
-		putWord(r, 0xB8, v)
+		c.ExpValue = v
 	case off == 0xF9:
-		r[0xBA] = byte(v)
+		c.ExpPerHP = byte(v)
 	case off == 0x100:
 		if v >= 0x80 {
-			r[0x10D] = 0
+			c.Okay = 0
 		}
 		if v == 0x87 {
-			r[0x10C] = 7
+			c.Status = 7
 		}
 		if v == 0 {
 			e.es.f84D2 = 1
@@ -213,11 +211,11 @@ func (e *Engine) writeSpecialGlobal(a int, v uint16) {
 	case off == 0x10C:
 		switch v {
 		case 0:
-			r[0x10E], r[0x10F] = 0, 0
+			c.Side, c.Auto = 0, 0
 		case 0x80:
-			r[0x10E], r[0x10F] = 0, 1
+			c.Side, c.Auto = 0, 1
 		case 0x81:
-			r[0x10E], r[0x10F] = 1, 1
+			c.Side, c.Auto = 1, 1
 		}
 	case off == 0x312:
 		e.symPrev = e.symDAX // 0802:094A
@@ -576,13 +574,6 @@ func (e *Engine) StepForward() {
 	e.es.wallAhead = e.WallAt(e.posX, e.posY, e.facing)
 }
 
-// ScaleExp = ovr08:1CC3.
-func (e *Engine) ScaleExp(factor float64, c *Character) {
-	for _, o := range []int{0x88, 0x8A, 0x8C, 0x8E, 0x90, 0x92, 0x94} {
-		putWord(c.Raw[:], o, uint16(float64(wordAt(c.Raw[:], o))*factor))
-	}
-}
-
 // ItemSave = ovr08:1DF0 (c, pct): each item is lost with chance pct. The
 // reductions for big items accumulate over the list, as in the original.
 func (e *Engine) ItemSave(c *Character, pct int) {
@@ -630,10 +621,10 @@ func (e *Engine) PartyHpRange() (hi, lo int) {
 	if len(e.party) == 0 {
 		return 0, 0
 	}
-	h8 := e.party[0].Raw[0x11C]
+	h8 := e.party[0].Move
 	l8 := h8
 	for _, c := range e.party {
-		h := c.Raw[0x11C]
+		h := c.Move
 		if e.FindAffect(c, 0x27) != nil {
 			h *= 2
 		} else if e.FindAffect(c, 0x2A) != nil {
@@ -699,11 +690,11 @@ func (e *Engine) MenuInput(allowEnter bool, c3, c2, c1 int, menu, prompt string)
 
 // HitMessage = ovr08:20CC (c, dmg).
 func (e *Engine) HitMessage(c *Character, dmg int) {
-	if c.Raw[chStatus] == 6 {
+	if c.Status == 6 {
 		return
 	}
 	var msg string
-	if int(c.Raw[chHP])+10 < dmg {
+	if int(c.HP)+10 < dmg {
 		msg = "  " + c.Name() + " dies. "
 	} else {
 		msg = "  " + c.Name() + " is hit FOR " + padLeft(strconv.Itoa(dmg), 3) + " points of Damage."

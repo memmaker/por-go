@@ -208,11 +208,11 @@ func (e *Engine) addMonsters(idx, count, icon int) {
 	// a byte copy of it, so its Slots still point at the template's items
 	// until ApplyItems, and its item and affect lists are copied in reverse
 	// (each new node is pushed onto the head, ovr04:063E..07E7).
-	tmpl.Raw[0xBF] = e.es.v6F83
+	tmpl.Order = e.es.v6F83
 	e.party = append(e.party, tmpl)
 	e.run.monCount++
 	for i := 2; i <= count && e.run.monCount < 0x3F; i++ {
-		c := &Character{Raw: tmpl.Raw, Slots: tmpl.Slots, Combat: tmpl.Combat}
+		c := &Character{charRecord: tmpl.charRecord, Slots: tmpl.Slots, Combat: tmpl.Combat}
 		for k := len(tmpl.Items) - 1; k >= 0; k-- {
 			it := *tmpl.Items[k]
 			c.Items = append(c.Items, &it)
@@ -525,8 +525,7 @@ func (e *Engine) opPartyStrength() {
 	e.FetchArgs(1)
 	var total byte
 	for _, c := range e.party {
-		r := c.Raw[:]
-		ac, th := int(r[0x111]), int(r[0x110])
+		ac, th := int(c.AC[0]), int(c.THAC0)
 		if ac > 0x3C {
 			ac -= 0x3C
 		} else {
@@ -537,7 +536,7 @@ func (e *Engine) opPartyStrength() {
 		} else {
 			th = 0
 		}
-		v := int(r[chHP]) + 5*ac + 5*th + 8*int(r[0x9B]) + 4*int(r[0x96])
+		v := int(c.HP) + 5*ac + 5*th + 8*int(c.Levels[clsMage]) + 4*int(c.Levels[clsCleric])
 		total += byte(v / 10)
 	}
 	e.WriteVar(e.ArgAddr(1), uint16(total))
@@ -570,11 +569,11 @@ func (e *Engine) opCheckParty() {
 		}
 		e.WriteVar(dst[6], f)
 	}
-	census := func(off int) {
+	census := func(field func(*Character) byte) {
 		sum, n := 0, 0
 		for _, c := range e.party {
 			n++
-			v := c.Raw[off]
+			v := field(c)
 			if v < lo {
 				lo = v
 			}
@@ -599,9 +598,9 @@ func (e *Engine) opCheckParty() {
 		lo, hi, avg = 0, 0, 0
 		store()
 	case 0x6BA7:
-		census(0x79)
+		census(func(c *Character) byte { return c.Thief[2] })
 	case 0x6C1B:
-		census(0x11C)
+		census(func(c *Character) byte { return c.Move })
 	}
 }
 
@@ -611,7 +610,7 @@ func (e *Engine) opPartySurprise() {
 	e.FetchArgs(2)
 	var a byte
 	for _, c := range e.party {
-		if c.Raw[0x2F] == 4 || c.Raw[0x2F] == 0xA {
+		if c.Class == 4 || c.Class == 0xA {
 			a = 1
 		}
 	}

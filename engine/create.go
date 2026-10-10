@@ -34,7 +34,6 @@ func (e *Engine) selectTemp(c *Character) func() {
 // points and starting spells; keep it, name it, pick the pictures, save it.
 func (e *Engine) CreateCharacter() {
 	c := &Character{}
-	r := c.Raw[:]
 	ds := func(off int) int { return int(e.X.Bytes(off, 1)[0]) }
 	dsWord := func(off int) int {
 		b := e.X.Bytes(off, 2)
@@ -42,16 +41,16 @@ func (e *Engine) CreateCharacter() {
 	}
 	for i := 1; i <= 6; i++ {
 		t := ds(0x3CF5 + i)
-		r[0xC0+i] = byte((t+8)<<4 + t)
+		c.IconColour[i-1] = byte((t+8)<<4 + t)
 	}
-	r[0xA9] = 0x32
-	r[0x2D] = 0x28
-	r[0x10C] = 0
-	r[0x10D] = 1
-	r[0xBB] = 1
-	r[0xBC] = 1
-	r[0x6C] = 1
-	r[0xAB] = byte(e.Random(0x100))
+	c.BaseAC = 0x32
+	c.HitDice = 0x28
+	c.Status = 0
+	c.Okay = 1
+	c.PortHead = 1
+	c.PortBody = 1
+	c.Size = 1
+	c.RandomID = byte(e.Random(0x100))
 
 	// pick runs one of the four selection menus; false = left with Esc/Exit,
 	// which abandons the whole creation.
@@ -91,30 +90,30 @@ func (e *Engine) CreateCharacter() {
 	if idx == 6 {
 		idx++
 	}
-	r[0x2E] = byte(idx)
-	switch r[0x2E] {
+	c.Race = byte(idx)
+	switch c.Race {
 	case 5:
-		r[0xC0] = 1
+		c.IconSize = 1
 		e.AddAffect(c, 0x5A, 0, 0xFF, 0)
 		e.AddAffect(c, 0x61, 0, 0xFF, 0)
 	case 1:
-		r[0xC0] = 1
+		c.IconSize = 1
 		for _, t := range []byte{0x5A, 0x61, 0x1A, 0x2F} {
 			e.AddAffect(c, t, 0, 0xFF, 0)
 		}
 	case 3:
-		r[0xC0] = 1
+		c.IconSize = 1
 		for _, t := range []byte{0x61, 0x12, 0x2F, 0x30} {
 			e.AddAffect(c, t, 0, 0xFF, 0)
 		}
 	case 2:
-		r[0xC0] = 2
+		c.IconSize = 2
 		e.AddAffect(c, 0x6B, 0, 0xFF, 0)
 	case 4:
-		r[0xC0] = 2
+		c.IconSize = 2
 		e.AddAffect(c, 0x7C, 0, 0xFF, 0)
 	default:
-		r[0xC0] = 2
+		c.IconSize = 2
 	}
 
 	// Gender.
@@ -126,10 +125,10 @@ func (e *Engine) CreateCharacter() {
 	if idx, ok = pick(list); !ok {
 		return
 	}
-	r[0x9E] = byte(idx - 1)
+	c.Sex = byte(idx - 1)
 
 	// Class.
-	race := int(int8(r[0x2E]))
+	race := int(int8(c.Race))
 	cnt := ds(0x3E17 + race*12)
 	list = newList(cnt + 1)
 	list[0].Flag, list[0].Text = 1, "Pick Class"
@@ -139,42 +138,42 @@ func (e *Engine) CreateCharacter() {
 	if idx, ok = pick(list); !ok {
 		return
 	}
-	r[0x2F] = byte(ds(0x3E17 + race*12 + idx))
-	r[0x73] = 1
-	class := int(int8(r[0x2F]))
+	c.Class = byte(ds(0x3E17 + race*12 + idx))
+	c.MaxLevel = 1
+	class := int(int8(c.Class))
 	switch {
 	case class >= 0 && class <= 7:
-		r[0x96+class] = 1
+		c.Levels[class] = 1
 	case class == 8:
-		r[0x96], r[0x98] = 1, 1
+		c.Levels[clsCleric], c.Levels[clsFighter] = 1, 1
 	case class == 9:
-		r[0x96], r[0x98], r[0x9B] = 1, 1, 1
+		c.Levels[clsCleric], c.Levels[clsFighter], c.Levels[clsMage] = 1, 1, 1
 	case class == 10:
-		r[0x96], r[0x9A] = 1, 1
+		c.Levels[clsCleric], c.Levels[clsRanger] = 1, 1
 	case class == 11:
-		r[0x96], r[0x9B] = 1, 1
+		c.Levels[clsCleric], c.Levels[clsMage] = 1, 1
 	case class == 12:
-		r[0x96], r[0x9C] = 1, 1
+		c.Levels[clsCleric], c.Levels[clsThief] = 1, 1
 	case class == 13:
-		r[0x98], r[0x9B] = 1, 1
+		c.Levels[clsFighter], c.Levels[clsMage] = 1, 1
 	case class == 14:
-		r[0x98], r[0x9C] = 1, 1
+		c.Levels[clsFighter], c.Levels[clsThief] = 1, 1
 	case class == 15:
-		r[0x98], r[0x9B], r[0x9C] = 1, 1, 1
+		c.Levels[clsFighter], c.Levels[clsMage], c.Levels[clsThief] = 1, 1, 1
 	case class == 16:
-		r[0x9B], r[0x9C] = 1, 1
+		c.Levels[clsMage], c.Levels[clsThief] = 1, 1
 	}
-	if int8(r[0x9C]) > 0 {
+	if int8(c.Levels[clsThief]) > 0 {
 		e.thiefSkills(c) // ovr24:0329
 	}
-	r[0xB0] = 0
-	r[0x2D] = 0
+	c.ClassMask = 0
+	c.HitDice = 0
 	for k := 0; k <= 7; k++ {
-		if int8(r[0x96+k]) > 0 {
-			if t := byte(ds(0x3C7C + k*11 + int(int8(r[0x96+k])))); t > r[0x2D] {
-				r[0x2D] = t
+		if int8(c.Levels[k]) > 0 {
+			if t := byte(ds(0x3C7C + k*11 + int(int8(c.Levels[k])))); t > c.HitDice {
+				c.HitDice = t
 			}
-			r[0xB0] += byte(ds(0x5D6 + k))
+			c.ClassMask += byte(ds(0x5D6 + k))
 		}
 	}
 	e.savingThrows(c) // ovr24:0255
@@ -189,7 +188,7 @@ func (e *Engine) CreateCharacter() {
 	if idx, ok = pick(list); !ok {
 		return
 	}
-	r[0xA0] = byte(ds(0x3FE7 + class*10 + idx))
+	c.Alignment = byte(ds(0x3FE7 + class*10 + idx))
 
 	// Starting age: single classes roll the dice, multi-classes use the
 	// maximum. Class 10 (cleric/ranger) has no case, so its age stays 0.
@@ -212,14 +211,14 @@ func (e *Engine) CreateCharacter() {
 			age = dsWord(o) + ds(o+2)*ds(o+3)
 		}
 	}
-	putWord(r, 0x30, uint16(age))
+	c.Age = uint16(age)
 
 	undo := e.selectTemp(c)
 	e.CharacterSheet() // ovr20:004A
 	for {
-		r[0x16] = 0
+		c.Str00 = 0
 		for i := 0; i <= 5; i++ {
-			st := &r[0x10+i]
+			st := &c.Stats[i]
 			*st = 0
 			for n := 1; n <= 6; n++ {
 				roll := byte(e.Dice(3, 6))
@@ -255,8 +254,8 @@ func (e *Engine) CreateCharacter() {
 				}
 			}
 			// Age steps DS:3F31 + race*10 (4 words) against the age word.
-			older := func(j int) bool { return dsWord(0x3F31+race*10+2*j) < int(wordAt(r, 0x30)) }
-			gender := int(int8(r[0x9E]))
+			older := func(j int) bool { return dsWord(0x3F31+race*10+2*j) < int(c.Age) }
+			gender := int(int8(c.Sex))
 			switch i {
 			case 0:
 				if *st != 0 && older(0) {
@@ -325,10 +324,10 @@ func (e *Engine) CreateCharacter() {
 				*st = byte(m)
 			}
 			if i == 0 {
-				if *st == 0x12 && int8(r[0x98]) > 0 {
-					r[0x16] = byte(e.Random(100) + 1)
-					if m := byte(ds(0x3DA7 + race*16 + gender)); m < r[0x16] {
-						r[0x16] = m
+				if *st == 0x12 && int8(c.Levels[clsFighter]) > 0 {
+					c.Str00 = byte(e.Random(100) + 1)
+					if m := byte(ds(0x3DA7 + race*16 + gender)); m < c.Str00 {
+						c.Str00 = m
 					}
 				}
 			}
@@ -340,17 +339,17 @@ func (e *Engine) CreateCharacter() {
 
 		// Hit points: one die per class, averaged, with the constitution
 		// adjustment.
-		r[0x11B] = r[0x32]
-		r[0xA1], r[0xA3], r[0xA5], r[0xAA], r[0x72] = 2, 1, 2, 1, 0xC
+		c.HP = c.MaxHP
+		c.BaseAttack[0], c.BaseDice[0], c.BaseSides[0], c.StrBonus, c.BaseMove = 2, 1, 2, 1, 0xC
 		var sum, count byte
 		for k := 0; k <= 7; k++ {
-			if int8(r[0x96+k]) <= 0 {
+			if int8(c.Levels[k]) <= 0 {
 				continue
 			}
 			if k == 0 {
-				r[0xB2] = 1
+				c.SpellSlots[0] = 1
 			} else if k == 5 {
-				r[0xB5] = 1
+				c.SpellSlots[3] = 1
 			}
 			sum += byte(e.Dice(ds(0x4263+k*2), ds(0x4264+k*2)))
 			count++
@@ -358,28 +357,28 @@ func (e *Engine) CreateCharacter() {
 				e.wisdomSlots(c) // ovr24:01AF
 				for s := 1; s <= 0x38; s++ {
 					if rec := e.X.Bytes(0x31FA+s*16, 2); rec[0] == 0 && rec[1] == 1 {
-						r[0x32+s] = 1
+						c.SpellBook[s-1] = 1
 					}
 				}
 			} else if k == 5 {
-				r[0x3D], r[0x44], r[0x45], r[0x47] = 1, 1, 1, 1
+				c.SpellBook[10], c.SpellBook[17], c.SpellBook[18], c.SpellBook[20] = 1, 1, 1, 1
 			}
 		}
-		putWord(r, 0x8E, uint16(int16(int(sum)*10/int(count))))
-		r[0xB1] = byte(e.o17_4235(c, 0xFF))
-		r[0x32] = r[0xB1]
+		c.Coins[3] = uint16(int16(int(sum) * 10 / int(count)))
+		c.HPRoll = byte(e.o17_4235(c, 0xFF))
+		c.MaxHP = c.HPRoll
 		adj := int(int8(e.o17_3F31(c)))
 		if adj < 0 {
-			if int(r[0x32]) > -adj+int(count) {
-				r[0x32] = byte((int(r[0x32]) + adj) / int(count))
+			if int(c.MaxHP) > -adj+int(count) {
+				c.MaxHP = byte((int(c.MaxHP) + adj) / int(count))
 			} else {
-				r[0x32] = 1
+				c.MaxHP = 1
 			}
 		} else {
-			r[0x32] = byte((int(r[0x32]) + adj) / int(count))
+			c.MaxHP = byte((int(c.MaxHP) + adj) / int(count))
 		}
-		r[0x11B] = r[0x32]
-		r[0xB1] = byte(int(r[0xB1]) / int(count))
+		c.HP = c.MaxHP
+		c.HPRoll = byte(int(c.HPRoll) / int(count))
 		e.showCombatStats() // ovr20:0608
 		if q := e.ext.quick; q != nil {
 			if q.good(c) {
@@ -396,11 +395,11 @@ func (e *Engine) CreateCharacter() {
 
 	for q := e.ext.quick; q != nil; q = nil {
 		c.SetName(q.name)
-		r[chPortHead], r[chPortBody] = q.head, q.body
+		c.PortHead, c.PortBody = q.head, q.body
 	}
-	for r[0] == 0 {
+	for c.PName[0] == 0 {
 		c.SetName(e.InputString("Character name: ", 0xD, 0xF)) // 0709:09E3
-		if r[0] != 0 {
+		if c.PName[0] != 0 {
 			break
 		}
 	}
@@ -423,7 +422,7 @@ func (e *Engine) DropCharacter() {
 	c := e.selected()
 	if e.YesNo(0xE, 0xA, 0xF, "Drop "+c.Name()+" forever? ") == 'Y' &&
 		e.YesNo(0xE, 0xA, 0xF, "Are you sure? ") == 'Y' {
-		if c.Raw[chOkay] == 0 {
+		if c.Okay == 0 {
 			e.BottomMessage("You dump " + c.Name() + " out back.")
 		} else {
 			e.BottomMessage(c.Name() + " bids you farewell.")

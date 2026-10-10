@@ -23,7 +23,7 @@ func (e *Engine) spellClass(sp byte) byte { return e.X.Bytes(0x31FA+16*int(sp&0x
 func (e *Engine) studyTime(c *Character) int {
 	maxMem, maxScr, sumMem, sumScr := byte(0), byte(0), 0, 0
 	for i := 0; i <= 0x14; i++ {
-		if s := c.Raw[chSpells+i]; s > 0x7F {
+		if s := c.Memorized[i]; s > 0x7F {
 			l := e.spellLevel(s)
 			if l > maxMem {
 				maxMem = l
@@ -52,18 +52,18 @@ func (e *Engine) studyTime(c *Character) int {
 	if maxMem > 2 || maxScr > 2 {
 		base = 6
 	}
-	c.Raw[chStudy] = byte(base)
+	c.Study = byte(base)
 	return base*60 + sumMem*15 + sumScr*15
 }
 
 // clearMemorize = ovr16:0159 (char): forget the spells still to be memorised.
 func clearMemorize(c *Character) {
 	for i := 0; i <= 0x14; i++ {
-		if c.Raw[chSpells+i] > 0x7F {
-			c.Raw[chSpells+i] = 0
+		if c.Memorized[i] > 0x7F {
+			c.Memorized[i] = 0
 		}
 	}
-	c.Raw[chStudy] = 0
+	c.Study = 0
 }
 
 // clearScribe = ovr16:019C (char): scroll spells are no longer being scribed.
@@ -91,11 +91,11 @@ func (e *Engine) slotsLeft(level, class byte) int {
 	c := e.selected()
 	n := 0
 	for i := 0; i <= 0x14; i++ {
-		if s := c.Raw[chSpells+i]; s > 0 && e.spellLevel(s) == level && e.spellClass(s) == class {
+		if s := c.Memorized[i]; s > 0 && e.spellLevel(s) == level && e.spellClass(s) == class {
 			n++
 		}
 	}
-	return int(byte(int(c.Raw[0xB1+3*int(class)+int(level)]) - n))
+	return int(byte(int(c.spellSlot(int(class), int(level))) - n))
 }
 
 // canStudy = ovr16:036C (mode 1 cast, 2 memorize, 3 scribe): area +0x1CA
@@ -106,7 +106,7 @@ func (e *Engine) canStudy(mode int) bool {
 	switch {
 	case mode == 1 && wordAt(e.area, 0x1CA) > 0:
 		msg = "cannot cast spells in this area"
-	case c.Raw[chStatus] == 1 || c.Raw[chOkay] == 0:
+	case c.Status == 1 || c.Okay == 0:
 		msg = "is in no condition to "
 		switch mode {
 		case 1:
@@ -171,7 +171,7 @@ func (e *Engine) memorizeInfo() bool {
 				s = s[:2]
 			}
 			grid[cls][lvl] = s
-			if c.Raw[0xB1+3*cls+lvl] == 0 {
+			if c.spellSlot(cls, lvl) == 0 {
 				grid[cls][lvl] = " "
 			} else {
 				has[cls] = true
@@ -225,7 +225,7 @@ func (e *Engine) restMenu(interrupted *bool) {
 // order (empty slots first).
 func (e *Engine) sortSpells() {
 	c := e.selected()
-	s := c.Raw[chSpells : chSpells+0x15]
+	s := c.Memorized[:]
 	for i := 0; i <= 0x13; i++ {
 		for j := i; j <= 0x14; j++ {
 			if s[i]&0x7F > s[j]&0x7F {
@@ -270,10 +270,10 @@ func (e *Engine) memorizeMenu() {
 		if e.slotsLeft(e.spellLevel(spell), e.spellClass(spell)) > 0 { // unsigned test (jbe) in the original
 			c := e.selected()
 			k := 0
-			for c.Raw[chSpells+k] != 0 {
+			for c.Memorized[k] != 0 {
 				k++
 			}
-			c.Raw[chSpells+k] = spell + 0x80
+			c.Memorized[k] = spell + 0x80
 			e.sortSpells()
 		}
 	}
@@ -322,7 +322,7 @@ func (e *Engine) scribeMenu() {
 			continue
 		}
 		drew = true
-		if c.Raw[0x32+int(spell)] != 0 {
+		if c.SpellBook[int(spell)-1] != 0 {
 			e.BottomMessage("You already know that spell")
 			continue
 		}
@@ -344,7 +344,7 @@ func (e *Engine) scribeMenu() {
 		if found {
 			continue
 		}
-		if c.Raw[0xB1+3*int(e.spellClass(spell))+int(e.spellLevel(spell))] == 0 {
+		if c.spellSlot(int(e.spellClass(spell)), int(e.spellLevel(spell))) == 0 {
 			e.BottomMessage("You can not scribe that spell.")
 			continue
 		}
@@ -548,7 +548,7 @@ func (e *Engine) dropMenu() {
 		e.CharMessage(c, "Breathes A sigh of relief", 0xA, true)
 		return
 	}
-	if c.Raw[chOkay] != 0 {
+	if c.Okay != 0 {
 		e.CharMessage(c, "bids you farewell", 0xA, true)
 	} else {
 		e.CharMessage(c, "is dumped in a ditch", 0xA, true)
@@ -839,7 +839,7 @@ func (e *Engine) healTick() {
 func (e *Engine) memorizeOne(c *Character, check *bool) int {
 	found := 0
 	for i := 0; i <= 0x14 && found == 0; i++ {
-		s := c.Raw[chSpells+i]
+		s := c.Memorized[i]
 		if s <= 0x7F {
 			continue
 		}
@@ -847,9 +847,9 @@ func (e *Engine) memorizeOne(c *Character, check *bool) int {
 			found = int(e.spellLevel(s))
 			continue
 		}
-		c.Raw[chSpells+i] -= 0x80
+		c.Memorized[i] -= 0x80
 		e.showRest(0)
-		e.o23_331A(c, "has memorized", int(c.Raw[chSpells+i]))
+		e.o23_331A(c, "has memorized", int(c.Memorized[i]))
 		*check = true
 	}
 	return found
@@ -876,7 +876,7 @@ func (e *Engine) scribeOne(c *Character, check *bool) int {
 				continue
 			}
 			sp := s & 0x7F
-			c.Raw[0x32+int(sp)] = 1
+			c.SpellBook[int(sp)-1] = 1
 			e.scrollUsed(c, it, sp)
 			e.showRest(0)
 			e.o23_331A(c, "has scribed", int(sp))
@@ -903,7 +903,7 @@ func (e *Engine) memTick() {
 			break
 		}
 		e.camp.study[i+1]--
-		if e.camp.study[i+1] == 0 && c.Raw[chStudy] == 0 {
+		if e.camp.study[i+1] == 0 && c.Study == 0 {
 			e.studyStep(i+1, c, false)
 		}
 	}
@@ -920,9 +920,9 @@ func (e *Engine) hourTick(count *int) {
 		if i+1 >= len(e.camp.study) {
 			break
 		}
-		if int8(c.Raw[chStudy]) > 0 {
-			c.Raw[chStudy]--
-			if c.Raw[chStudy] == 0 {
+		if int8(c.Study) > 0 {
+			c.Study--
+			if c.Study == 0 {
 				e.studyStep(i+1, c, true)
 			}
 		}

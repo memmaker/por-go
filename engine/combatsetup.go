@@ -71,12 +71,12 @@ func (e *Engine) combatBlocks() {
 			c.Combat.Raw[0x13] = 1
 		}
 		c.Combat.Raw[9] = e.X.Bytes(0x2F2+e.facing/2, 1)[0]
-		if c.Raw[chSide] == 1 {
+		if c.Side == 1 {
 			c.Combat.Raw[9] = (c.Combat.Raw[9] + 4) % 8
 		}
-		m := c.Raw[0x84] & 0x7F
-		if c.Raw[chSide] == 0 && c.Combat.Raw[0x13] == 1 && (m == 0 || m > 0x66) {
-			c.Raw[0x84] = byte(wordAt(e.game, 0x58C) + 0x80)
+		m := c.Control & 0x7F
+		if c.Side == 0 && c.Combat.Raw[3] == 1 && (m == 0 || m > 0x66) {
+			c.Control = byte(wordAt(e.game, 0x58C) + 0x80)
 		}
 	}
 }
@@ -526,11 +526,11 @@ func (e *Engine) placeCombatants() {
 		c := e.party[i]
 		e.flushKey()
 		e.combatants[idx-1] = c
-		p.side = c.Raw[chSide]
+		p.side = c.Side
 		e.cpos[idx].id = byte(idx)
-		e.cpos[idx].size = c.Raw[0x6C] & 7
+		e.cpos[idx].size = c.Size & 7
 		if e.placeOne(idx) {
-			if c.Raw[chOkay] == 0 {
+			if c.Okay == 0 {
 				e.cpos[idx].size = 0
 				if e.run.f84D4 == 0 && c.Combat.Raw[0x13] == 0 {
 					x, y := e.cpos[idx].x, e.cpos[idx].y

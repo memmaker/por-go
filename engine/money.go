@@ -36,8 +36,8 @@ func coinsToPurse(c [7]uint16) purse {
 func (e *Engine) takeRecordCoins(c *Character) {
 	var coins [7]uint16
 	for i := range coins {
-		coins[i] = wordAt(c.Raw[:], chCoins+2*i)
-		putWord(c.Raw[:], chCoins+2*i, 0)
+		coins[i] = c.Coins[i]
+		c.Coins[i] = 0
 	}
 	e.purse.add(coinsToPurse(coins))
 }

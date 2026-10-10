@@ -35,22 +35,22 @@ func (e *Engine) combatParty() []*Character {
 func (e *Engine) computeExp() int32 {
 	sel := e.selected()
 	if e.duel() && wordAt(e.game, 0x5CC) != 0 {
-		return int32(int16(int8(sel.Raw[0x73])) * 100)
+		return int32(int16(int8(sel.MaxLevel)) * 100)
 	}
 	var total int32
 	taken := 0
 	for _, c := range e.party {
-		if c.Raw[chNPC] != 1 || c.Raw[chStatus] == 3 {
+		if c.Side != 1 || c.Status == 3 {
 			continue
 		}
 		e.ac.monsters = true
 		var coins [7]uint16
 		for i := range coins {
-			coins[i] = wordAt(c.Raw[:], chCoins+2*i)
+			coins[i] = c.Coins[i]
 		}
 		e.loot.add(coinsToPurse(coins))
 		// the byte product is a 16-bit mul, sign-extended
-		total += int32(wordAt(c.Raw[:], 0xB8)) + int32(int16(uint16(c.Raw[0xB1])*uint16(c.Raw[0xBA])))
+		total += int32(c.ExpValue) + int32(int16(uint16(c.HPRoll)*uint16(c.ExpPerHP)))
 		if wordAt(e.game, 0x5C6) == 1 {
 			continue
 		}
@@ -83,29 +83,29 @@ func (e *Engine) computeExp() int32 {
 // a tenth more for a high prime requisite; multi-class characters split it.
 func (e *Engine) giveExp(exp int32) {
 	for _, c := range e.party {
-		if c.Raw[chOkay] == 0 || c.Raw[chStatus] == 1 {
+		if c.Okay == 0 || c.Status == 1 {
 			continue
 		}
 		g := exp
 		prime := -1
-		switch c.Raw[chClass] {
+		switch c.Class {
 		case 0:
-			prime = 0x12
+			prime = statWis
 		case 2:
-			prime = 0x10
+			prime = statStr
 		case 5:
-			prime = 0x11
+			prime = statInt
 		case 6:
-			prime = 0x13
+			prime = statDex
 		case 8, 10, 11, 12, 13, 14, 16:
 			g = exp / 2
 		case 9, 15:
 			g = exp / 3
 		}
-		if prime >= 0 && c.Raw[prime] > 15 {
+		if prime >= 0 && c.Stats[prime] > 15 {
 			g += g / 10
 		}
-		putLongAt(c.Raw[:], chExp, uint32(int32(longAt(c.Raw[:], chExp))+g))
+		c.Exp = uint32(int32(c.Exp) + g)
 	}
 }
 
@@ -116,7 +116,7 @@ func (e *Engine) combatResult() {
 	e.run.quit = true
 	e.ac.fled = false
 	for _, c := range e.combatParty() {
-		if c.Raw[chStatus] == 3 {
+		if c.Status == 3 {
 			e.ac.fled = true
 		}
 	}
@@ -126,16 +126,16 @@ func (e *Engine) combatResult() {
 	e.ac.won = false
 	if !e.duel() {
 		for _, c := range e.combatParty() {
-			st := c.Raw[chStatus]
+			st := c.Status
 			if (st == 3 || st == 1 || st == 0 || wordAt(e.game, 0x5CC) == 1) &&
-				c.Raw[chNPC] == 0 && c.Raw[chPlayerFlag] < 0x80 {
+				c.Side == 0 && c.Control < 0x80 {
 				e.run.quit = false
 			}
 			if st == 1 || st == 0 {
 				e.ac.won = true
 				e.ac.fled = false
 			}
-			if c.Raw[chOkay] == 0 || st == 1 {
+			if c.Okay == 0 || st == 1 {
 				e.ac.idle++
 			}
 		}
@@ -146,21 +146,21 @@ func (e *Engine) combatResult() {
 		if !e.run.quit {
 			if !e.ac.fled {
 				for _, c := range e.combatParty() {
-					switch st := c.Raw[chStatus]; {
+					switch st := c.Status; {
 					case st == 3:
-						c.Raw[chStatus], c.Raw[chOkay] = 0, 1
+						c.Status, c.Okay = 0, 1
 					case st == 5:
-						c.Raw[chStatus] = 4
-					case st == 4 && c.Raw[chHP] > 0:
-						c.Raw[chStatus], c.Raw[chOkay] = 0, 1
+						c.Status = 4
+					case st == 4 && c.HP > 0:
+						c.Status, c.Okay = 0, 1
 					}
 				}
 			} else {
 				putWord(e.game, 0x58E, 0x81)
 				for i := 0; i < len(e.combatParty()); {
 					c := e.party[i]
-					if c.Raw[chStatus] == 3 {
-						c.Raw[chStatus], c.Raw[chOkay] = 0, 1
+					if c.Status == 3 {
+						c.Status, c.Okay = 0, 1
 						i++
 						continue
 					}
@@ -178,18 +178,18 @@ func (e *Engine) combatResult() {
 		return
 	}
 	for _, c := range e.party {
-		if c.Raw[chOkay] == 1 && c.Raw[chStatus] == 0 && c.Raw[chNPC] != 1 {
+		if c.Okay == 1 && c.Status == 0 && c.Side != 1 {
 			e.ac.won = true
 			e.ac.exp = e.computeExp()
 			e.giveExp(e.ac.exp)
 		}
 	}
 	for _, c := range e.party {
-		switch c.Raw[chStatus] {
+		switch c.Status {
 		case 0, 1:
-			c.Raw[chOkay] = 1
+			c.Okay = 1
 		case 5:
-			c.Raw[chStatus] = 4
+			c.Status = 4
 		}
 	}
 }
@@ -202,8 +202,8 @@ func (e *Engine) cleanupCombatants() {
 	for i := 0; i < len(e.party); {
 		c := e.party[i]
 		monster := c.Combat != nil && c.Combat.Raw[0x13] == 1
-		if monster || c.Raw[chNPC] == 1 {
-			if c.Raw[chOkay] != 1 {
+		if monster || c.Side == 1 {
+			if c.Okay != 1 {
 				putWord(e.game, 0x590, wordAt(e.game, 0x590)+1)
 			}
 			e.partySel = i
@@ -222,9 +222,9 @@ func (e *Engine) cleanupCombatants() {
 func (e *Engine) hiredShare() {
 	shares, parts := 0, 0
 	for _, c := range e.party {
-		if c.Raw[chPlayerFlag] > 0x7F && c.Raw[chStatus] == 0 {
-			shares += int(c.Raw[0x85] & 7)
-			parts += int(c.Raw[0x85] & 7)
+		if c.Control > 0x7F && c.Status == 0 {
+			shares += int(c.Share & 7)
+			parts += int(c.Share & 7)
 		} else {
 			parts++
 		}
@@ -238,7 +238,7 @@ func (e *Engine) hiredShare() {
 	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "")
 	k := 0
 	for _, c := range e.party {
-		if c.Raw[chPlayerFlag] > 0x7F && c.Raw[chStatus] == 0 && c.Raw[0x85] > 0 {
+		if c.Control > 0x7F && c.Status == 0 && c.Share > 0 {
 			e.DisplayTextBlock(5, 5+2*k, 0x22, 0x16, 0xA, true, c.Name()+" takes and hides his share.")
 			k++
 		}
@@ -338,7 +338,7 @@ func (e *Engine) lootMenu() {
 		if items {
 			if c := e.selected(); c != nil {
 				for i := 0; i <= 0x14; i++ {
-					if s := c.Raw[chSpells+i]; s == 5 || s == 0xB {
+					if s := c.Memorized[i]; s == 5 || s == 0xB {
 						detect = s
 						exit = " Detect Exit"
 						break

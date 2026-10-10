@@ -325,7 +325,7 @@ func (e *Engine) PartyOverview() {
 			colour = 0xF
 		}
 		e.DisplayString(2, y, colour, cut(c.Name(), 15))
-		hp, max := int(c.Raw[chHP]), int(c.Raw[chMaxHP])
+		hp, max := int(c.HP), int(c.MaxHP)
 		hpc := 0xA
 		switch {
 		case hp <= 0:
@@ -335,7 +335,7 @@ func (e *Engine) PartyOverview() {
 		}
 		e.DisplayString(0x12, y, hpc, itoa(hp)+"/"+itoa(max))
 		e.displayAC(c, 0x1A, y)
-		e.DisplayString(0x1E, y, 0xA, e.statusName(c.Raw[chStatus]))
+		e.DisplayString(0x1E, y, 0xA, e.statusName(c.Status))
 		// Hit point bar, 32 pixels wide, under the name.
 		px, py := 2*8, (y+1)*8+2
 		w := 0

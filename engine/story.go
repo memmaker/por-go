@@ -197,23 +197,20 @@ func (e *Engine) DuelSetup(n int) {
 	}
 	for _, c := range e.party {
 		if c.Name() != sel.Name() { // 0AF8:0C10 compares the name strings
-			c.Raw[chOkay] = 0
+			c.Okay = 0
 		}
 	}
 	if n == 0 {
 		return
 	}
-	e.LoadIconPic("CPIC", 0xB, int(e.es.v6F83)) // ovr33:01C8
-	cl := &Character{Raw: sel.Raw}
-	cl.Raw[chOkay] = 1
-	cl.Raw[0x104], cl.Raw[0x105], cl.Raw[0x106], cl.Raw[0x107] = 0, 0, 0, 0
-	cl.Raw[0], cl.Raw[1], cl.Raw[2], cl.Raw[3], cl.Raw[4] = 4, 'R', 'O', 'L', 'F' // StrCopyN(..., 15)
-	cl.Raw[0x7F], cl.Raw[0x80], cl.Raw[0x81], cl.Raw[0x82] = 0, 0, 0, 0           // no affects
-	cl.Raw[0xC8], cl.Raw[0xC9], cl.Raw[0xCA], cl.Raw[0xCB] = 0, 0, 0, 0           // no items yet
-	cl.Raw[0x10F] = 1
-	cl.Raw[0x10E] = 1
-	cl.Raw[0x84] = 0xB2
-	cl.Raw[0xBF] = e.es.v6F83
+	e.LoadIconPic("CPIC", 0xB, int(e.es.v6F83))  // ovr33:01C8
+	cl := &Character{charRecord: sel.charRecord} // no affects, no items yet
+	cl.Okay = 1
+	cl.SetName("ROLF")
+	cl.Auto = 1
+	cl.Side = 1
+	cl.Control = 0xB2
+	cl.Order = e.es.v6F83
 	e.party = append(e.party, cl)
 	for _, it := range sel.Items {
 		c := *it

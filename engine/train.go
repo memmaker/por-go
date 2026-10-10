@@ -26,16 +26,16 @@ func (e *Engine) modifyDraw(idx int, hi bool) {
 // Keep (K) accepts, Exit (E) puts the old values back.
 func (e *Engine) ModifyCharacter() {
 	c := e.selected()
-	if int32(longAt(c.Raw[:], chExp)) > 0 {
+	if int32(c.Exp) > 0 {
 		e.DisplayMessageWait(0xE, c.Name()+" can't be modified.")
 		return
 	}
 	e.CharacterSheet() // ovr20:004A
 	var saved [6]byte
-	copy(saved[:], c.Raw[chStr:chStr+6])
-	savedStr00, savedHP := c.Raw[chStr00], c.Raw[chMaxHP]
+	copy(saved[:], c.Stats[:])
+	savedStr00, savedHP := c.Str00, c.MaxHP
 	tbl := func(off int) byte { return e.X.Bytes(off, 1)[0] }
-	race, class, sex := int(c.Raw[chRace]), int(c.Raw[chClass]), int(c.Raw[chGender])
+	race, class, sex := int(c.Race), int(c.Class), int(c.Sex)
 	minOff := [6]int{0x3DA3 + sex, 0x3DA9, 0x3DAB, 0x3DAD, 0x3DAF, 0x3DB1}
 	maxOff := [6]int{0x3DA5 + sex, 0x3DAA, 0x3DAC, 0x3DAE, 0x3DB0, 0x3DB2}
 	idx := 6
@@ -44,7 +44,7 @@ func (e *Engine) ModifyCharacter() {
 	e.modifyDraw(idx, true)
 	// hpToDraw redraws the hit point line, leaving the cursor on idx.
 	hpToDraw := func() {
-		c.Raw[chHP] = c.Raw[chMaxHP]
+		c.HP = c.MaxHP
 		save := idx
 		idx = 6
 		e.modifyDraw(idx, false)
@@ -52,44 +52,44 @@ func (e *Engine) ModifyCharacter() {
 	}
 	// slots: when wisdom changes, a first level cleric slot is capped at 1.
 	wisdom := func() {
-		if c.Raw[0xB2] > 0 {
-			c.Raw[0xB2] = 1
+		if c.SpellSlots[0] > 0 {
+			c.SpellSlots[0] = 1
 		}
 		e.wisdomSlots(c) // ovr24:01AF
 	}
 	lower := func(i int) {
-		c.Raw[chStr+i]--
-		if i == 0 && c.Raw[chStr00] > 0 {
-			c.Raw[chStr00]--
-			c.Raw[chStr]++
-		} else if lo := tbl(minOff[i] + race*16); c.Raw[chStr+i] < lo || c.Raw[chStr+i] < tbl(0x3F81+class*6+i) {
+		c.Stats[i]--
+		if i == 0 && c.Str00 > 0 {
+			c.Str00--
+			c.Stats[statStr]++
+		} else if lo := tbl(minOff[i] + race*16); c.Stats[i] < lo || c.Stats[i] < tbl(0x3F81+class*6+i) {
 			// Quirk: below the class minimum the race minimum is stored.
-			c.Raw[chStr+i] = lo
+			c.Stats[i] = lo
 		}
 		switch i {
 		case 2:
 			wisdom()
 		case 4:
-			if m := e.maxHitPoints(c); m < c.Raw[chMaxHP] {
-				c.Raw[chMaxHP] = m
+			if m := e.maxHitPoints(c); m < c.MaxHP {
+				c.MaxHP = m
 			}
 			hpToDraw()
 		}
 	}
 	raise := func(i int) {
-		c.Raw[chStr+i]++
-		if hi := tbl(maxOff[i] + race*16); c.Raw[chStr+i] > hi {
-			if i == 0 && c.Raw[chStr] > 0x12 && int8(c.Raw[0x98]) > 0 && tbl(0x3DA7+race*16+sex) > c.Raw[chStr00] {
-				c.Raw[chStr00]++ // exceptional strength for fighters
+		c.Stats[i]++
+		if hi := tbl(maxOff[i] + race*16); c.Stats[i] > hi {
+			if i == 0 && c.Stats[statStr] > 0x12 && int8(c.Levels[clsFighter]) > 0 && tbl(0x3DA7+race*16+sex) > c.Str00 {
+				c.Str00++ // exceptional strength for fighters
 			}
-			c.Raw[chStr+i] = hi
+			c.Stats[i] = hi
 		}
 		switch i {
 		case 2:
 			wisdom()
 		case 4:
-			if m := e.minHitPoints(c); m > c.Raw[chMaxHP] {
-				c.Raw[chMaxHP] = m
+			if m := e.minHitPoints(c); m > c.MaxHP {
+				c.MaxHP = m
 			}
 			hpToDraw()
 		}
@@ -99,9 +99,9 @@ func (e *Engine) ModifyCharacter() {
 		key, extra := e.DisplayInput("Modify character: ", "Keep Exit", 0xD, 0xA, 0xF, true, false)
 		e.modifyDraw(idx, false)
 		if !extra && (key == 'E' || key == 0) {
-			copy(c.Raw[chStr:chStr+6], saved[:])
-			c.Raw[chStr00], c.Raw[chMaxHP] = savedStr00, savedHP
-			c.Raw[chHP] = c.Raw[chMaxHP]
+			copy(c.Stats[:], saved[:])
+			c.Str00, c.MaxHP = savedStr00, savedHP
+			c.HP = c.MaxHP
 			e.ApplyItems(c) // 00BA:0BB8
 			return
 		}
@@ -119,21 +119,21 @@ func (e *Engine) ModifyCharacter() {
 				if idx < 6 {
 					lower(idx)
 				} else {
-					c.Raw[chMaxHP]--
-					if m := e.minHitPoints(c); m > c.Raw[chMaxHP] {
-						c.Raw[chMaxHP] = m
+					c.MaxHP--
+					if m := e.minHitPoints(c); m > c.MaxHP {
+						c.MaxHP = m
 					}
-					c.Raw[chHP] = c.Raw[chMaxHP]
+					c.HP = c.MaxHP
 				}
 			case 0x4D:
 				if idx < 6 {
 					raise(idx)
 				} else {
-					c.Raw[chMaxHP]++
-					if m := e.maxHitPoints(c); m < c.Raw[chMaxHP] {
-						c.Raw[chMaxHP] = m
+					c.MaxHP++
+					if m := e.maxHitPoints(c); m < c.MaxHP {
+						c.MaxHP = m
 					}
-					c.Raw[chHP] = c.Raw[chMaxHP]
+					c.HP = c.MaxHP
 				}
 			}
 		}
@@ -141,7 +141,7 @@ func (e *Engine) ModifyCharacter() {
 		e.showCombatStats() // ovr20:0608
 		e.modifyDraw(idx, true)
 		if !extra && key == 'K' {
-			c.Raw[0x85] = 1
+			c.Share = 1
 			return
 		}
 	}
@@ -153,14 +153,14 @@ func (e *Engine) ModifyCharacter() {
 func (e *Engine) o17_3F31(c *Character) int {
 	var sum byte
 	for i := 0; i <= 7; i++ {
-		if int8(c.Raw[chLevel+i]) <= 0 {
+		if int8(c.Levels[i]) <= 0 {
 			continue
 		}
-		sum += e.X.Bytes(0x408E+int(c.Raw[chStr+4]), 1)[0]
-		if c.Raw[chStr+4] > 0x10 && c.Raw[chClass] == 2 {
+		sum += e.X.Bytes(0x408E+int(c.Stats[statCon]), 1)[0]
+		if c.Stats[statCon] > 0x10 && c.Class == 2 {
 			sum++
 		}
-		if c.Raw[chStr+4] > 0x11 && c.Raw[chClass] == 2 {
+		if c.Stats[statCon] > 0x11 && c.Class == 2 {
 			sum++
 		}
 	}
@@ -189,7 +189,7 @@ func (e *Engine) minHitPoints(c *Character) byte {
 	var sum byte
 	count := 0
 	for i := 0; i <= 7; i++ {
-		if lv := int8(c.Raw[chLevel+i]); lv > 0 {
+		if lv := int8(c.Levels[i]); lv > 0 {
 			sum += byte(lv)
 			count++
 			if i == 4 || i == 7 {
@@ -206,7 +206,7 @@ func (e *Engine) maxHitPoints(c *Character) byte {
 	var sum byte
 	count := 0
 	for i := 0; i <= 7; i++ {
-		lv := int(int8(c.Raw[chLevel+i]))
+		lv := int(int8(c.Levels[i]))
 		if lv <= 0 {
 			continue
 		}
@@ -234,12 +234,12 @@ func (e *Engine) maxHitPoints(c *Character) byte {
 func (e *Engine) o17_4235(c *Character, mask int) int {
 	var total byte
 	for i := 0; i <= 7; i++ {
-		if int8(c.Raw[chLevel+i]) <= 0 || e.X.Bytes(0x5DE+i, 1)[0]&byte(mask) == 0 {
+		if int8(c.Levels[i]) <= 0 || e.X.Bytes(0x5DE+i, 1)[0]&byte(mask) == 0 {
 			continue
 		}
 		n, sides := int(e.X.Bytes(0x8B6+i, 1)[0]), int(e.X.Bytes(0x8BE+i, 1)[0])
 		r := e.Dice(n, sides) // ovr25:0DE3
-		if c.Raw[chLevel+i] == 1 && r < (sides<<1)/3 {
+		if c.Levels[i] == 1 && r < (sides<<1)/3 {
 			r = (sides << 1) / 3
 		}
 		total += byte(r)
@@ -253,7 +253,7 @@ func (e *Engine) o17_4235(c *Character, mask int) int {
 // new spell for the book.
 func (e *Engine) TrainCharacter() {
 	c := e.selected()
-	if c.Raw[chStatus] != 0 && !e.debug {
+	if c.Status != 0 && !e.debug {
 		e.DisplayMessageWait(0xE, "we only train conscious people")
 		return
 	}
@@ -264,9 +264,9 @@ func (e *Engine) TrainCharacter() {
 	classMask := func(i int) byte { return e.X.Bytes(0x5DE+i, 1)[0] }
 	var have, can byte
 	var best int32
-	race, str := c.Raw[chRace], c.Raw[chStr]
+	race, str := c.Race, c.Stats[statStr]
 	for i := 0; i <= 7; i++ {
-		lv := c.Raw[chLevel+i]
+		lv := c.Levels[i]
 		if int8(lv) <= 0 {
 			continue
 		}
@@ -292,7 +292,7 @@ func (e *Engine) TrainCharacter() {
 		if skip {
 			continue
 		}
-		exp := int32(longAt(c.Raw[:], chExp))
+		exp := int32(c.Exp)
 		need := int32(e.X.Long(0x409B + 0x38*i + 4*int(int8(lv+1))))
 		if need > exp && !e.debug || need <= 0 {
 			continue
@@ -308,7 +308,7 @@ func (e *Engine) TrainCharacter() {
 		}
 	}
 	if best > 0 {
-		putLongAt(c.Raw[:], chExp, uint32(best))
+		c.Exp = uint32(best)
 	}
 	hall := e.partyExp()
 	if !e.debug {
@@ -330,13 +330,13 @@ func (e *Engine) TrainCharacter() {
 	e.displayName(c, 4, y, false) // 00BA:1816
 	e.DisplayString(len(c.Name())+4, y, 0xA, " will become:")
 	for i := 0; i <= 7; i++ {
-		if int8(c.Raw[chLevel+i]) > 0 && classMask(i)&mask > 0 {
+		if int8(c.Levels[i]) > 0 && classMask(i)&mask > 0 {
 			y++
 			pre := "and a level "
 			if y == 5 {
 				pre = "    a level "
 			}
-			e.DisplayString(6, y, 0xA, pre+itoa(int(int8(c.Raw[chLevel+i]))+1)+" "+e.X.PString(0xD38+i*0x1B))
+			e.DisplayString(6, y, 0xA, pre+itoa(int(int8(c.Levels[i]))+1)+" "+e.X.PString(0xD38+i*0x1B))
 		}
 	}
 	if e.YesNo(0xD, 0xA, 0xF, "Do you wish to train? ") != 'Y' {
@@ -347,22 +347,22 @@ func (e *Engine) TrainCharacter() {
 		e.purse.gold -= 1000
 	}
 	count := 0
-	mage := int8(c.Raw[chLevel+5])
+	mage := int8(c.Levels[clsMage])
 	for i := 0; i <= 7; i++ {
-		if int8(c.Raw[chLevel+i]) <= 0 {
+		if int8(c.Levels[i]) <= 0 {
 			continue
 		}
 		count++
 		if classMask(i)&mask > 0 {
-			c.Raw[chLevel+i]++
-			if c.Raw[0x74] > 0 {
-				c.Raw[0x75] -= c.Raw[0x75] / c.Raw[0x74]
-				c.Raw[0x74]--
+			c.Levels[i]++
+			if c.Drained > 0 {
+				c.DrainedHP -= c.DrainedHP / c.Drained
+				c.Drained--
 			}
 		}
 	}
 	e.RecomputeCharacter(c) // ovr24:0000
-	if int8(c.Raw[chLevel+5]) > mage {
+	if int8(c.Levels[clsMage]) > mage {
 		idx := -1
 		var spell byte
 		any := true
@@ -372,22 +372,23 @@ func (e *Engine) TrainCharacter() {
 				break
 			}
 		}
-		// Quirk: with nothing to choose, spell 0 stores 1 at +0x32.
-		c.Raw[chSpellBook+int(spell)] = 1
+		if spell > 0 { // (the original, with nothing to choose, set +0x32, the max HP, to 1)
+			c.SpellBook[spell-1] = 1
+		}
 	}
 	roll := e.o17_4235(c, int(mask))
 	per := roll / count
 	if per == 0 {
 		per = 1
 	}
-	c.Raw[0xB1] += byte(per)
+	c.HPRoll += byte(per)
 	per = (roll + e.o17_3F31(c)) / count
 	if per < 1 {
 		per = 1
 	}
-	damage := c.Raw[chMaxHP] - c.Raw[chHP]
-	c.Raw[chMaxHP] += byte(per)
-	c.Raw[chHP] = c.Raw[chMaxHP] - damage
+	damage := c.MaxHP - c.HP
+	c.MaxHP += byte(per)
+	c.HP = c.MaxHP - damage
 }
 
 // AddCharacter = ovr17:306D: pick saved characters from the roster list
@@ -422,15 +423,15 @@ func (e *Engine) AddCharacter() {
 				} else {
 					var dup *Character
 					for _, m := range e.party {
-						if m.Name() == c.Name() && m.Raw[chRandomID] == c.Raw[chRandomID] {
+						if m.Name() == c.Name() && m.RandomID == c.RandomID {
 							dup = m
 							break
 						}
-						if m.Raw[chPlayerFlag] < 0x80 {
+						if m.Control < 0x80 {
 							count++
 						}
 					}
-					npc := c.Raw[chPlayerFlag] >= 0x80
+					npc := c.Control >= 0x80
 					if dup == nil && (!npc && count < 6 || npc && wordAt(e.game, gsPartyCount) < 8) {
 						e.AddToParty(c)
 						e.BuildCharIcon(c, true)
@@ -456,33 +457,33 @@ func (e *Engine) AddCharacter() {
 // without Keep (Esc just asks again).
 func (e *Engine) o17_33E7() {
 	c := e.selected()
-	head, body := c.Raw[chPortHead], c.Raw[chPortBody]
+	head, body := c.PortHead, c.PortBody
 	for {
 		e.SheetPortrait() // ovr29:04F9
 		key, extra := e.DisplayInput("", "Head Body Keep", 0, 0xF, 0xA, false, false)
 		if !extra {
 			switch key {
 			case 'H':
-				if c.Raw[chPortHead] < 0xE {
-					c.Raw[chPortHead]++
+				if c.PortHead < 0xE {
+					c.PortHead++
 				} else {
-					c.Raw[chPortHead] = 1
+					c.PortHead = 1
 				}
 			case 'B':
-				if c.Raw[chPortBody] < 0xC {
-					c.Raw[chPortBody]++
+				if c.PortBody < 0xC {
+					c.PortBody++
 				} else {
-					c.Raw[chPortBody] = 1
+					c.PortBody = 1
 				}
 			case 'K':
-				head, body = c.Raw[chPortHead], c.Raw[chPortBody]
+				head, body = c.PortHead, c.PortBody
 			}
 		}
 		if key == 'K' {
 			break
 		}
 	}
-	c.Raw[chPortHead], c.Raw[chPortBody] = head, body
+	c.PortHead, c.PortBody = head, body
 	e.ClearRow24()
 }
 
@@ -523,7 +524,7 @@ func (e *Engine) iconCopy(src, dst byte, recolour bool) {
 	}
 	pos := e.X.Bytes(0x3CF5, 7)
 	for i := 1; i <= 6; i++ {
-		v := c.Raw[chIconSize+i]
+		v := c.IconColour[i-1]
 		to[pos[i]] = v & 0xF
 		to[pos[i]+8] = v >> 4
 	}
@@ -568,12 +569,12 @@ func (e *Engine) o17_382D() {
 		e.BuildCharIcon(c, false) // ovr18:0482
 		state = 1
 		var colours [6]byte
-		copy(colours[:], c.Raw[chIconSize+1:chIconSize+7])
-		order := c.Raw[chOrder]
-		c.Raw[chOrder] = 0xC // the working copy is built into slot 0xC
+		copy(colours[:], c.IconColour[:])
+		order := c.Order
+		c.Order = 0xC // the working copy is built into slot 0xC
 		e.BuildCharIcon(c, false)
-		c.Raw[chOrder] = order
-		head, weapon, size := c.Raw[chIconHead], c.Raw[chIconBody], c.Raw[chIconSize]
+		c.Order = order
+		head, weapon, size := c.IconHead, c.IconBody, c.IconSize
 		e.iconCopy(order, 0xC, true)
 		e.iconPane(1, 2)
 		e.DisplayString(8, 6, 0xF, "old")
@@ -585,7 +586,7 @@ func (e *Engine) o17_382D() {
 			sizeStr := ""
 			if state == 4 {
 				sizeStr = "Large"
-				if c.Raw[chIconSize] == 2 {
+				if c.IconSize == 2 {
 					sizeStr = "Small" // as in the original
 				}
 			}
@@ -647,15 +648,15 @@ func (e *Engine) o17_382D() {
 				case 4:
 					switch {
 					case key == 'L':
-						c.Raw[chIconSize] = 2
+						c.IconSize = 2
 						e.BuildCharIcon(c, false)
 					case key == 'S':
-						c.Raw[chIconSize] = 1
+						c.IconSize = 1
 						e.BuildCharIcon(c, false)
 					case key == 'K':
-						size, state, key = c.Raw[chIconSize], 1, ' '
+						size, state, key = c.IconSize, 1, ' '
 					case done:
-						c.Raw[chIconSize] = size
+						c.IconSize = size
 						state, key = 1, ' '
 					}
 					e.BuildCharIcon(c, false)
@@ -663,34 +664,34 @@ func (e *Engine) o17_382D() {
 					switch parent {
 					case 2:
 						// Step head (0..13) or weapon (0..31) pictures.
-						off, saved, top := chIconHead, &head, byte(0xD)
+						pic, saved, top := &c.IconHead, &head, byte(0xD)
 						if sub == 'W' {
-							off, saved, top = chIconBody, &weapon, 0x1F
+							pic, saved, top = &c.IconBody, &weapon, 0x1F
 						}
 						if sub == 'H' || sub == 'W' {
 							switch {
 							case key == 'P':
-								if c.Raw[off] > 0 {
-									c.Raw[off]--
+								if *pic > 0 {
+									*pic--
 								} else {
-									c.Raw[off] = top
+									*pic = top
 								}
 							case key == 'N':
-								if c.Raw[off] < top {
-									c.Raw[off]++
+								if *pic < top {
+									*pic++
 								} else {
-									c.Raw[off] = 0
+									*pic = 0
 								}
 							case key == 'K':
-								*saved, state, key = c.Raw[off], parent, ' '
+								*saved, state, key = *pic, parent, ' '
 							case done:
-								c.Raw[off] = *saved
+								*pic = *saved
 								state, key = parent, ' '
 							}
 							e.BuildCharIcon(c, false)
 						}
 					case 3:
-						lo, hi := c.Raw[chIconSize+part]&0xF, c.Raw[chIconSize+part]>>4
+						lo, hi := c.IconColour[part-1]&0xF, c.IconColour[part-1]>>4
 						switch {
 						case key == 'N', key == 'P':
 							d := byte(1)
@@ -702,26 +703,26 @@ func (e *Engine) o17_382D() {
 							} else {
 								lo = (lo + d) & 0xF
 							}
-							c.Raw[chIconSize+part] = hi<<4 + lo
+							c.IconColour[part-1] = hi<<4 + lo
 						case key == 'K':
-							copy(colours[:], c.Raw[chIconSize+1:chIconSize+7])
+							copy(colours[:], c.IconColour[:])
 							state, key = parent, ' '
 						case done:
-							copy(c.Raw[chIconSize+1:chIconSize+7], colours[:])
+							copy(c.IconColour[:], colours[:])
 							state, key = parent, ' '
 						}
 					}
 				}
 			}
-			e.iconCopy(c.Raw[chOrder], 0xC, true)
+			e.iconCopy(c.Order, 0xC, true)
 			if parent == 1 && (key == 0 || key == 'E') {
 				break
 			}
 		}
-		c.Raw[chIconHead], c.Raw[chIconBody], c.Raw[chIconSize] = head, weapon, size
-		copy(c.Raw[chIconSize+1:chIconSize+7], colours[:])
-		e.iconCopy(c.Raw[chOrder], 0xC, true)
-		e.iconCopy(0xC, c.Raw[chOrder], false)
+		c.IconHead, c.IconBody, c.IconSize = head, weapon, size
+		copy(c.IconColour[:], colours[:])
+		e.iconCopy(c.Order, 0xC, true)
+		e.iconCopy(0xC, c.Order, false)
 		e.ClearRow24()
 		e.freeIcon(0xC) // ovr33:014E
 		if e.viewMode > 1 {

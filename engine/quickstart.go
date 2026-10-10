@@ -38,7 +38,7 @@ func (q *quickPick) good(c *Character) bool {
 		return true
 	}
 	for i, min := range q.need {
-		if c.Raw[0x10+i] < min {
+		if c.Stats[i] < min {
 			return false
 		}
 	}

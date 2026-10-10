@@ -33,16 +33,16 @@ func (e *Engine) o14_1BF8(c *Character, who **Character) bool {
 		if idx > 0 {
 			*who = e.combatant(idx)
 			t := *who
-			if t != nil && t.Raw[chSide] == c.Raw[chSide] && t.Raw[chHP] < t.Raw[chMaxHP] {
-				if t.Raw[chHP] < bestHP || (t == c && t.Raw[chHP] < t.Raw[chMaxHP]>>1) {
-					best, bestHP = t, t.Raw[chHP]
+			if t != nil && t.Side == c.Side && t.HP < t.MaxHP {
+				if t.HP < bestHP || (t == c && t.HP < t.MaxHP>>1) {
+					best, bestHP = t, t.HP
 				}
 			}
 		} else if ground == 0x1F {
 			for b := 1; b <= e.nbodies; b++ {
 				bd := e.bodies[b]
 				// ponytail: the set [6,7,8] is the dead, stoned and gone
-				if bd.c != nil && (bd.c.Raw[chStatus] < 6 || bd.c.Raw[chStatus] > 8) && bd.x == x && bd.y == y {
+				if bd.c != nil && (bd.c.Status < 6 || bd.c.Status > 8) && bd.x == x && bd.y == y {
 					body = b
 				}
 			}
@@ -81,7 +81,7 @@ func (e *Engine) chooseSpellTarget(spell, silent, allowGround int, t *aimTarget)
 			if area := int(e.spellData(spell, 9)); area > 0 {
 				e.buildNear(e.combatX(tp), e.combatY(tp), area, 0xFF, 1)
 				for _, n := range e.near.list {
-					if int(e.combatant(n.index).Raw[chSide]) != b2i(isParty(sel)) {
+					if int(e.combatant(n.index).Side) != b2i(isParty(sel)) {
 						ok = false
 					}
 				}
@@ -224,7 +224,7 @@ func (e *Engine) rangedFacing(c, target *Character) bool {
 	if w != nil {
 		wt = w.Raw[itType]
 	}
-	if int8(c.Raw[0x9C]) > 0 && (ammo == nil || ammo.Raw[itType] == 0x32) {
+	if int8(c.Levels[clsThief]) > 0 && (ammo == nil || ammo.Raw[itType] == 0x32) {
 		if w == nil || wt == 7 || wt == 8 || (wt > 0x22 && wt < 0x26) {
 			flag = true
 		}
@@ -286,11 +286,11 @@ func (e *Engine) attackAnimation(from, to *Character, weapon *Item) {
 func (e *Engine) o14_2879() {
 	var hp, max uint16
 	for _, c := range e.party {
-		if c.Raw[chSide] == 1 {
-			if c.Raw[chOkay] != 0 {
-				hp += uint16(c.Raw[chHP])
+		if c.Side == 1 {
+			if c.Okay != 0 {
+				hp += uint16(c.HP)
 			}
-			max += uint16(c.Raw[chMaxHP])
+			max += uint16(c.MaxHP)
 		}
 	}
 	if max != 0 {
@@ -303,7 +303,7 @@ func (e *Engine) o14_2879() {
 func (e *Engine) o14_2908(c *Character) int {
 	best := byte(0)
 	for _, t := range e.party {
-		if b2i(isParty(c)) == int(t.Raw[chSide]) && t.Raw[chOkay] != 0 {
+		if b2i(isParty(c)) == int(t.Side) && t.Okay != 0 {
 			if v := byte(e.o14_0123(t)) >> 1; v > best {
 				best = v
 			}
@@ -315,7 +315,7 @@ func (e *Engine) o14_2908(c *Character) int {
 // o14_2998 = ovr14:2998 (c, target): may c attack the target? Attacking
 // a friend asks first; yes turns every sane character of the party hostile.
 func (e *Engine) o14_2998(c, target *Character) bool {
-	if b2i(isParty(target)) == int(c.Raw[chSide]) || c.Raw[0x10F] != 0 {
+	if b2i(isParty(target)) == int(c.Side) || c.Auto != 0 {
 		return true
 	}
 	if e.YesNo(0xD, 0xA, 0xF, "Attack Ally: ") != 'Y' {
@@ -324,8 +324,8 @@ func (e *Engine) o14_2998(c, target *Character) bool {
 	e.v6DE2 = 1
 	putWord(e.game, 0x666, 1)
 	for _, m := range e.party {
-		if m.Raw[chStatus] == 0 && m.Raw[0x84] > 0x7F {
-			m.Raw[chSide] = 1
+		if m.Status == 0 && m.Control > 0x7F {
+			m.Side = 1
 			if m.Combat != nil {
 				m.Combat.Target = nil
 			}
@@ -641,7 +641,7 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 func (e *Engine) o14_37E4(c *Character, rng, a, b int) bool {
 	first, found, second := false, false, false
 	tgt := c.Combat.Target
-	if b != 0 || tgt == nil || tgt.Raw[chSide] == c.Raw[chSide] || tgt.Raw[chOkay] == 0 || !e.o14_1085(c, tgt) {
+	if b != 0 || tgt == nil || tgt.Side == c.Side || tgt.Okay == 0 || !e.o14_1085(c, tgt) {
 		c.Combat.Target = nil
 	}
 	if c.Combat.Target != nil {
@@ -689,9 +689,9 @@ func (e *Engine) o14_37E4(c *Character, rng, a, b int) bool {
 // attacker's rake: while DS:6823 is 2 and its victim is up, c rakes it.
 func (e *Engine) o14_39D2(c *Character, a *Affect, flag byte) {
 	var res bool
-	if e.hits6822[1] == 2 && c.Combat.Target != nil && c.Combat.Target.Raw[chOkay] != 0 {
+	if e.hits6822[1] == 2 && c.Combat.Target != nil && c.Combat.Target.Okay != 0 {
 		c.Combat.Raw[4] = 2
-		c.Raw[0x114], c.Raw[0x116], c.Raw[0x118], c.Raw[0x113] = 2, 2, 4, 0
+		c.Attacks[1], c.Dice[1], c.Sides[1], c.Attacks[0] = 2, 2, 4, 0
 		e.CharMessage(c, "Rakes...", 0xA, true)
 		d := b2i(res)
 		e.o14_1884(c, c.Combat.Target, 0, nil, &d)
@@ -706,7 +706,7 @@ func (e *Engine) o14_39D2(c *Character, a *Affect, flag byte) {
 func (e *Engine) o14_3A86(c *Character, a *Affect, flag byte) {
 	var res bool
 	e.v6826 = e.combatant(a.Raw[3])
-	if flag != 0 || c.Raw[chOkay] == 0 || e.v6826.Raw[chOkay] == 0 {
+	if flag != 0 || c.Okay == 0 || e.v6826.Okay == 0 {
 		e.RemoveAffect(e.v6826, 0x3A, nil)
 		if flag == 0 {
 			a.Raw[4] = 0
@@ -714,12 +714,12 @@ func (e *Engine) o14_3A86(c *Character, a *Affect, flag byte) {
 		}
 		return
 	}
-	c.Raw[0x113], c.Raw[0x114], c.Raw[0x115], c.Raw[0x117] = 1, 0, 3, 4
+	c.Attacks[0], c.Attacks[1], c.Dice[0], c.Sides[0] = 1, 0, 3, 4
 	d := b2i(res)
 	e.o14_1884(c, e.v6826, 1, nil, &d)
 	res = d != 0
 	e.clearCombatInfo(c)
-	if e.v6826.Raw[chOkay] == 0 {
+	if e.v6826.Okay == 0 {
 		e.RemoveAffect(c, 0x4A, a)
 	}
 }
@@ -733,9 +733,9 @@ func (e *Engine) o14_3B93() bool {
 	}
 	e.BottomMessage("The Gods intervene!")
 	for _, c := range e.party {
-		if c.Raw[chSide] == 1 {
-			c.Raw[chOkay] = 0
-			c.Raw[chStatus] = 6
+		if c.Side == 1 {
+			c.Okay = 0
+			c.Status = 6
 			if i := e.combatIndex(c); i == 0 {
 				e.ncomb = 0 // DS:5F2A is slot 0's size byte
 			} else {

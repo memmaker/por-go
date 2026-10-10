@@ -27,16 +27,6 @@ const (
 	ciDying = 0x0E // rounds of bleeding left
 )
 
-// Character record fields used by the rules.
-const (
-	chStr       = 0x10
-	chStr00     = 0x16
-	chSaves     = 0x6D // 5 saving throw targets
-	chSaveBonus = 0x101
-	chTHAC0     = 0x110
-	chSide      = 0x10E // 0 party, 1 monsters (also "NPC" colouring)
-)
-
 // Rule globals (DS:6816..682A).
 type ruleVars struct {
 	save     byte    // DS:6816 saving throw total
@@ -198,7 +188,7 @@ func (e *Engine) affectGroup(c *Character, group int) {
 // stinkingCloud = ovr25:0AE7 (char): a character standing in a stinking
 // cloud coughs (save) or is overcome by nausea.
 func (e *Engine) stinkingCloud(c *Character) {
-	if c.Raw[chOkay] == 0 {
+	if c.Okay == 0 {
 		return
 	}
 	_, ground := e.groundAt(c, 8)
@@ -234,7 +224,7 @@ func (e *Engine) RollHit(c *Character, bonus int) bool {
 		e.rv.hitRoll = 100
 	}
 	e.affectGroup(c, grpDefender)
-	return e.rv.hitRoll >= 0 && int(e.rv.hitRoll)+int(byte(bonus)) > int(c.Raw[chAC60])
+	return e.rv.hitRoll >= 0 && int(e.rv.hitRoll)+int(byte(bonus)) > int(c.AC[0])
 }
 
 // AttackHits = ovr25:0CB7 (attacker, defender, need): attacking ends
@@ -251,10 +241,10 @@ func (e *Engine) AttackHits(att, def *Character, need int) bool {
 	e.affectGroup(att, grpAttacker)
 	e.affectGroup(def, grpDefender)
 	adj := int(int8(e.game[0x6E2]))
-	if att.Raw[chSide] != 0 {
+	if att.Side != 0 {
 		adj = int(int8(e.game[0x6E0]))
 	}
-	return e.rv.hitRoll >= 0 && int(e.rv.hitRoll)+int(att.Raw[chTHAC0])+adj >= int(byte(need))
+	return e.rv.hitRoll >= 0 && int(e.rv.hitRoll)+int(att.THAC0)+adj >= int(byte(need))
 }
 
 // SavingThrow = ovr25:0D63 (char, type, bonus): 1 always fails, 20 always
@@ -268,10 +258,10 @@ func (e *Engine) SavingThrow(c *Character, typ, bonus int) bool {
 	case 20:
 		return true
 	}
-	e.rv.save = byte(int(e.rv.save) + int(int8(c.Raw[chSaveBonus])) + int(int8(bonus)))
+	e.rv.save = byte(int(e.rv.save) + int(int8(c.SaveBonus)) + int(int8(bonus)))
 	e.rv.saveType = byte(typ)
 	e.affectGroup(c, grpSave)
-	return c.Raw[chSaves+int(int8(typ))] <= e.rv.save
+	return c.Saves[int(int8(typ))] <= e.rv.save
 }
 
 // RollDice = ovr25:0E2E (n, sides): Dice that also remembers n (DS:681C).
@@ -283,16 +273,16 @@ func (e *Engine) RollDice(n, sides int) int {
 // KillCharacter = ovr25:0F06 (char, status, message).
 func (e *Engine) KillCharacter(c *Character, status byte, msg string) {
 	msg = cut(msg, 0x28)
-	if c.Raw[chOkay] == 0 {
+	if c.Okay == 0 {
 		return
 	}
 	idx := e.combatIndex(c)
 	e.combatRedrawChar(c, 3, 0)
 	e.CharMessage(c, msg, 0xA, true)
-	c.Raw[chOkay] = 0
-	c.Raw[chStatus] = status
-	if c.Raw[chStatus] != 3 {
-		c.Raw[chHP] = 0
+	c.Okay = 0
+	c.Status = status
+	if c.Status != 3 {
+		c.HP = 0
 	}
 	e.combatClearIcon(0, 0, idx)
 	e.Flip()
@@ -360,7 +350,7 @@ func strDecode(a *Affect) (str, str00 byte) {
 // (affects 0x0C / 0x26 remember the natural value). Returns false, with
 // the request encoded, when it would lower the current strength.
 func (e *Engine) SetStrength(c *Character, str, str00 byte) (byte, bool) {
-	cur, cur00 := c.Raw[chStr], c.Raw[chStr00]
+	cur, cur00 := c.Stats[statStr], c.Str00
 	if str < cur || str == 18 && str00 < cur00 {
 		return strValue(str, str00) + 0x80, false
 	}
@@ -378,8 +368,8 @@ func (e *Engine) SetStrength(c *Character, str, str00 byte) (byte, bool) {
 		cur, cur00 = strDecode(keep)
 		keep.Raw[afData] = v + 0x80
 	}
-	c.Raw[chStr] = str
-	c.Raw[chStr00] = str00
+	c.Stats[statStr] = str
+	c.Str00 = str00
 	e.ApplyItems(c)
 	return strValue(cur, cur00), true
 }
@@ -436,12 +426,12 @@ func (e *Engine) Damage(c *Character, dmg int, mode byte, saved bool) {
 			c.Combat.Raw[ciSpell] = 0
 		}
 	}
-	if c.Raw[chOkay] == 0 {
+	if c.Okay == 0 {
 		msg = "Goes Down"
-		if c.Raw[chStatus] == 5 {
+		if c.Status == 5 {
 			msg += ", and is Dying"
 		}
-		if s := c.Raw[chStatus]; s >= 6 && s <= 8 {
+		if s := c.Status; s >= 6 && s <= 8 {
 			msg = "is killed"
 		}
 		e.CharMessage(c, msg, e.msgRow+1, false)
@@ -450,7 +440,7 @@ func (e *Engine) Damage(c *Character, dmg int, mode byte, saved bool) {
 		} else {
 			e.removeCombatAffects(c)
 			e.affectGroup(c, grpDown)
-			if c.Raw[chOkay] == 0 {
+			if c.Okay == 0 {
 				e.combatRemoveFromMap(c)
 			} else {
 				e.MsgDelay()
@@ -486,25 +476,25 @@ func (e *Engine) AddAffectMsg(c *Character, typ byte, time int, data, call, save
 // Heal = ovr25:175D (char, amount, magical): only the living (okay,
 // animated, unconscious, dying) heal; affect 0x32 blocks natural healing.
 func (e *Engine) Heal(c *Character, amount int, magical bool) bool {
-	switch c.Raw[chStatus] {
+	switch c.Status {
 	case 0, 1, 4, 5:
 	default:
 		return false
 	}
-	if !(c.Raw[chHP] < c.Raw[chMaxHP] && magical) {
+	if !(c.HP < c.MaxHP && magical) {
 		if e.FindAffect(c, 0x32) != nil || magical {
 			return false
 		}
 	}
-	c.Raw[chHP] += byte(amount)
-	if c.Raw[chHP] > c.Raw[chMaxHP] {
-		c.Raw[chHP] = c.Raw[chMaxHP]
+	c.HP += byte(amount)
+	if c.HP > c.MaxHP {
+		c.HP = c.MaxHP
 	}
-	if c.Raw[chOkay] == 0 {
-		if c.Raw[chStatus] == 5 {
-			c.Raw[chStatus] = 4
+	if c.Okay == 0 {
+		if c.Status == 5 {
+			c.Status = 4
 		}
-		if c.Raw[chStatus] == 4 && e.beginFlag != 5 {
+		if c.Status == 4 && e.beginFlag != 5 {
 			e.callAffect(0x4E, c, nil, 1)
 		}
 	}
@@ -516,14 +506,14 @@ func (e *Engine) Revive(c *Character, hp byte) bool {
 	if !e.combatSquareFree(c, e.combatX(c), e.combatY(c), true) {
 		return false
 	}
-	c.Raw[chStatus] = 0
-	c.Raw[chOkay] = 1
-	c.Raw[chHP] = hp
+	c.Status = 0
+	c.Okay = 1
+	c.HP = hp
 	if e.beginFlag == 5 {
 		e.combatRedrawChar(c, 3, 0)
 	}
 	msg := "gets back up"
-	if c.Raw[chSide] == 1 {
+	if c.Side == 1 {
 		msg = "stands up and grins"
 	}
 	e.CharMessage(c, msg, 0xA, true)
@@ -611,7 +601,7 @@ func (e *Engine) hitMessage(c *Character, magical bool, msg string) {
 // ApplyDamage = 00BA:2228 (char, damage): hit points down to 0, then
 // unconscious / dying (bleeding rounds) / dead at 10 below.
 func (e *Engine) ApplyDamage(c *Character, dmg int) {
-	hp := int(c.Raw[chHP])
+	hp := int(c.HP)
 	over, left := 0, 0
 	if hp >= dmg {
 		left = hp - dmg
@@ -620,24 +610,24 @@ func (e *Engine) ApplyDamage(c *Character, dmg int) {
 	}
 	over &= 0xFF
 	switch {
-	case over > 9 || left == 0 && c.Raw[chStatus] == 1:
-		c.Raw[chStatus] = 6
+	case over > 9 || left == 0 && c.Status == 1:
+		c.Status = 6
 	case over > 0:
-		c.Raw[chStatus] = 5
+		c.Status = 5
 		if e.beginFlag == 5 && c.Combat != nil {
 			c.Combat.Raw[ciDying] = byte(over)
 		}
 	case left == 0:
-		c.Raw[chStatus] = 4
+		c.Status = 4
 	}
-	if s := c.Raw[chStatus]; s == 0 || s == 1 {
-		c.Raw[chHP] = byte(left)
+	if s := c.Status; s == 0 || s == 1 {
+		c.HP = byte(left)
 		return
 	}
-	c.Raw[chOkay] = 0
-	c.Raw[chHP] = 0
+	c.Okay = 0
+	c.HP = 0
 	if e.beginFlag == 5 {
-		e.rv.side[int8(c.Raw[chSide])&1]--
+		e.rv.side[int8(c.Side)&1]--
 		if c.Combat != nil {
 			c.Combat.Raw[ciDown] = 0
 		}
@@ -652,8 +642,8 @@ func (e *Engine) forgetSpell(sp byte) {
 		return
 	}
 	for i := 0; i <= 0x14; i++ {
-		if c.Raw[0x17+i] == sp {
-			c.Raw[0x17+i] = 0
+		if c.Memorized[i] == sp {
+			c.Memorized[i] = 0
 			break
 		}
 	}
@@ -662,7 +652,7 @@ func (e *Engine) forgetSpell(sp byte) {
 // healedMessage = 00BA:2348 (char).
 func (e *Engine) healedMessage(c *Character) {
 	msg := "is partially healed"
-	if c.Raw[chHP] == c.Raw[chMaxHP] {
+	if c.HP == c.MaxHP {
 		msg = "is fully healed"
 	}
 	e.CharMessage(c, msg, 0xA, true)
@@ -675,8 +665,8 @@ func (e *Engine) healedMessage(c *Character) {
 func (e *Engine) countSides() {
 	e.rv.side = [2]int8{}
 	for _, c := range e.party {
-		if c.Raw[chOkay] != 0 {
-			e.rv.side[int8(c.Raw[chSide])&1]++
+		if c.Okay != 0 {
+			e.rv.side[int8(c.Side)&1]++
 		}
 	}
 }

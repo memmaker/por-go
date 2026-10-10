@@ -321,7 +321,7 @@ func (e *Engine) Appraise() (any bool) {
 // sellOrKeep is the shared tail of the gem and jewel branches of 19B2:
 // "Sell Keep" when the character can carry one more item, else only Sell.
 func (e *Engine) sellOrKeep(c *Character, v uint16, word byte) {
-	sellOnly := c.Raw[chItemCount] >= 0x10
+	sellOnly := c.ItemCount >= 0x10
 	menu := "Sell Keep"
 	if sellOnly {
 		menu = "Sell"

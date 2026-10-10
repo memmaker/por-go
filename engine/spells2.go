@@ -13,7 +13,7 @@ func (e *Engine) spellTableByte(spell, ofs int) byte {
 
 // o23_100F = ovr23:100F: Bless, "is Blessed" on the selected character's side.
 func (e *Engine) o23_100F() {
-	e.o23_0F4F(int(e.selected().Raw[chSide]), "is Blessed")
+	e.o23_0F4F(int(e.selected().Side), "is Blessed")
 }
 
 // o23_1040 = ovr23:1040: Bane, "is Cursed".
@@ -56,12 +56,12 @@ func (e *Engine) o23_1190() {
 // o23_11DD = ovr23:11DD: Charm Person; large or strong targets are unaffected.
 func (e *Engine) o23_11DD() {
 	t := e.tgt(1)
-	if t.Raw[0x9F] > 1 || t.Raw[0x6C] > 1 {
+	if t.Kind > 1 || t.Size > 1 {
 		e.CharMessage(t, "is unaffected", 0xA, true)
 		return
 	}
 	lvl := e.casterLevel(int(e.curSpell))
-	e.o23_08C3(int(e.curSpell), (int(e.selected().Raw[chSide])<<7+lvl)&0xFF, 1, 0, 0, "is charmed")
+	e.o23_08C3(int(e.curSpell), (int(e.selected().Side)<<7+lvl)&0xFF, 1, 0, 0, "is charmed")
 	if a := e.FindAffect(t, 0xB); a != nil {
 		e.callAffect(0xB, e.tgt(1), a, 0)
 	}
@@ -106,10 +106,10 @@ func (e *Engine) o23_136E() {
 // o23_13D8 = ovr23:13D8: Friends, charisma +2d4 (at most 25).
 func (e *Engine) o23_13D8() {
 	t := e.tgt(1)
-	old := t.Raw[0x15]
-	t.Raw[0x15] += byte(e.Dice(2, 4))
-	if t.Raw[0x15] > 0x19 {
-		t.Raw[0x15] = 0x19
+	old := t.Stats[statCha]
+	t.Stats[statCha] += byte(e.Dice(2, 4))
+	if t.Stats[statCha] > 0x19 {
+		t.Stats[statCha] = 0x19
 	}
 	e.o23_08C3(int(e.curSpell), int(old), 1, 0, 0, "is friendly")
 }
@@ -136,7 +136,7 @@ func (e *Engine) o23_151B() {
 	e.v4844 = byte(e.Dice(4, 4))
 	for i := 1; i <= e.nSpellTargets; i++ {
 		t := e.tgt(i)
-		switch lvl := int8(t.Raw[0x73]); {
+		switch lvl := int8(t.MaxLevel); {
 		case lvl >= 0 && lvl <= 1:
 			e.v4845 = 1
 		case lvl == 2:
@@ -146,7 +146,7 @@ func (e *Engine) o23_151B() {
 		case lvl == 4:
 			e.v4845 = 6
 		case lvl == 5:
-			if t.Raw[0x2E] == 0 {
+			if t.Race == 0 {
 				e.v4845 = 0xA
 			} else {
 				e.v4845 = 0x14
@@ -154,7 +154,7 @@ func (e *Engine) o23_151B() {
 		default:
 			e.v4845 = 0x14
 		}
-		if t.Raw[chStatus] != 1 && e.FindAffect(t, 0x35) == nil && e.v4844 >= e.v4845 {
+		if t.Status != 1 && e.FindAffect(t, 0x35) == nil && e.v4844 >= e.v4845 {
 			e.v4844 -= e.v4845
 		} else {
 			e.setTgt(i, nil)
@@ -192,7 +192,7 @@ func (e *Engine) o23_1658() {
 			e.soundWait(0xA)
 		}
 		saved := e.SavingThrow(t, int(e.spellTableByte(spell, 9)), int(bonus))
-		if t.Raw[0x9F] > 1 || t.Raw[0x6C] > 1 {
+		if t.Kind > 1 || t.Size > 1 {
 			saved = true
 		}
 		e.AddAffectMsg(t, e.spellTableByte(spell, 10), e.o23_07D6(spell), byte(e.casterLevel(spell)), 0,
@@ -210,15 +210,15 @@ func (e *Engine) o23_1822() { e.o23_08C3(int(e.curSpell), 0, 0, 0, 0, "is silenc
 // the list; one with affect 0x37 is brought to 1 hit point and stunned (0x0F).
 func (e *Engine) o23_185B() {
 	t := e.tgt(1)
-	if t.Raw[chStatus] == 1 {
+	if t.Status == 1 {
 		e.setTgt(1, nil)
 		return
 	}
 	if e.FindAffect(t, 0x37) == nil {
 		return
 	}
-	if t.Raw[chHP] == 0 {
-		t.Raw[chHP] = 1
+	if t.HP == 0 {
+		t.HP = 1
 	}
 	e.o23_08C3(int(e.curSpell), 0xFF, 1, 0, 0, "is affected")
 	e.callAffect(0x4E, t, nil, 1)
@@ -228,11 +228,11 @@ func (e *Engine) o23_185B() {
 // o23_190F = ovr23:190F: the party members of kind 0xE whose hit points
 // fit in the caster's hit points become the targets.
 func (e *Engine) o23_190F() {
-	e.v4844 = e.selected().Raw[chHP]
+	e.v4844 = e.selected().HP
 	e.nSpellTargets = 0
 	for _, p := range e.party {
-		if p.Raw[0x9F] == 0xE && e.v4844 >= p.Raw[chHP] {
-			e.v4844 -= p.Raw[chHP]
+		if p.Kind == 0xE && e.v4844 >= p.HP {
+			e.v4844 -= p.HP
 			e.nSpellTargets++
 			e.setTgt(e.nSpellTargets, p)
 		}
@@ -342,19 +342,19 @@ func (e *Engine) o23_1B11() {
 func (e *Engine) o23_1F41() {
 	var ext, add byte // add is an unset local when no class qualifies
 	t := e.tgt(1)
-	if int8(t.Raw[0x9B]) > 0 {
+	if int8(t.Levels[clsMage]) > 0 {
 		add = byte(e.Dice(1, 4))
 	}
-	if int8(t.Raw[0x96]) > 0 || int8(t.Raw[0x9C]) > 0 {
+	if int8(t.Levels[clsCleric]) > 0 || int8(t.Levels[clsThief]) > 0 {
 		add = byte(e.Dice(1, 6))
 	}
-	if int8(t.Raw[0x98]) > 0 {
+	if int8(t.Levels[clsFighter]) > 0 {
 		add = byte(e.Dice(1, 8))
 	}
-	str := t.Raw[chStr] + add
+	str := t.Stats[statStr] + add
 	if str > 0x12 {
-		if int8(t.Raw[0x98]) > 0 {
-			ext = byte(int(str-0x12)*10 + int(t.Raw[chStr00]))
+		if int8(t.Levels[clsFighter]) > 0 {
+			ext = byte(int(str-0x12)*10 + int(t.Str00))
 			if ext > 0x64 {
 				ext = 0x64
 			}
@@ -381,31 +381,31 @@ func (e *Engine) o23_206F() {
 		if lvl <= 0 {
 			break
 		}
-		if p.Raw[chStatus] != 6 || p.Raw[0x9F] != 0 || !e.combatSquareFree(p, e.combatX(p), e.combatY(p), true) {
+		if p.Status != 6 || p.Kind != 0 || !e.combatSquareFree(p, e.combatX(p), e.combatY(p), true) {
 			continue
 		}
-		data := byte(int(p.Raw[chSide])<<4 + e.casterLevel(int(e.curSpell)))
-		p.Raw[chSide] = sel.Raw[chSide]
-		p.Raw[0x10F] = 1
-		p.Raw[0x76] = 2
-		p.Raw[0x6B] = 0
-		p.Raw[0x72] = 6
+		data := byte(int(p.Side)<<4 + e.casterLevel(int(e.curSpell)))
+		p.Side = sel.Side
+		p.Auto = 1
+		p.Undead = 2
+		p.FightLevel = 0
+		p.BaseMove = 6
 		for i := 0; i <= 0x14; i++ {
-			p.Raw[0x17+i] = 0
+			p.Memorized[i] = 0
 		}
-		if p.Raw[0x84] > 0x7F {
-			p.Raw[0x84] = 0xB2
+		if p.Control > 0x7F {
+			p.Control = 0xB2
 		} else {
-			p.Raw[0x84] = 0xB3
+			p.Control = 0xB3
 		}
-		p.Raw[0x9F] = 4
+		p.Kind = 4
 		if e.beginFlag == 5 {
 			p.Combat.Target = nil
 		}
 		lvl--
-		if e.Revive(p, p.Raw[0x32]) {
+		if e.Revive(p, p.MaxHP) {
 			e.AddAffectMsg(p, 0x20, 0, data, 1, 0, false, "is animated")
-			p.Raw[chStatus] = 1
+			p.Status = 1
 		}
 	}
 }
@@ -484,5 +484,5 @@ func (e *Engine) o23_2385() {
 
 // o23_24D6 = ovr23:24D6: "is praying", cast at caster level with the side in the high nibble.
 func (e *Engine) o23_24D6() {
-	e.o23_08C3(int(e.curSpell), int(e.selected().Raw[chSide])<<4+e.casterLevel(int(e.curSpell)), 0, 0, 0, "is praying")
+	e.o23_08C3(int(e.curSpell), int(e.selected().Side)<<4+e.casterLevel(int(e.curSpell)), 0, 0, 0, "is praying")
 }
