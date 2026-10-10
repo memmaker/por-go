@@ -81,9 +81,9 @@ func (e *Engine) DevScene(name string) func() {
 		return func() {
 			e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, true, "YOU OVERHEAR TAVERN TALE ")
 			e.journalPrinted("YOU OVERHEAR TAVERN TALE ", true)
-			e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, false, "17")
-			e.journalPrinted("17", false)
-			e.journalPrinted("READ JOURNAL ENTRIES 23 AND 43.", true)
+			e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, false, "3")
+			e.journalPrinted("3", false)
+			e.journalPrinted("READ JOURNAL ENTRIES 26 AND 4.", true)
 		}
 	case "loot":
 		return func() {

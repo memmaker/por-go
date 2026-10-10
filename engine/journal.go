@@ -1,21 +1,26 @@
 package engine
 
 import (
-	"os"
-	"path/filepath"
+	"embed"
+	"image"
+	"image/color"
+	_ "image/png"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"por/ega"
 )
 
 // Journal texts (extra): the game often only names an
 // entry of the printed Adventurer's Journal ("SEE JOURNAL ENTRY 26", "YOU
 // OVERHEAR TAVERN TALE 5", the proclamations at City Hall). When the text
-// window names one, the entry is shown right there. The texts come from
-// JOURNAL.TXT in the game folder, transcribed from the player's own journal
-// like the game files; they are not part of the program.
+// window names one, the entry is shown right there, with its pictures. The
+// texts and pictures (pre-scaled to the screen, one shared 16-colour
+// palette) are built in from journal/.
 
-const journalFile = "JOURNAL.TXT"
+//go:embed journal
+var journalFS embed.FS
 
 // journalRef finds the references in the text window: "ENTRY 7", "ENTRIES
 // 23 AND 14", "TAVERN TALE 5", "PROCLAMATION LIX.", "PROCLAMATIONS LXIV,
@@ -45,12 +50,9 @@ func journalRefs(s string) []string {
 }
 
 // loadJournal reads JOURNAL.TXT: "[Title]" starts a text, a blank line a
-// paragraph, "#" lines are comments.
-func (e *Engine) loadJournal() map[string][]string {
-	b, err := os.ReadFile(filepath.Join(e.L.Dir, journalFile))
-	if err != nil {
-		return nil
-	}
+// paragraph, "<FILE.PNG>" a picture, "#" lines are comments.
+func loadJournal() map[string][]string {
+	b, _ := journalFS.ReadFile("journal/JOURNAL.TXT")
 	j := map[string][]string{}
 	var title string
 	for _, l := range strings.Split(strings.ReplaceAll(string(b), "\r", ""), "\n") {
@@ -80,10 +82,7 @@ func (e *Engine) journalPrinted(s string, clear bool) {
 	}
 	newRefs := refs[e.ext.refsShown:]
 	e.ext.refsShown = len(refs)
-	j := e.loadJournal()
-	if j == nil {
-		return
-	}
+	j := loadJournal()
 	var lines []string
 	for _, t := range newRefs {
 		paras, ok := j[t]
@@ -95,11 +94,19 @@ func (e *Engine) journalPrinted(s string, clear bool) {
 		}
 		lines = append(lines, "\x00"+t)
 		for _, p := range paras {
-			if p == "" {
+			switch {
+			case p == "":
 				lines = append(lines, "")
-				continue
+			case strings.HasPrefix(p, "<") && strings.HasSuffix(p, ">"):
+				if im := journalPicture(p[1 : len(p)-1]); im != nil {
+					lines = append(lines, "\x01"+p[1:len(p)-1])
+					for range (im.Bounds().Dy()+7)/8 - 1 {
+						lines = append(lines, "\x02") // rows the picture covers
+					}
+				}
+			default:
+				lines = append(lines, wrapText(p, jrWidth)...)
 			}
-			lines = append(lines, wrapText(p, jrWidth)...)
 		}
 	}
 	if len(lines) > 0 {
@@ -147,9 +154,12 @@ func (e *Engine) showJournal(lines []string) {
 		e.DrawBoxTitled(1, 1, 0x26, 0x17, 0, 0xF, "Adventurer's Journal")
 		e.ClearCells(2, 2, 0x25, 0x17)
 		for i, l := range page {
-			if strings.HasPrefix(l, "\x00") {
+			switch {
+			case strings.HasPrefix(l, "\x00"):
 				e.DisplayString(2, 2+i, 0xE, l[1:])
-			} else {
+			case strings.HasPrefix(l, "\x01"):
+				e.drawPicture(journalPicture(l[1:]), 2*8+jrWidth*4, (2+i)*8)
+			case l != "\x02":
 				e.DisplayString(2, 2+i, 0xF, l)
 			}
 		}
@@ -166,7 +176,7 @@ func (e *Engine) showJournal(lines []string) {
 }
 
 // journalPages cuts lines into pages of at most jrRows; a page does not
-// start with a blank line or end with a title.
+// start with a blank line or end with a title, and a picture is not split.
 func journalPages(lines []string) [][]string {
 	var pages [][]string
 	for len(lines) > 0 {
@@ -174,6 +184,9 @@ func journalPages(lines []string) [][]string {
 			lines = lines[1:]
 		}
 		n := min(jrRows, len(lines))
+		for n < len(lines) && n > 1 && lines[n] == "\x02" { // back to the picture's first row
+			n--
+		}
 		if n < len(lines) && n > 1 && strings.HasPrefix(lines[n-1], "\x00") {
 			n--
 		}
@@ -183,4 +196,40 @@ func journalPages(lines []string) [][]string {
 		lines = lines[n:]
 	}
 	return pages
+}
+
+// journalPicture decodes a picture from journal/; nil if missing.
+func journalPicture(name string) *image.Paletted {
+	f, err := journalFS.Open("journal/" + name)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	im, _, err := image.Decode(f)
+	if err != nil {
+		return nil
+	}
+	p, _ := im.(*image.Paletted)
+	return p
+}
+
+// drawPicture draws a journal picture centred on x, top at y, in the
+// ega.Photo colours.
+func (e *Engine) drawPicture(p *image.Paletted, x, y int) {
+	if p == nil {
+		return
+	}
+	b := p.Bounds()
+	x -= b.Dx() / 2
+	e.S.Lock()
+	defer e.S.Unlock()
+	for i, c := range p.Palette[:min(len(p.Palette), 16)] {
+		r, g, bl, _ := c.RGBA()
+		ega.Photo[i] = color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(bl >> 8), 255}
+	}
+	for py := range b.Dy() {
+		for px := range b.Dx() {
+			e.S.Set(x+px, y+py, ega.PhotoBase+p.ColorIndexAt(b.Min.X+px, b.Min.Y+py)&15)
+		}
+	}
 }

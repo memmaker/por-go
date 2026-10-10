@@ -40,6 +40,12 @@ const (
 	AmigaBase = 32
 )
 
+// Photo is the palette of the journal pictures (engine/journal), drawn as
+// pixel values PhotoBase+index in their own RGB.
+var Photo [16]color.RGBA
+
+const PhotoBase = AmigaBase + 16*(AmigaTerrain+1) // after the Amiga slots
+
 // Screen is the shared frame buffer. The engine goroutine writes it; the
 // renderer snapshots it each frame under the lock.
 type Screen struct {
@@ -155,6 +161,9 @@ func (s *Screen) Fill(x0, y0, x1, y1 int, c uint8) {
 
 // RGBA returns the displayed colour of palette register i.
 func (s *Screen) RGBA(i uint8) color.RGBA {
+	if i >= PhotoBase && i < PhotoBase+16 {
+		return Photo[i-PhotoBase]
+	}
 	if i >= AmigaBase {
 		c := Amiga[int(i-AmigaBase)/16%len(Amiga)][i%16]
 		return saturate(float64(c>>8&15)*17, float64(c>>4&15)*17, float64(c&15)*17)

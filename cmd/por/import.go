@@ -36,7 +36,7 @@ func importGame(src, dst string) error {
 	}
 	if err := copyFiles(dir, dst, func(name string) bool {
 		ext := strings.ToUpper(filepath.Ext(name))
-		return ext == ".DAX" || strings.EqualFold(name, "START.EXE") || strings.EqualFold(name, "POOL.CFG") || strings.EqualFold(name, "JOURNAL.TXT") ||
+		return ext == ".DAX" || strings.EqualFold(name, "START.EXE") || strings.EqualFold(name, "POOL.CFG") ||
 			strings.EqualFold(name, "ITEMS") // the base item table (engine/init.go readItems)
 	}); err != nil {
 		return err

@@ -1,0 +1,649 @@
+# Pool of Radiance: the Adventurer's Journal texts the game names by number
+# (engine/journal.go). "[Title]" starts a text, a blank line a paragraph,
+# "<FILE.PNG>" a picture from this folder, "#" a comment.
+
+[Proclamation LIX]
+Be it known that the council is interested in reclaiming the remaining blocks of the city of New Phlan. To reclaim said blocks they must be first cleared of monsters, vermin, and other uncivilized inhabitants. To this end the council is offering a reward to any person or group who is responsible for clearing any block of the old city.
+
+[Proclamation LXIV]
+Be it known that the council is interested in acquiring information as to the disposition of various formerly-living entities rumored to be harassing honest citizens in the vicinity of Valhigen Graveyard. A reward is offered to any person who shall travel to said graveyard and return an eye-witness account.
+
+[Proclamation LXXVIII]
+Be it known that the council is offering a reward to any person or persons who can provide information as to the disposition of several council agents who have been sent to investigate the unseemly happenings in the vicinity of Valhigen Graveyard.
+
+[Proclamation CI]
+Be it known that the council, knowing that commerce is the life's blood of New Phlan, has decreed that Sokal Keep is to be cleared of all unlawful inhabitants. A reward is offered to the person or persons who successfully carry out this commission. All interested in applying for said commission shall present themselves to the clerk of the council.
+
+[Proclamation CIX]
+Be it known that the council is offering an inducement to any individual who shall serve in the rescue force for the mercenary band of Taimalg-the-Invincible which has disappeared inside Valhigen Graveyard.
+
+[Proclamation CX]
+Be it known that the council is seeking a stalwart band to undertake a mission of particular sensitivity. Any brave and clever band of adventure seekers who are not adverse to earning a large reward should present themselves to the council clerk for a special commission.
+
+[Proclamation CXIV]
+Be it known that the council is offering a special reward for the safe return of the heir to the House of Bivant. Said minor was carried off during a buccaneer attack on the merchant ship in which he was sailing. Apply to the council clerk for the council's commission and additional information as to the abduction.
+
+[Proclamation CXX]
+Be it known that the council has decreed that the threat of the pirates who plague eastern shipping to New Phlan will be eliminated. The council offers a generous reward for the exact location of the pirates stronghold in the Twilight Marsh. An even greater reward is offered for the elimination of the pirates as a threat to shipping. Apply to the council clerk for a commission.
+
+[Proclamation CXXVI]
+Be it known that the council is offering a reward for all books and tomes containing information about the fall of Phlan. The amount of said reward to be dependent upon the value of the information provided.
+
+[Proclamation CXXIX]
+Be it known that the council has decreed that the foul poisoning of the river formerly known as Stojanow is to be brought to an end. Accordingly, a reward is offered to any group which shall travel up the river currently known as the Barren, locate the source of its poisoning, and eliminate said source. A commission may be obtained from the council clerk.
+
+[Proclamation CXXXIV]
+Be it known that the council has declared those individuals who have taken up residence in the mansion of the former Koval Family to be traitors and thieves. Be it further known that a reward has been offered for the elimination of these outlaws. A commission to rid the city of this blight may be obtained from the council clerk.
+
+[Proclamation CLIV]
+Be it known that the council has proclaimed a generous bounty for each undead killed. Be it also known that in addition to said bounty, the council is willing to provide a special enchanted item, useful in the destruction of undead, to any group of adventurers which accepts the commission to cleanse Valhigen Graveyard. Apply to the city clerk for said commission.
+
+[Proclamation CLVI]
+Be it known that the council is seeking a hearty band to undertake a mission to rescue the Duchess of Melvaunt. The duchess is supposedly being held by a band of ogres in a camp to the northeast of Phlan. A generous reward is offered for the safe return of the duchess. Apply to the council clerk for commission and additional information concerning the abduction.
+
+[Proclamation CLXX]
+Be it known that the council is interested in obtaining information concerning bands of insect men known to plague the grassy planes to the west of New Phlan. Said insect men are a hazard to transportation to and from Zhentil Keep. A reward is offered to any person or persons who return with complete information on the location, disposition, and intentions of the insect men. Apply to the council clerk for a commission.
+
+[Proclamation CXC]
+Be it known that the council is interested in obtaining information about the disposition of various hobgoblins believed to be gathering in support of forces bent upon the destruction of our fair city. A generous reward is offered to any who shall scout out the doings of these foul creatures and report such to the council. A larger reward is offered if the marshaling of said hobgoblins can be prevented. A commission may be obtained from the council clerk.
+
+[Proclamation CCI]
+Be it known that the council is interested in clearing obstacles to establishing a trade route to the east. Said obstacles currently include an infestation of lizard men in the swamps to the east. A reward is offered to any who can locate the source of the infestation and remove the lizard men as an obstacle to trade. A commission may be obtained from the council clerk.
+
+[Proclamation CCIV]
+Be it known that the council is interested in obtaining information about the disposition of various kobolds currently believed to be gathering in support of forces aimed on the destruction of our fair city. A generous reward is offered to any who shall scout out the doings of these foul creatures and report such to the council. A larger reward is offered if the marshaling of said kobolds can be prevented. A commission may be obtained from the council clerk.
+
+[Proclamation CCXIV]
+Be it known that the council is interested in obtaining information about the disposition of a large nomad band currently believed scouting the approaches to our fair city. A generous reward is offered to any who can prevent said nomads from joining with the force now gathering to attack New Phlan. A commission may be obtained from the council clerk.
+
+[Journal Entry 1]
+A loud voice coming from a magic mouth cast on a stone tablet.
+
+"I am Yarash the Sorcerer!
+
+"Be known that for every living giant insect you return to Sorcerer's Island I will pay a generous bounty, including a weapon empowered by magic. I will pay for giant insects such as thri-kreen, giant mantis, and ankheg. The insects may be bound by magic but dead insects are of no use to me.
+
+"Bring any bodies to the northern river mouth on Lake Kuto. Call the name of 'Yarash' loudly three times and I shall come. Do not call unless you have something for me. I shall be very angry if I am disturbed without cause!
+
+"I am Yarash the Sorcerer!"
+
+[Journal Entry 2]
+Told in a painful whisper.
+
+"I never liked pain. Let me go an' I'll tell ya of the kobold treasure horde. We attacked a gold shipment once -- took it by surprise. Thirty times my weight in gold pieces were taken. We knew if we were raided we'd lose the stuff in the treasure room. So we hid it behind a secret door in the warrens -- that's where we keep the womenfolk. They tossed me in here ta die, so it don't do no harm ta tell ye. Find it and good riddance."
+
+[Journal Entry 3]
+An old leather-bound book, written with a small, firm hand.
+
+"The hordes came again last night. Their coordination was frightening. Under the cover of darkness, goblins and kobolds pushed bundles of sticks to within bow range. These bundles formed a wall that protected the small ones from our archers. Once the wall was erected orc archers took up safe positions there and begin pelting the castle walls with arrows.
+
+"We tried shooting flaming arrows at the wall of sticks to set it afire. Monsters are normally afraid of fire. But these monsters showed no fear. They simply scooped dirt on the flames to put them out. Before all the fires were out they had resumed firing at us. Surely, some unnatural force must have been at work to weld these quarrelsome beasts into an organized fighting force.
+
+"I do not know if we can combat the monsters onslaught much longer. We lost 12 more men last night. The monsters seem to have an unlimited number of reinforcements. The Last Priest of Tyr, Ferrann Martinez, says he has a way to protect the keep, but he says that it's so terrible that it may only be used as a last resort. Unless we receive reinforcements shortly, Ferran Martinez is our only hope."
+
+[Journal Entry 4]
+A roughly drawn cloth map.
+<JOURNAL04.PNG>
+
+[Journal Entry 5]
+A small piece of parchment folded into the spine of a family's holy book.
+
+"The family treasures are buried in the tunnels beneath Kuto's Well. Climb down the well and search for a secret passage. In the passage there is a dangerous trap. Search the walls until you find the lever to disarm the trap. Then proceed through the passage into an adjacent chamber. The treasures are buried in the southwest corner."
+
+[Journal Entry 6]
+A quickly scratched note.
+
+"Show the Boss's Seal to the thri-kreen guards. Be careful, they are wary of outsiders. Keep your hands away from your weapons no matter what they do.
+
+"With the seal you should gain safe passage in to see the Queen. She will give you the artifacts in exchange for the seal and the treaty. Do not do anything to get her mad, the bugs would just as soon kill you as look at you. Once you have the artifacts, get out of the stinking burrow and get back to the castle."
+
+[Journal Entry 7]
+A tightly bound scroll, seemingly immune to the ravages of time.
+
+"Fountains and pools hold great power that can only be reached by performing proper ceremonies. Most sure of these is immersion, for in this way the bather surrenders himself to the spirit of the water. That spirit, or some portion of it, enters into the bather, whereby he gains great powers. Woe to the weak willed whose spirits are sure to be consumed by spirits that put even the strong at great risk. Yurax holds that the Falls of Ixce are greatest of all these. Morden writes that the Pool of Radiance is greater still."
+
+Later in the book.
+
+"Places of magical power are not necessarily tied to one physical location. Power often moves from plane to plane along the path of least resistance. The termination of the path determines the place's location on this plane. Volatile upheavals between the planes may lead to a change in the path of least resistance. This can change where the path terminates on this plane, thus moving the place of power.
+
+"Some who wield strong supernatural forces can bend the path like an engineer damming a river. When the path is bent, it can terminate in a new location, moving the place of power on this plane. If the supernatural force that bent the path is removed, the path will snap back to its original form and the place of power will return to its original location. Such disruption can have violent and unpredictable results.
+
+"Thus, inter-planar upheavals and directed supernatural forces may hold the answer to the seemingly ever-changing location of places of power, such as the Pool of Radiance."
+
+[Journal Entry 8]
+A rugged popular account of the northern lands.
+
+"Ten days ride north of the Varm is a barren and dead country called the Leewai, land-in-pain or land-of-caused-pain. Further to the south this place is known as the Tortured Land. It is said to be an evil place, shunned by the Riders. They speak little of this land. But, yearly, during Ches, they make a trip into its heart. There they go to praise the spirit of a glowing spring. This they have done for ages and so shall they do for years to come."
+
+[Journal Entry 9]
+Several pieces of paper with highly organized writing.
+
+Fact: Joran Alberach is a special envoy, from Zhentil Keep, to the City Council of New Phlan.
+
+Strong Rumor: Here to negotiate a military assistance agreement between Zhentil Keep and New Phlan.
+
+Rumor: Zhentil Keep wants an ancient powerful artifact in return for their military cooperation.
+
+Rumor: The New Phlan City Council has such an artifact that was found in the ruins of a recently reclaimed building.
+
+Vague Rumor: Joran Alberach wants the artifact for himself, not for the rulers of Zhentil Keep.
+
+[Journal Entry 10]
+A crude map scratched onto an old piece of parchment.
+<JOURNAL10.PNG>
+
+[Journal Entry 11]
+A mangled page of fine paper with entries written in a very fine hand.
+
+"He is livid about the undead coming out of Valhingen Graveyard. Three times He has sent assault groups, three times none have returned. He dares not send any of the priests of Bane to clear the graveyard. He assumes that if a priest could wrest control of the undead from their current master, that the priest would then become a threat to His power.
+
+"I suggested that if we could neutralize the power that leads the undead, that we could then use the undead as a tool. He thought on this and then ordered me to find out who or what is in control in Valhingen Graveyard. Preliminary investigation shows that the graveyard is controlled by a being of great power, perhaps a vampire or a demon. I shall expend a few scouts and low level priests to find out more information."
+
+[Journal Entry 12]
+Message scratched into the wall over the pool.
+
+Beware the power of the pool.
+
+Death to those unworthy of the gifts of the pool.
+
+Power to those who will use the gifts of the pool wisely.
+
+Bathe in the pool if you dare.
+
+[Journal Entry 13]
+A flowery note written on stationary emblazoned with the symbol of the City Council of New Phlan.
+
+"With the artifact and agreement in this pouch we have made our final concessions to your demands. We have given you everything you have asked for. This should settle our differences and cement our alliance.
+
+"Now that we have delivered our part of the bargain we will expect you to uphold your end. Use this protected pouch and our representatives to deliver your part of the bargain to the city council. Remember to include all of the magical items we agreed upon.
+
+"With the buried riches in the reclaimed Phlan, and the might of Zhentil Keep we will be able to control all of the northern shores of the Moonsea."
+
+Signed
+Porphyrys Cadorna
+City Council
+New Phlan
+
+[Journal Entry 14]
+Several pieces of paper with highly organized writing.
+
+Fact: Porphyrys Cadorna is the last known surviving member of the Cadorna Clan.
+
+Strong Rumor: rising star in city politics and on the City Council.
+
+Rumor: very charming, has many admirers, but no known mate.
+
+Rumor: vindictive, likes to get his own way and remembers when he is (in his mind) double crossed.
+
+Fact: has contacted thieves to have them gain him information on the Pool of Radiance.
+
+Fact: has hired a number of mercenaries through the thieves (we received our normal cut).
+
+Vague Rumor: is using mercenaries to find Pool of Radiance.
+
+[Journal Entry 15]
+A clean map drawn with exact lines.
+<JOURNAL15.PNG>
+
+[Journal Entry 16]
+Told in a proud, haughty voice.
+
+"I am a princess of a tribe of nomads to the northwest. My father is an old fool. He wanted me to marry King Al Rasid, to cement an alliance. I had more important things to do, than be tied down to an aging monarch. When I marry, it shall be to someone who has the same taste of adventure and the same skill with a sword.
+
+"Well, Father was insistent and his subjects supported him, so I left to seek my fortune. Kobolds had been raiding our tents upon occasion, so I headed this way. If I could end the threat, then I'd have more leverage with my tribe. However, two nights ago, I was ambushed by these worms -- knocked out and bound up. I finally got myself untied a little while ago and was working my way out of these caves, when you showed up."
+
+[Journal Entry 17]
+A quick note on an often used piece of paper.
+
+"I must find some hardy allies in case this monster from Phlan sends his troops to attack my island. I need a small, intelligent party who can move through the civilized areas without notice, but who have the skill to traverse the uncivilized areas and the wilderness. I must watch the next groups to come to the lake and see if any would make proper allies."
+
+[Journal Entry 18]
+A ratty piece of parchment with large writing on one side.
+
+"Hold the Sokal Keep on Thorn Island at all costs. If attacked, sacrifice your troops as necessary to hold out until relieved.
+
+"In your deployment set two squads of hobgoblins to patrol Thorn Island at all times. At least 2 squads of archers are to be deployed on the walls at all times. Let the pack of wardogs loose to cover the island several times a day at random intervals. Set pairs of kobolds as observers in hidden locations around the island.
+
+"If Thorn Island is invaded immediately dispatch a message back to the castle. We will send over however many reinforcements are necessary to hold the island."
+
+[Journal Entry 19]
+A black bound tome written in a strange halting hand.
+
+"...and settled foremost in the hall of Minor Courtiers were the lesser powers: Maram of the Great Spear; Haask, Voice of Hargut; Tyranthraxus the Flamed One; Borem of the Lake of Boiling Mud; and Camnod the Unseen. These too fell down and became servants of the great lord Bane."
+
+[Journal Entry 20]
+Told in a pained voice.
+
+"We just got the cut through to the beastie's lair when I injured my leg. King decided there wasn't much use fer me anymore. Made me a proposition though. Said if I went into the lair and brought out the treasure, he'd feed me till I stopped breathin'. Best deal I had, so they tossed me down here. Not bein' a fool, I lit out for the deepest hidey-hole. Thankfully the beastie was asleep. I can still move real quiet when I must.
+
+"Anyway, if there hasn't been much of an alarm, then drunken Ferd must be on watch at the rock. He's the king's son, so he ain't here with me -- worthless sot. If he's there, he's got less brains than a fermented rat, just act officious and he'll take ya ta the king. Wouldn't mind hearin' of that tyrant's demise. Ya seem just the types ta do it too."
+
+[Journal Entry 21]
+A crumbling old book; one of a massive series.
+
+"At this time there ruling the Twisted Ones was a powerful general named Tyranthraxus. He strode before his armies cloaked in flame and led the Riders out of the Waste. At his hand the kingdom of Barze was conquered. Turning south he led his army to conquer the Horreb and the Vane. Tyranthraxus was a cruel man and leveled all that he had taken, murdering the princes of these lands. But the flame that surrounded him consumed him, destroying his body. Freed of its shell, it flew among the men of his army, lighting on each and claiming it. It was then when Baron Schodt imprisoned Tyranthraxus in a vial of water which shone like the light of day. This he sank in the watery depths of Lake Longreach, defeating the armies Tyranthraxus had raised."
+
+[Journal Entry 22]
+A new folded cloth map drawn in waterproof ink.
+<JOURNAL22.PNG>
+
+[Journal Entry 23]
+Several pieces of paper with highly organized writing.
+
+Fact: Ulrich Eberhard is old, hard headed in every sense of the word, leader of the initial expedition to retake Phlan.
+
+Strong Rumor: unfaithful to his wife, but she knows, though he doesn't know she knows.
+
+Rumor: hates monsters, with a passion; would kill every last one before surrendering.
+
+Vague Rumor: angry attitude is a cover; he is actually paid by The Boss.
+
+Rumor: opposes rise of Porphyrys Cadorna as a, "Young upstart who doesn't respect his elders!"
+
+[Journal Entry 24]
+A piece of old, expensive paper written in a dried brown fluid.
+
+"Cursed is the child Porphyrys. He who was visited by the spirit of fire in his cradle. He who burned his nursemaid, and he who called the armies of the night down from the mountains.
+
+"Possessed is the one called Porphyrys. When the spirit of evil is in him you can see the fire in his eyes. When he is possessed, the ground trembles with his power and the nearby plants wither as if exposed to a great heat.
+
+"None of the servants will go near the child any more. I think he should have been drowned at birth. But his mother is blind to his possession. She guards him like a tigress protecting a kitten. I think he has ensorcered her.
+
+"For now we have no choice. We will evacuate the city by ship on the morrow. And the accursed child shall come along. I swear that he smiles every time there is an explosion, or anytime you hear a man scream. Saints preserve us all from this demon child."
+
+[Journal Entry 25]
+An official-looking notice.
+
+"The number of undead creeping out of the Valhingen Graveyard is increasing. These undead have disrupted training, destroyed property, and killed many of our troops. Patrols have been sent into the graveyard to reconnoiter and determine the source of the undead. None have returned. Under your responsibilities as a priest of Bane in the city, you must help combat the menace.
+
+"Lead a group of acolytes into the graveyard with the purpose of discovering the source and leader of the undead. If your group can engage and defeat the leader, or destroy the source, do so. If your group is outmatched, return with your information so that we can form an assault group with clerics and troops. Upon completion of this mission you will be in line for promotion to the next higher rank in the hierarchy of the temple of Bane in Phlan."
+
+Signed
+The Boss
+
+[Journal Entry 26]
+A small bound book.
+
+"I have charted this maze as closely as I can. My way is blocked by both stone and mystic death traps. Yarash must have used his magic to escape this place. I can find no other way out."
+<JOURNAL26.PNG>
+
+"Yarash has been breeding creatures for increased ferocity. Most of his experiments fail. Few live long enough to mature. None that mature have yet bred true. The bodies of his failures are often used as food for his newer creations.
+
+"I do not know what Yarash intends to do when he completes his hideous experiments. But I must assume that he will turn his abominations loose on the world. To these creatures Yarash will be their creator, perhaps even their god! The idea of Yarash as a god to anyone sickens me. I must find a way to stop him."
+
+[Journal Entry 27]
+An impressive announcement.
+
+"BOUNTY of 10,000 GOLD!
+
+"I will pay 10,000 gold pieces for a live sahuagin! I will pay 1,000 gold pieces for a recently dead sahuagin in good condition. I need a specimen of this man-like salt water aquatic creature for my studies.
+
+"Bring your specimen to the shore of Lake Kuto and build a fire as a signal. Your specimen will be examined. If it is truly a sahuagin you could end up with 10,000 gold pieces. But beware, I will know any forgeries, and I will punish any attempt at deception.
+
+"So, capture a live sahuagin, bring him to Lake Kuto, and walk away a rich man!"
+
+Signed
+Yarash the Sorcerer
+
+[Journal Entry 28]
+A crude map burned into an animal skin.
+<JOURNAL28.PNG>
+
+[Journal Entry 29]
+A clean map drawn with exact lines.
+<JOURNAL29.PNG>
+
+[Journal Entry 30]
+Carefully prepared notes.
+
+Note 1: "Tyranthraxus is definitely a product of immersion in the Pool of Radiance. His extraordinary brilliance, vigor, charisma, and power of command must be a direct result of exposure to the effects of the Pool."
+
+Note 2: "The Pool of Radiance may grant special magical abilities. Tyranthraxus exhibits a fiery aura, obviously magical. He also seems to have extraordinary means of obtaining information. Special magical powers granted by the pool would explain both the aura and the extra information gathering capability."
+
+Note 3: "Tyranthraxus tells stories about moving down from the north. Though he never mentions the Pool, I gather that it is northwest of the Dragonspine Mountains. Strangely, he occasionally lets slip that he is never far from the Pool, but that must be a parenthetical reference."
+
+[Journal Entry 31]
+Told in quiet, hissing speech.
+
+"Thank you for saving my children from the Mutilator Yarash. In return I will aid you in what way I can, though that may not be great.
+
+"I have lost much of my following to young Drythh who listens to the false promises of Tyranthraxus... that if he brings troops to invade Phlan, he will rule the riverbanks.
+
+"So, Drythh and his followers have been proving themselves in raids upon the kobold caves to the southwest and the hobgoblin caves to the south.
+
+"For some time my followers have been disappearing. But, when you freed my children from the clutches of the evil Yarash my status was increased. Drythh kept quiet for a time, but once again the young warriors listen to him and not to me."
+
+[Journal Entry 32]
+An announcement on rugged paper written in large clear symbols.
+
+"Be it announced that Mace, the former cleric of our lord Bane, is hereby ejected from the church. His crimes include refusal to follow temple dictates, unauthorized performance of major miracles, and the great heresy of placing other gods above our almighty lord Bane.
+
+"All loyal followers of lord Bane must report Mace's presence on sight. He is to be captured, brought before a loyal tribunal for fair and just judgment, and then burned at the stake."
+
+[Journal Entry 33]
+An official looking notice
+
+Yarash,
+
+"The time has come for you to add your power to the growing legions of my followers. Come and supplicant yourself to me and I will reward you as an important officer in my magical forces. You will serve as the advisor to the cohort of soldiers to be based at Sorcerer's Island. Resist and you shall be crushed before my almighty power. I expect your positive reply within the week."
+
+Signed,
+The Boss
+
+[Journal Entry 34]
+Told in a triumphant tone.
+
+"You have no understanding of the subtlety of Tyranthraxus and his allies. Here you have trusted me enough to let your guard down. Now you are my prisoners.
+
+"My kobold friends deserve some reward for their help. Therefore, you are to be taken to their pit. There, unarmed, you shall fight Bersheera, my pet serpent. He should be hungry now, merchants don't satisfy him for long."
+
+[Journal Entry 35]
+Told in halting speech.
+
+"Thank you for freeing us. Yarash has been experimenting on our people, changing them in horrible ways. Every night we carry off another lizard man with his chest burst open or his head mangled. Yarash say he make us like Sa-Hag-An. He always say that he make us stronger, better hunters. But all he make us is dead.
+
+"We were not allowed to speak when Yarash was around. These marks were passed down to us and remind us of home. They represent the friend word used between lizard men of different tribes. If you meet lizard men on the outside, this word may help you."
+
+The lizard man carefully scratches marks into the dirt. You recognize the marks as two runes and a path symbol.
+<JOURNAL35.PNG>
+
+[Journal Entry 36]
+Carefully prepared notes.
+
+Note 4: "He has fooled me. All this time he has called himself Tyranthraxus the Flamed One. He exhibited his flame, and spoke of deeds attributed to Tyranthraxus. But today, while he did not know I was around, he revealed his true identity. He spoke into the great pool in his lair. I think he spoke to Lord Bane himself. And he referred to himself as Maram. Maram, he of the great spear, is also a servant of Bane.
+
+"Why would my leader use a false name? He hides his identity from the world, so that they do not research his past and discover his weaknesses. What if he also hides his identity from his closest advisors, so that they also cannot know his true abilities and weaknesses. Anyone who attacked him, thinking to utilize the weaknesses of Tyranthraxus, would be destroyed by the different powers of Maram of the Great Spear.
+
+"My research into Tyranthraxus is now useless. I must scour my records for details concerning Maram of the Great Spear. I have much work to do."
+
+[Journal Entry 37]
+A massive atlas drawn by the great mathematician Tomarus.
+
+The Moonsea.
+<JOURNAL37A.PNG>
+
+Area near Phlan.
+<JOURNAL37B.PNG>
+
+Phlan.
+<JOURNAL37C.PNG>
+
+[Journal Entry 38]
+Several pieces of paper with highly organized writing.
+
+Fact: Werner von Urslingen is a retired mercenary captain turned business man.
+
+Strong Rumor: mostly interested in the military aspects of the reconquest of Phlan.
+
+Rumor: fought in a mercenary unit hired by The Boss early in his career.
+
+Rumor: hates Zhentarim because he fought in a unit against them several times.
+
+Rumor: has strong contacts with other mercenaries and some ruffians in town; none of our informants confirm such contact.
+
+Vague Rumor: Von Urslingen's unit was wiped out by enemy magic users; he was the only survivor; he retired and now secretly hates magic users.
+
+[Journal Entry 39]
+A preserved parchment covered with giant script.
+
+"I am writing to you to describe my further inquiries into the legend of the Pool of Radiance. It seems the pool has moved several times. Long ago, at least one wise wizard actually moved the pool into his abode for a period of time to study it. However, the pool seems to return to its original location after every move. I am now watching the dry hole that is the pool's natural location. When it returns I will be ready. I truly believe that the Pool of Radiance is the key to the secret wisdom that I seek."
+
+Yours in wisdom
+Sorrassar
+
+[Journal Entry 40]
+A quick note on an often used piece of paper.
+
+"Both kobolds and hobgoblins exist in large numbers to the east. Experiments show neither makes good breeding material."
+
+[Journal Entry 41]
+A clean map drawn with exact lines.
+<JOURNAL41.PNG>
+
+[Journal Entry 42]
+A sketch drawing.
+<JOURNAL42.PNG>
+
+[Journal Entry 43]
+A loosely wrapped scroll.
+
+"Aramalg-the-Good, paladin and brother of Taimalg-the-Invincible, and Sarasim of Teshwave, the high priestess of Sune, attacked the denizens of the Valhingen Graveyard with a holy vengeance. They came in search of Taimalg and his mercenary band, who assaulted the graveyard and did not return.
+
+"Sarasim used her holy power to dissipate and turn the undead that confronted them. Aramalg wielded his vorpal sword and slew the few that fought her power.
+
+"Together, Aramalg and Sarasim penetrated the graveyard to an evil marble crypt. They found and splintered an empty coffin, blessing the remains and sprinkling it with holy water. Then they confronted the owner of the coffin, a creature of great evil and the leader of the undead in Valhingen, an ancient vampire. The three began a furious melee.
+
+"The vampire was swayed by Aramalg and Sarasim's power, but would not be turned. The vampire shouted, 'I have defeated Taimalg and his warriors, I will defeat the brother of Taimalg as well!'
+
+"The vampire summoned an army of rats and tried to charm Sarasim to his side, but to no avail. Sarasim resisted his charm and Aramalg charged through the massed vermin. The vampire fell before the mighty blows of Aramalg's holy sword and Sarasim's enchanted mace.
+
+"Defeated, the ancient vampire dissolved into gas and fled to his coffin. Finding the coffin destroyed he returned to solid form and screamed. Seizing the moment Aramalg grabbed the vampire and held him with all of his strength. Sarasim ran up and drove an oaken stake through the vampire's heart.
+
+"Aramalg and Sarasim performed the proper rituals to banish the vampire forever. Then, wounded, Aramalg and Sarasim left Valhingen Graveyard. It was beyond their power to completely cleanse the evil place, but they had extracted proper vengeance for the death of Tiamalg and his troops."
+
+[Journal Entry 44]
+A cleanly written note on standard paper found on the body of a dead trader.
+
+Aleram,
+
+"Hello my good friend. I hope you and your brood are well. I am tired; tired of trekking through unspeakable swamps and over unclimbable mountains to take my meager wares to ungrateful customers.
+
+"Only one event has saved this year's sales. I found a castle full of happy folk who were very good customers. They were starved for goods and news from the outside world. And well they should be, their castle was in the middle of a small forest, and the forest was in the middle of a swamp!
+
+"These people seemed to know nothing of recent events. They still spoke of Phlan as if it were in its full flower. And they paid in old Phlanian Gold Sovereigns, double the weight of the newer gold coins!
+
+"Though they were out of date, they were very friendly and prosperous. I saw more than one gem glitter in the sun, and several swords showed a flash that made me think they were magic. If you are willing to dodge the vermin of the swamp I would add this castle to your trading route. Speed to your horse, strength to your arm, and skill to your trading."
+
+Your Friend,
+Burach
+
+[Journal Entry 45]
+Told in perfect, stylized, common.
+
+"Generations ago, flesh things were fewer and we hard-shelled beings ruled the shores of Lazara, what flesh things call the Moonsea. We gathered much gold and platinum, plus many gems for decoration and to appease our own gods. We are quite adept at finding such trinkets as we make our home by burrowing with our own mandibles. We know the earth like none other can.
+
+"When flesh things began to multiply, we did not look on them as intelligent. They could not decipher our glorious language of sounds and movement and we could not fathom intelligent communication limited to their feeble squeaks and grunts.
+
+"As we assumed the flesh creatures were unintelligent we looked on them as slow, soft, weak, but tasty, prey. But the prey soon came riding swift beasts, and so were no longer slow. Then they came in metal shells, and so were no longer soft. And then they came hurling balls of fire and clouds of stink, and so were no longer weak. Our gods told us that the flesh creatures would multiply and that our only hope was to retreat.
+
+"We retreated underground, into caverns carved by our own mandibles. We only venture to the surface to guard our lands and to find food less powerful than yourselves. We have kept the location of our nest secret for many generations.
+
+"But now you have come. You have defeated our warriors, evaded our traps. We admit your power. We have nothing further to gain by combat. If you will leave us in peace you may take the gold and gems that were sacred to our gods, we have been abandoned by them. If you will not leave us in peace then we must fight to the last. What is your decision?"
+
+[Journal Entry 46]
+Told as jaunty, after dinner conversation.
+
+"This is an old story that I first heard while serving at the Citadel of The Raven. Dirg was the usual barbarian hero -- the type able to snap five men's backs with his bare hands, wrestle and tame the cloud horses, pierce a man with a javelin from many miles away, and other equally preposterous things.
+
+"The story goes that Dirg and his band of men found a pool of unfrozen water while wandering in the snowy wastes. Dirg's little pet lizard Jezma got too close to the pool and discovered that not only was the water not frozen, it was boiling hot; so hot that it cooked the skin right off of Jezma.
+
+"Dirg was so angered he thrust his spear into the pool and roiled the waters. The demon of fire that inhabited the pool was disturbed and roared out of the pool to do battle. The demon leapt from man to man, consuming them in a single touch.
+
+"But the demon of fire could not defeat Dirg. Neither could Dirg find a weapon strong enough to withstand the creature's fire. After battling for an entire day, Dirg finally called upon his totem god for aid. With this magical aid, Dirg was able to trap the flaming demon in a triangle of power where supposedly he is even to this day."
+
+[Journal Entry 47]
+A small wrinkled parchment with roughly scratched notes.
+
+"Hobgoblins transferred out of Valjevo Castle. Now replaced by giants and trolls. Sounds very tough.
+
+"Stojanow Gate guarded by bugbears and ettins. Heard ettins didn't like light. Must be charmed or controlled. Sounds tough!
+
+"Some smugglers sneak supplies through Stojanow Gate to The Boss. Must check it out.
+
+"Overheard hobgoblins say a dragon scared them into leaving a nice lair in the mountains out east. Couldn't happen to a nicer bunch of creeps."
+
+[Journal Entry 48]
+Several pieces of paper with highly organized writing.
+
+Strong Rumor: The Boss is a dragon or is a human who can take the form of a dragon.
+
+Vague Rumor: The Boss is a metallic dragon. Not considered likely as metallic dragons are "good".
+
+Fact: The Boss holds audiences in Valjevo Castle. Castle is guarded by groups of big stupid monsters, with occasional smart human leaders.
+
+Rumor: The Boss doesn't spend full time at Valjevo Castle.
+
+Fact: maze inside castle wall; passwords are needed to get past castle gates.
+
+Rumor: The Boss has been sending out messengers to the tribes of monsters in the area to recruit new units.
+
+Vague Rumor: The Boss is recruiting new units in preparation for an assault to retake the civilized sections of Phlan.
+
+[Journal Entry 49]
+A letter on clean white paper in a strong hand
+
+To:
+The Boss
+Valjevo Castle, Phlan
+
+Sir,
+
+"I categorically reject your demand that I submit my island and my powers to your control. I am a free man and I will remain free. No petty tyrant can order about a true mage.
+
+"If you or your troops make any move toward Sorcerer's Island I shall send an army of my unstoppable aquatic creations down the Barren River and sink your precious castle. Until now you have been beneath my notice. If you value your empire, let us keep it that way."
+
+Signed
+Yarash, the Sorcerer
+
+[Journal Entry 50]
+An official looking notice
+
+"Assemble a group of at least 30 of your followers. Meet up with a hobgoblin assault force at the small docks to the west of town. You and your group will be under the command of the hobgoblin leader. Follow his orders. Upon completion of the mission you will be rewarded with food, treasure, and many slaves."
+
+Signed,
+The Boss
+
+Scribbled on the back of these orders is Norris the Gray's unsent reply to The Boss
+
+"I will never follow the orders of a hobgoblin. I don't go on missions until I know exactly what we're supposed to do. And I don't go on missions for an unknown amount of 'food, treasure, and slaves'. I do go on missions where I am in command; where I know exactly what the target is; and where I know exactly how much I'll get paid. Don't send me another order until you can meet my terms."
+
+Signed,
+Norris the Gray
+
+[Journal Entry 51]
+Several pieces of paper with highly organized writing.
+
+Fact: Bishop Braccio is the highest ranking religious leader in Phlan. Runs small temple in civilized section of city.
+
+Vague Rumor: Braccio is actually a front-man for a powerful high priest who never leaves the small temple.
+
+Strong Rumor: Braccio is under fire to "do something" about the undead problem. So long as the undead were causing the monsters more trouble then the settlers, he had other, more pressing, problems.
+
+Rumor: Braccio is opposed to the temple tendency to sell clerical "miracles"; but he understands that the temple needs funds. Braccio would rather perform such "miracles" in exchange for good works done in the name of the church, not just for money or items of power.
+
+[Journal Entry 52]
+Delivered in chillingly clear tones.
+
+"Hear us in our hour of need!" the nomad witchdoctor cries, "This night we fight a great battle. By the breaking of dawn either our enemies will be dead or we will have been destroyed.
+
+"Accept the sacrifice of these outsiders and give us the strength to defeat the hordes of our enemies. Fill our limbs with your fire, and fill our minds with your fury. Let us vanquish our enemies just as we vanquish these invaders who have come among us."
+
+[Journal Entry 53]
+A crumpled discarded piece of paper, full of rub outs and scratch overs.
+
+Priests:        1
+Acolytes:       4
+Ogres:          1
+Hobgoblins:    40
+Orcs:          90
+Goblin Slaves: 20
+
+[Journal Entry 54]
+A page from an unknown diary.
+
+"They stole my map to the Pool. Somehow they knew when I was coming and exactly what to look for. They didn't even bother to kill me; they said I wasn't worth killing. They just crippled my legs, took the map, and rode away laughing.
+
+"After the attack and the rigors of my trek all I remember is that the Pool is in the Dragonspine, north and west of Sorcerer's Island. It shines just like they said it would. You can feel the power flowing out of it. Kings and generals have searched for the Pool, and I had a map that led right to it.
+
+"If I ever get back the use of my legs I'll go after them. I'll get back my map. I'll get to the Pool. And this time I'll bathe in its power. Then I'll teach them. I'll teach them all."
+
+[Journal Entry 55]
+Delivered as you sit around the campfire.
+
+"You must beware of the many dangers in this region. Several days walk to the west there is the pyramid of evil. It has been long avoided by all sensible men. To the southeast is a lair of many ferocious hobgoblins. The areas to the southwest, are inhabited by evil men -- buccaneers, marauders, and soldiers of an evil empire far to the west. And all good folks avoid the swamps to the east. Nothing but danger grows in the swamps."
+
+[Journal Entry 56]
+An unsent note written on sturdy parchment.
+
+"An active dragon has made its home in the Dragonspine Mountains to the northwest. Keep search parties away from the area so as not to catch the dragon's attention."
+
+[Journal Entry 57]
+A ratty piece of parchment with large writing on one side.
+
+"Our spies in the city inform us that a party of invaders will travel to Sokal Keep to free it. To combat these invaders, assemble a force of no less than three squads. Travel by boat from the small docks at the west of town to Thorn Island. Move undetected to Sokal Keep. Find the adventurers in or around Sokal Keep. Kill them before they can return to the city council with information about the true situation at the keep. Return with the invader's heads as proof of completion of your mission. Upon completion you will be rewarded with food, treasure, and many slaves."
+
+Signed,
+The Boss
+
+[Journal Entry 58]
+A tattered piece of parchment
+<JOURNAL58.PNG>
+
+[Tavern Tale 1]
+Far to the northeast, in the midst of a vast swamp, lie the uninhabited ruins of a powerful wizard's castle.
+
+[Tavern Tale 2]
+A drunk bard sits in a corner of the tavern spinning a seemingly endless tale, but no one is listening.
+
+[Tavern Tale 3]
+Wells throughout the city often provide access to hidden dens and underground passages.
+
+[Tavern Tale 4]
+An anglish lord commandeers one corner of the bar to lecture on the ultimate range of his adventurers. The crowd ignores him.
+
+[Tavern Tale 5]
+To the east of Phlan lies a gleaming castle of gold that shifts its location from time to time.
+
+[Tavern Tale 6]
+A weird looking wizard, dressed all in black, sits alone and mumbles into his beer, "I'll return next time and show them all!"
+
+[Tavern Tale 7]
+Great treasures are to be found on the banks of the Barren River as one ventures northward.
+
+[Tavern Tale 8]
+The graveyard is controlled by a very powerful and clever undead creature.
+
+[Tavern Tale 9]
+A puzzled patron with a limited vocabulary questions everyone he comes across about how to complete a manuscript dated 1977 GUE. Unfortunately, no one can help him.
+
+[Tavern Tale 10]
+To the west lives a tribe of insect-men who worship normal men and give valuable gifts to all who visit them.
+
+[Tavern Tale 11]
+The Dragonspine Mountains are inhabited by a race of evil dragons who lure travelers to their lairs and slay them.
+
+[Tavern Tale 12]
+A bedraggled adventurer decries, "There was a man called turtle, walls that aren't there, living daggers; I never did figure out what was going on!"
+
+[Tavern Tale 13]
+A master thief has set up a hidden training ground deep in the old city, right under the noses of monsters.
+
+[Tavern Tale 14]
+Ogres who live to the east of Phlan are holding captive a princess for whom a huge reward has been offered.
+
+[Tavern Tale 15]
+The merchants of Zhentil Keep are setting up a trading base far to the west of Phlan. They're hiring caravan guards for good wages.
+
+[Tavern Tale 16]
+Buccaneers operate a slave auction out of a hidden camp near Stormy Bay.
+
+[Tavern Tale 17]
+An old sage sits in a corner with a dark wizard. "You're right," laughs the sage, "they'll do anything I tell them to, no matter how silly or phantastic."
+
+[Tavern Tale 18]
+Off to the east of Phlan roams a tribe of marauding nomads. They have been pillaging villages in the plains with the help of a powerful artifact they have discovered.
+
+[Tavern Tale 19]
+Mighty tribes of wild dwarves, thousands of them, roam the Dragonspine Mountains, destroying villagers and killing travelers.
+
+[Tavern Tale 20]
+"I was totally confused; it was like being lost in the darkness," sighed the overwrought adventurer. "Rabbits, hats, bowling balls? Where in the realms was I?"
+
+[Tavern Tale 21]
+The monsters in Phlan are led by one of the generals who sacked the city a generation ago. The general has used great magic to make himself immortal.
+
+[Tavern Tale 22]
+A vast fortress of kobolds dominates the western tip of the great swamp. These normally weak creatures grow to great size and have extraordinary powers here.
+
+[Tavern Tale 23]
+An ancient Silver Dragon still lives up in the Dragonspine Mountains. The dragon is not evil and will help travelers who battle evil.
