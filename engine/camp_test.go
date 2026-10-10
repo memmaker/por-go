@@ -21,3 +21,12 @@ func TestSkyHour(t *testing.T) {
 		}
 	}
 }
+
+func TestRestoreSpells(t *testing.T) {
+	was := [21]byte{3, 3, 1, 0x29, 0x85} // two cures, bless, a 2nd level spell, one pending
+	now := [21]byte{0x29, 3, 0x83}       // one cure left, bless replaced
+	want := [21]byte{3, 0x83, 0x81, 0x29, 0x85}
+	if got := restoreSpells(was, now); got != want {
+		t.Fatalf("got %x, want %x", got[:5], want[:5])
+	}
+}

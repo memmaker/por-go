@@ -215,47 +215,183 @@ func (e *Engine) memorizeInfo() bool {
 // party becomes the proposed rest time, then rest (ovr21:0C9A).
 func (e *Engine) restMenu() (interrupted bool) {
 	for {
-		most := 0 // studyTime also sets each member's study hours
-		for _, c := range e.party {
-			if t := e.studyTime(c); t > most {
-				most = t
-			}
-		}
 		// extra: rest for a purpose instead of setting days, hours and minutes
 		dayNight, until := "Night", 20*60
 		if !e.isDay() {
 			dayNight, until = "Day", 6*60
 		}
 		key, _ := e.DisplayInput("Rest: ", "Heal Memorize Wait "+dayNight+" Exit", 0xD, 0xA, 0xF, false, false)
-		mins, stop := 0, func() bool { return false }
 		switch key {
 		case 'H':
-			mins, stop = e.healMinutes(), func() bool { return e.healMinutes() == 0 }
-			if mins == 0 {
-				e.BottomMessage("No one can heal by resting")
+			if e.healMinutes() == 0 {
+				e.BottomMessage("No one needs healing")
 				continue
 			}
+			return e.healParty()
 		case 'M':
-			if mins = most; mins == 0 {
+			most := e.partyStudy()
+			if most == 0 {
 				e.BottomMessage("No spells to memorize")
 				continue
 			}
+			return e.restFor(most, nil)
 		case 'W':
-			mins = 60
+			return e.restFor(60, nil)
 		case 'N', 'D':
-			mins = ((until-e.clockMinutes())%(24*60) + 24*60) % (24 * 60)
-		default:
-			return false
+			return e.restFor(((until-e.clockMinutes())%(24*60)+24*60)%(24*60), nil)
 		}
-		r := &e.camp.rest
-		*r = [7]int{}
-		r[1] = mins
-		e.normalizeRest()
-		interrupted = e.Rest(stop)
-		e.camp.rest = [7]int{}
-		e.StatusLine()
+		return false
+	}
+}
+
+// partyStudy: the longest study time of the party in minutes (studyTime
+// also sets each member's study hours, which Rest counts down).
+func (e *Engine) partyStudy() int {
+	most := 0
+	for _, c := range e.party {
+		most = max(most, e.studyTime(c))
+	}
+	return most
+}
+
+// restFor (extra) rests mins minutes or until stop says so (nil: never).
+func (e *Engine) restFor(mins int, stop func() bool) (interrupted bool) {
+	if stop == nil {
+		stop = func() bool { return false }
+	}
+	r := &e.camp.rest
+	*r = [7]int{}
+	r[1] = mins
+	e.normalizeRest()
+	interrupted = e.Rest(stop)
+	e.camp.rest = [7]int{}
+	e.StatusLine()
+	return interrupted
+}
+
+const spellCureLight = 3
+
+// healParty (extra) is the later games' Fix: clerics cast their Cure Light
+// Wounds on the most wounded; while that is not enough they memorize Cure
+// Light Wounds in every first-level slot, rest to learn it and cast again.
+// Then they rest to learn their own spells again, and natural healing (1 HP
+// a day) does the rest.
+func (e *Engine) healParty() (interrupted bool) {
+	saved := map[*Character][21]byte{}
+	for _, c := range e.party {
+		if c.spellSlot(clsCleric, 1) > 0 && c.SpellBook[spellCureLight-1] != 0 {
+			saved[c] = c.Memorized
+		}
+	}
+	e.castCures()
+	for len(saved) > 0 && e.healMinutes() > 0 && !interrupted && e.spellsAllowed() {
+		for c := range saved {
+			e.memorizeCures(c)
+		}
+		before := e.healMinutes()
+		if interrupted = e.restFor(e.partyStudy(), nil); !interrupted {
+			e.castCures()
+		}
+		if e.healMinutes() >= before {
+			break // the cures do not help (nobody could cast)
+		}
+	}
+	if len(saved) > 0 {
+		for c, m := range saved {
+			c.Memorized = restoreSpells(m, c.Memorized)
+		}
+		if !interrupted {
+			if most := e.partyStudy(); most > 0 {
+				interrupted = e.restFor(most, nil)
+			}
+		}
+	}
+	if !interrupted && e.healMinutes() > 0 {
+		interrupted = e.restFor(e.healMinutes(), func() bool { return e.healMinutes() == 0 })
+	}
+	return interrupted
+}
+
+// restoreSpells: the spells of was, those no longer in now (cast or
+// replaced) to be memorized again.
+func restoreSpells(was, now [21]byte) [21]byte {
+	left := map[byte]int{}
+	for _, v := range now {
+		if v > 0 && v < 0x80 {
+			left[v]++
+		}
+	}
+	for i, v := range was {
+		if v > 0 && v < 0x80 {
+			if left[v] > 0 {
+				left[v]--
+			} else {
+				was[i] = v | 0x80
+			}
+		}
+	}
+	return was
+}
+
+// memorizeCures replaces c's first-level cleric spells by Cure Light
+// Wounds to be memorized, one per slot.
+func (e *Engine) memorizeCures(c *Character) {
+	var m [21]byte
+	k := 0
+	for _, v := range c.Memorized {
+		if v != 0 && !(e.spellClass(v) == clsCleric && e.spellLevel(v) == 1) {
+			m[k] = v
+			k++
+		}
+	}
+	for n := c.spellSlot(clsCleric, 1); n > 0 && k < len(m); n-- {
+		m[k] = spellCureLight | 0x80
+		k++
+	}
+	c.Memorized = m
+}
+
+// spellsAllowed: the area allows spells.
+func (e *Engine) spellsAllowed() bool { return wordAt(e.area, 0x1CA) == 0 }
+
+// castCures (extra): every cleric able to cast spends memorized Cure Light
+// Wounds on the most wounded member while someone needs it.
+func (e *Engine) castCures() {
+	if !e.spellsAllowed() {
 		return
 	}
+	for _, c := range e.party {
+		if c.Status == 1 || c.Okay == 0 {
+			continue
+		}
+		for i, v := range c.Memorized {
+			if v != spellCureLight {
+				continue
+			}
+			var t *Character
+			for _, p := range e.party {
+				if healable(p) && p.HP < p.MaxHP && e.FindAffect(p, 0x32) == nil && (t == nil || int(p.MaxHP)-int(p.HP) > int(t.MaxHP)-int(t.HP)) {
+					t = p
+				}
+			}
+			if t == nil {
+				return
+			}
+			c.Memorized[i] = 0
+			e.spellCaster, e.spellTarget, e.nSpellTargets = c, t, 1
+			e.o23_106B()
+		}
+	}
+	e.spellCaster = nil
+}
+
+// healable: Heal works on c (its status).
+func healable(c *Character) bool {
+	switch c.Status {
+	case 0, 1, 4, 5:
+		return true
+	}
+	return false
 }
 
 // clockMinutes (extra): the time of day in minutes.
@@ -274,12 +410,7 @@ func (e *Engine) isDay() bool {
 func (e *Engine) healMinutes() int {
 	days := 0
 	for _, c := range e.party {
-		switch c.Status {
-		case 0, 1, 4, 5: // as Heal
-		default:
-			continue
-		}
-		if e.FindAffect(c, 0x32) == nil {
+		if healable(c) && e.FindAffect(c, 0x32) == nil {
 			days = max(days, int(c.MaxHP)-int(c.HP))
 		}
 	}

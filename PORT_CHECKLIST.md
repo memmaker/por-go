@@ -88,7 +88,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] Classic mode removed: the modern behaviour everywhere, the original-only code paths are gone (parity traces retired, PARITY_CHECKLIST.md)
 - [x] Camp: the roster replaces the minimap; F1-F6 pick the member the camp and Magic menus act for; the menus list only what that member can do (Magic for casters; Cast with memorized spells where casting is allowed; Memorize with spell slots; Scribe for magic-users carrying a scroll)
 - [x] Memorize list: each spell shows how many are chosen (xN); Clear (shown while any are chosen) drops the whole selection
-- [x] Rest menu "Heal Memorize Wait Night|Day Exit" replaces the days/hours/minutes editor: Heal rests until resting heals no one more (1 HP a day), Memorize the party's study time, Wait 1 hour (timed script events), Night/Day until 20:00/6:00
+- [x] Rest menu "Heal Memorize Wait Night|Day Exit" replaces the days/hours/minutes editor: Heal works like the later games' Fix (clerics cast their Cure Light Wounds, memorize more in every first-level slot and rest to learn them while that helps, then relearn their own spells; natural rest, 1 HP a day, does the rest), Memorize the party's study time, Wait 1 hour (timed script events), Night/Day until 20:00/6:00
 - [x] Day sky from 6:00 to 20:00 (the scripts' own check is hour < 14; patched in opCompare)
 
 ## Idiomatic Go
