@@ -309,7 +309,17 @@ func main() {
 	dir := flag.String("data", os.Getenv("GOPLAY_DATA"), "directory with the original game files")
 	scale := flag.Int("scale", 3, "window scale")
 	imp := flag.String("import", "", "copy the game found under this directory into -data, then exit (goplay)")
+	imp2 := flag.String("import-disk2", "", "convert the Amiga graphics from the .adf disks under this directory into -data/DISK2, then exit (goplay)")
 	flag.Parse()
+	if *imp2 != "" {
+		if *dir == "" {
+			log.Fatal("-import-disk2 needs -data")
+		}
+		if err := importDisk2(*imp2, *dir); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if *imp != "" {
 		if *dir == "" {
 			log.Fatal("-import needs -data")

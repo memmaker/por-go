@@ -1,15 +1,18 @@
 package main
 
 import (
+	"archive/zip"
 	"errors"
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"por/adf"
 	"por/dax"
 	"por/ega"
 )
@@ -115,4 +118,107 @@ func writeCover(dst string) error {
 	}
 	defer f.Close()
 	return png.Encode(f, img)
+}
+
+// amigaGfx: the Amiga Pool of Radiance graphics archives, with the palette
+// each is drawn in and whether its frames pack two tiles side by side.
+// ponytail: 8X8D (the 3D-view symbols) stays DOS; the Amiga set is laid out
+// for its own wall renderer and does not match WALLDEF's symbol numbers.
+var amigaGfx = map[string]struct {
+	pal    [16]uint16
+	split  bool
+	sprite bool // animation block (PIC/FINAL frames XORed against the first)
+}{
+	"icon": {dax.PalUI, false, false}, "comspr": {dax.PalUI, false, false}, "cpic": {dax.PalUI, false, false},
+	"bacpac": {dax.PalUI, true, false}, "sqrpaci": {dax.PalUI, true, false}, "wildcom": {dax.PalUI, true, false},
+	"dungcom": {dax.PalUI, true, false}, "randcom": {dax.PalUI, true, false},
+	"head": {dax.PalPortrait, false, false}, "body": {dax.PalPortrait, false, false}, "chead": {dax.PalPortrait, false, false}, "cbody": {dax.PalPortrait, false, false},
+	"pic": {dax.PalCombat, false, true}, "final": {dax.PalCombat, false, true}, "sprit": {dax.PalCombat, false, true},
+}
+
+// importDisk2 (-import-disk2, goplay drive B) finds the Amiga Pool of
+// Radiance data disk among the .adf images under src (loose or zipped) and
+// writes its graphics, converted to DOS-layout archives, to dst/DISK2.
+func importDisk2(src, dst string) error {
+	var disk []adf.File
+	look := func(img []byte) bool {
+		_, files, err := adf.Read(img)
+		if err != nil {
+			return false
+		}
+		n := 0
+		for _, f := range files {
+			if _, ok := amigaGfx[strings.TrimSuffix(strings.ToLower(f.Path), ".dax")]; ok {
+				n++
+			}
+		}
+		if n >= 8 { // the POOLDATA disk; the program disk has none
+			disk = files
+		}
+		return disk != nil
+	}
+	filepath.WalkDir(src, func(p string, d fs.DirEntry, _ error) error {
+		if d == nil || d.IsDir() {
+			return nil
+		}
+		switch strings.ToLower(filepath.Ext(p)) {
+		case ".adf":
+			if b, err := os.ReadFile(p); err == nil && look(b) {
+				return fs.SkipAll
+			}
+		case ".zip":
+			z, err := zip.OpenReader(p)
+			if err != nil {
+				return nil
+			}
+			defer z.Close()
+			for _, f := range z.File {
+				if !strings.EqualFold(filepath.Ext(f.Name), ".adf") || strings.Contains(f.Name, "__MACOSX") {
+					continue
+				}
+				r, err := f.Open()
+				if err != nil {
+					continue
+				}
+				b, _ := io.ReadAll(r)
+				r.Close()
+				if look(b) {
+					return fs.SkipAll
+				}
+			}
+		}
+		return nil
+	})
+	if disk == nil {
+		return errors.New("no Amiga Pool of Radiance data disk found")
+	}
+	out := filepath.Join(dst, "DISK2")
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		return err
+	}
+	for _, f := range disk {
+		name := strings.TrimSuffix(strings.ToLower(f.Path), ".dax")
+		g, ok := amigaGfx[name]
+		if !ok {
+			continue
+		}
+		lut := dax.EGALut(g.pal, ega.Palette)
+		a := dax.OpenAmiga(f.Data)
+		blocks := map[int][]byte{}
+		for _, e := range a.Entries {
+			b := a.Block(e.ID)
+			if len(b) < 16 || e.ID > 255 {
+				continue
+			}
+			if g.sprite {
+				blocks[e.ID] = dax.AmigaSprite(b, name != "sprit", lut)
+			} else {
+				blocks[e.ID] = dax.AmigaImage(b, g.split, lut)
+			}
+		}
+		if err := os.WriteFile(filepath.Join(out, strings.ToUpper(name)+".DAX"), dax.WriteDOS(blocks), 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
 }

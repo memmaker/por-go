@@ -112,6 +112,7 @@ type Loader struct {
 	mu    sync.Mutex
 	files map[string]*File
 	names map[string]string // lower-case name -> real file name
+	amiga *Loader           // DIR/DISK2: Amiga graphics by base name (PIC.DAX for PIC1..8)
 }
 
 // NewLoader scans dir for files.
@@ -123,6 +124,9 @@ func NewLoader(dir string) (*Loader, error) {
 	l := &Loader{Dir: dir, files: map[string]*File{}, names: map[string]string{}}
 	for _, e := range ents {
 		l.names[strings.ToLower(e.Name())] = e.Name()
+		if e.IsDir() && strings.EqualFold(e.Name(), "DISK2") {
+			l.amiga, _ = NewLoader(filepath.Join(dir, e.Name()))
+		}
 	}
 	return l, nil
 }
@@ -164,6 +168,12 @@ func (l *Loader) File(name string) *File {
 
 // Block loads block id from archive name; nil if either is missing.
 func (l *Loader) Block(name string, id int) []byte {
+	if l.amiga != nil {
+		base := strings.TrimRight(strings.TrimSuffix(strings.ToUpper(name), ".DAX"), "0123456789")
+		if b := l.amiga.Block(base, id); b != nil {
+			return b
+		}
+	}
 	f := l.File(name)
 	if f == nil {
 		return nil
