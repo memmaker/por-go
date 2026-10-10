@@ -31,8 +31,8 @@ var Amiga = [3][16]uint16{
 	AmigaTerrain:  {0x000, 0x06b, 0x096, 0x0aa, 0x000, 0x940, 0xb44, 0xfaa, 0xfe9, 0x59f, 0x0d8, 0x5ff, 0x555, 0x777, 0xaaa, 0xfff},
 }
 
-// Amiga palette slots: PIC/FINAL pictures; icons and portraits; the
-// area map and combat ground tiles.
+// Amiga palette slots: PIC/FINAL pictures; portraits; the area map,
+// combat ground tiles and combat icons.
 const (
 	AmigaView = iota
 	AmigaPortrait
