@@ -343,5 +343,8 @@ func (e *Engine) hintText() string {
 	if x.viewing {
 		h += "|P=items|F1-F6=member"
 	}
+	if x.campBar {
+		h += "|F1-F6=member"
+	}
 	return h + "|?=help"
 }

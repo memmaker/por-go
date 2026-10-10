@@ -1,6 +1,9 @@
 package engine
 
-import "strconv"
+import (
+	"slices"
+	"strconv"
+)
 
 // Encamp, ported from ovr16 (camp menu, magic: cast / memorize / scribe /
 // display, alter: order / drop / speed / pics) and the rest of ovr21
@@ -454,12 +457,9 @@ func (e *Engine) displayAffects(title string, members []*Character) {
 // magicMenu = ovr16:13F1 (var interrupted).
 func (e *Engine) magicMenu(interrupted *bool) {
 	for key := byte(' '); !*interrupted && key != 0 && key != 'E'; {
-		var extra bool
-		menu := "Cast Memorize Scribe Rest Exit" // the original's Display: the View page shows the spell effects instead
-		key, extra = e.DisplayInput("", menu, 0xD, 0xA, 0xF, true, true)
-		if extra {
-			e.partyKeypad(key)
-			e.DisplayPartyList()
+		// the original's Display is left out: the View page shows the spell effects
+		var again bool
+		if key, again = e.campInput("", e.magicCommands()+"Rest Exit"); again {
 			continue
 		}
 		switch key {
@@ -473,6 +473,47 @@ func (e *Engine) magicMenu(interrupted *bool) {
 			*interrupted = e.restMenu()
 		}
 	}
+}
+
+// campInput (extra) waits on a camp menu bar. The keypad and F1-F6 pick
+// the member the menu is for; again is set when the menu is to be rebuilt.
+func (e *Engine) campInput(prompt, menu string) (key byte, again bool) {
+	e.ext.campBar = true
+	key, extra := e.DisplayInput(prompt, menu, 0xD, 0xA, 0xF, true, true)
+	e.ext.campBar = false
+	if !extra {
+		return key, false
+	}
+	if key != keyRelist>>8 {
+		e.partyKeypad(key)
+	}
+	e.DisplayPartyList()
+	return key, true // non-zero: the menu loops go on
+}
+
+// magicCommands (extra): the Magic menu items the selected member can use,
+// each followed by a space.
+func (e *Engine) magicCommands() string {
+	c := e.selected()
+	if c.Status == 1 || c.Okay == 0 {
+		return ""
+	}
+	m := ""
+	if wordAt(e.area, 0x1CA) == 0 && slices.ContainsFunc(c.Memorized[:], func(v byte) bool { return v > 0 && v < 0x80 }) {
+		m += "Cast "
+	}
+	caster, mu := false, false
+	for lvl := 1; lvl <= 3; lvl++ {
+		caster = caster || c.spellSlot(0, lvl) > 0 || c.spellSlot(1, lvl) > 0
+		mu = mu || c.spellSlot(1, lvl) > 0
+	}
+	if caster {
+		m += "Memorize "
+	}
+	if mu && slices.ContainsFunc(c.Items, e.isScroll) {
+		m += "Scribe "
+	}
+	return m
 }
 
 // movePrev = ovr16:14A9: the selected member swaps places with the one
@@ -643,11 +684,12 @@ func (e *Engine) CampMenu() bool {
 	e.clearStudy()
 	interrupted := false
 	for key := byte(' '); !interrupted && key != 0 && key != 'E'; {
-		var extra bool
-		key, extra = e.DisplayInput("Camp: ", "Save View Magic Rest Alter Exit", 0xD, 0xA, 0xF, true, true)
-		if extra {
-			e.partyKeypad(key)
-			e.DisplayPartyList()
+		menu := "Save View Magic Rest Alter Exit"
+		if e.magicCommands() == "" {
+			menu = "Save View Rest Alter Exit"
+		}
+		var again bool
+		if key, again = e.campInput("Camp: ", menu); again {
 			continue
 		}
 		switch key {

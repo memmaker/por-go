@@ -86,6 +86,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] Shop Buy list: opens at the top on the first usable item (the original starts on the second, top left from the last list); F1-F6 change the buyer; goods the buyer cannot ready are grey and passed over by the cursor (engine/shop.go canUseItem, ListNode.Dim)
 - [x] -import copies ITEMS (the base item table: without it every item was the wrong class)
 - [x] Classic mode removed: the modern behaviour everywhere, the original-only code paths are gone (parity traces retired, PARITY_CHECKLIST.md)
+- [x] Camp: the roster replaces the minimap; F1-F6 pick the member the camp and Magic menus act for; the menus list only what that member can do (Magic for casters; Cast with memorized spells where casting is allowed; Memorize with spell slots; Scribe for magic-users carrying a scroll)
 
 ## Idiomatic Go
 - [x] Character record as a typed struct (engine/char.go charRecord): named fields in the DOS layout, read and written with encoding/binary (saves and MON*CHA blocks still load byte for byte), no Raw byte array or offset constants; checked with cmd/trace against the previous build on all scenarios plus 164 fuzz scripts (identical)

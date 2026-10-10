@@ -104,6 +104,7 @@ type extras struct {
 	toSheet  bool           // P left the inventory for the View page
 	switchTo bool           // F1-F6 left the inventory for another member
 	buying   bool           // the shop's Buy list is waiting: F1-F6 change the buyer
+	campBar  bool           // a camp menu bar is waiting: F1-F6 change the member
 	later    []uint16       // keys handed to the game one at a time (Engine.ReadKey)
 	sels     map[string]int // the highlighted item each menu was left with
 	selSet   bool           // the caller set the highlight (YesNo): keep it
@@ -174,8 +175,9 @@ func (e *Engine) markSeen() {
 }
 
 // minimapAllowed follows the game's own rule for its Area command.
+// In camp the panel keeps the party.
 func (e *Engine) minimapAllowed() bool {
-	return e.viewMode == 1 && wordAt(e.area, 0x1F6) == 0
+	return e.viewMode == 1 && wordAt(e.area, 0x1F6) == 0 && e.beginFlag != 2
 }
 
 // Minimap geometry: 16x16 cells of 7 pixels inside the roster panel
@@ -271,6 +273,12 @@ func (e *Engine) viewKey(n int) uint16 {
 		e.ext.switchTo = e.ext.items
 		e.ext.later = append(e.ext.later, 'V')
 		return 'E'
+	case e.ext.campBar: // camp: F1-F6 pick the member the menu is for
+		if n == e.partySel {
+			return 0
+		}
+		e.partySel = n
+		return keyRelist
 	case e.ext.buying: // the shop's Buy list: F1-F6 pick the buyer
 		if n == e.partySel {
 			return 0
@@ -387,7 +395,7 @@ var helpLines = [][2]string{
 	{"Adventuring", ""},
 	{"Arrows", "walk, turn; Down=back"},
 	{"Home End", "prev. / next member"},
-	{"F1 - F6", "items of member 1 - 6"},
+	{"F1 - F6", "items of member 1 - 6; in camp: pick member"},
 	{"P", "items  <->  character"},
 	{"Tab", "minimap"},
 	{"M", "map: walk, labels"},
