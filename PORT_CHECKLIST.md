@@ -90,7 +90,8 @@ original. Ticked items are ported and checked in a headless run
 - [x] Memorize list: each spell shows how many are chosen (xN); Clear (shown while any are chosen) drops the whole selection
 - [x] Rest menu "Heal Memorize Wait Night|Day Exit" replaces the days/hours/minutes editor: Heal works like the later games' Fix (clerics cast their Cure Light Wounds, memorize more in every first-level slot and rest to learn them while that helps, then relearn their own spells; natural rest, 1 HP a day, does the rest), Memorize the party's study time, Wait 1 hour (timed script events), Night/Day until 20:00/6:00
 - [x] Day sky from 6:00 to 20:00 (the scripts' own check is hour < 14; patched in opCompare)
-- [x] Item names end in Angband-style base stats: "(1d8)" weapon damage, "[7]" armour class given (shop names stop before the price)
+- [x] Item names end in Angband-style base stats: "(1d8)" weapon damage, "<7>" armour class given (the font has no square brackets) (shop names stop before the price)
+- [x] Shop Buy list names the buyer (top right; F1-F6 change it); a missing ITEMS file is logged (every item would be the wrong class)
 - [x] Icon colours recolour Amiga icons too: EGA colour numbers map one-to-one onto the Amiga icon palette slots (Amiga table 0x8B10E vs DS:3CF5), so defaults match and every step shows a new colour
 
 ## Idiomatic Go

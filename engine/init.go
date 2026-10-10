@@ -1,6 +1,9 @@
 package engine
 
-import "os"
+import (
+	"log"
+	"os"
+)
 
 // Init = ovr12:002D: allocate the global records, set the start state and
 // load the always-resident assets. Everything the DOS code zeroed with
@@ -46,11 +49,10 @@ func (e *Engine) Init() {
 // to 0x810 bytes of 16-byte records.
 func (e *Engine) readItems() []byte {
 	p := e.L.Path("ITEMS")
-	if p == "" {
-		return make([]byte, 0x810)
-	}
 	b, err := os.ReadFile(p)
 	if err != nil || len(b) < 2 {
+		// extra: without the table no class may use any item and nothing has stats
+		log.Println("ITEMS (the base item table) is missing from the game data: import the game again")
 		return make([]byte, 0x810)
 	}
 	out := make([]byte, 0x810)

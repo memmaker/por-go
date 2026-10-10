@@ -81,8 +81,8 @@ func (e *Engine) ItemName(c *Character, it *Item, x, y int, readied, display boo
 }
 
 // itemStats (extra): Angband-style base stats after the name, "(1d8) "
-// for weapon damage, "[6] " for the armour class it gives; magic pluses
-// stay in the name.
+// for weapon damage, "<6> " for the armour class it gives (the font has
+// no square brackets); magic pluses stay in the name.
 func (e *Engine) itemStats(typ byte) string {
 	s := ""
 	if n, d := e.baseItem(typ, 9), e.baseItem(typ, 0xA); n > 0 && d > 0 {
@@ -99,7 +99,7 @@ func (e *Engine) itemStats(typ byte) string {
 			v -= 50 // body armour counts up from AC 10 = 50
 		}
 		if v > 0 {
-			s += "[" + itoa(v) + "] "
+			s += "<" + itoa(v) + "> "
 		}
 	}
 	return s

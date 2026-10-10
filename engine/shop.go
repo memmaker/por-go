@@ -25,6 +25,9 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 	}
 	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "Shop")
 	e.DisplayString(2, 2, 0xE, e.moneyLine())
+	if c := e.selected(); len(e.party) > 0 { // extra: who is buying (F1-F6 change it)
+		e.displayName(c, 0x26-len(c.Name()), 2, false)
+	}
 	redraw := true
 	var sel *ListNode
 	if len(list) > 0 { // extra: the cursor starts on something the buyer can use
