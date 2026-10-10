@@ -1,0 +1,155 @@
+package engine
+
+import "strings"
+
+// Item Look (extra): the shop's Look shows what an item does under the
+// game's rules, read from its base record (DS:5582 + 16*type) and the
+// affect handlers that test for it.
+
+// classBits are the base record's +0xD class bits in the DS:0D38 order
+// (the DS:05D6 masks).
+var classBits = [8]byte{0x02, 0x10, 0x08, 0x40, 0x80, 0x01, 0x04, 0x20}
+
+// itemLines is the Look text for an item, at most 0x1E wide.
+func (e *Engine) itemLines(it *Item) []string {
+	typ := it.Type
+	b := func(k int) byte { return e.baseItem(typ, k) }
+	dice := func(n, d byte, bonus int8) string {
+		s := itoa(int(n)) + "d" + itoa(int(d))
+		if bonus > 0 {
+			s += "+"
+		}
+		if bonus != 0 {
+			s += itoa(int(bonus))
+		}
+		return s
+	}
+	var l []string
+	add := func(s string) { l = append(l, s) }
+	slot, flags := b(0), b(0xE)
+	words := func(w byte) bool { return it.Words[0] == w || it.Words[1] == w || it.Words[2] == w }
+	if b(9) > 0 && b(0xA) > 0 {
+		hands := "one hand"
+		if b(1) >= 2 {
+			hands = "two hands"
+		}
+		add("Weapon, " + hands)
+		add("Damage " + dice(b(9), b(0xA), int8(b(0xB))))
+		if b(2) > 0 && (b(2) != b(9) || b(3) != b(0xA) || b(4) != b(0xB)) {
+			add(" vs large " + dice(b(2), b(3), int8(b(4))))
+		}
+		if r := int(b(0xC)); r > 1 {
+			add("Range " + itoa(r-1) + ", worse past " + itoa((r-1)/3))
+			switch n := max(int(b(5)), 2); {
+			case n == 2:
+				add("1 shot per round")
+			case n%2 == 0:
+				add(itoa(n/2) + " shots per round")
+			default:
+				add(itoa(n) + " shots per 2 rounds")
+			}
+		}
+		switch {
+		case flags&0x14 == 0x14:
+			add("Thrown, or used in melee")
+		case flags&0x10 != 0:
+			add("Thrown, used up")
+		case flags&0x80 != 0:
+			add("Needs quarrels")
+		case flags&1 != 0 && flags&8 != 0:
+			add("Needs arrows")
+		case typ == 0x49 || typ == 0x1C:
+			add("Ammunition")
+		}
+		if flags&4 != 0 {
+			add("Strength adds to hit, damage")
+		} else if flags&2 != 0 {
+			add("Dexterity adds to hit")
+		}
+	}
+	if v := int(b(6)); v > 0x80 {
+		v &= 0x7F
+		switch {
+		case slot == 2:
+			add("Armor, AC " + itoa(10-(v-50)))
+			switch w := it.Weight; {
+			case w > 0x18F:
+				add("Movement 6")
+			case w > 0x96:
+				add("Movement 9")
+			}
+		case slot == 1:
+			add("Shield, AC " + itoa(v) + " better")
+		case v > 0:
+			add("AC " + itoa(v) + " better")
+		}
+	}
+	switch {
+	case typ == 0x55:
+		add("Hurts undead: 1d6+1 a hit")
+	case typ == 0x56:
+		add("Burns some monsters: 3d8")
+	case words(0x76):
+		add("Readied: turns gaze attacks")
+		add("back, wards some monsters")
+	case words(0x98) && words(0xFC):
+		add("Readied: wards some monsters")
+	case slot > 0xA && slot < 0xE:
+		add("Scroll: read to cast its")
+		add("spells, once each")
+	case slot == 0xA && b(1) == 0:
+		add("Treasure: worth selling")
+	}
+	if words(0xB1) && b(9) > 0 {
+		add("Silver: hurts monsters that")
+		add("ignore plain weapons")
+	}
+	if it.Hidden == 0 && int8(it.Plus) > 0 && (b(9) > 0 || b(6) > 0x80) {
+		add("Magic +" + itoa(int(int8(it.Plus))))
+	}
+	add("Weight " + itoa(int(it.Weight)) + ", price " + itoa(int(it.Price)))
+	if slot != 0xA || b(1) != 0 {
+		var who []string
+		for k, m := range classBits {
+			if b(0xD)&m != 0 {
+				who = append(who, strings.TrimSpace(e.X.PString(0xD38+k*0x1B)))
+			}
+		}
+		switch {
+		case len(who) == 0:
+			add("No class can use it")
+		case len(who) >= 7:
+			add("Most classes can use it")
+		default:
+			s := "For"
+			for _, w := range who {
+				if len(s)+1+len(w) > 0x1E {
+					add(s)
+					s = "   "
+				}
+				s += " " + w
+			}
+			add(s)
+		}
+	}
+	return l
+}
+
+// lookItem (extra) shows the item's Look text in a box until a key.
+func (e *Engine) lookItem(it *Item) {
+	if it == nil {
+		return
+	}
+	e.ItemName(nil, it, 0, 0, false, false)
+	l := e.itemLines(it)
+	y1 := 4
+	y2 := min(y1+len(l)+3, 0x16)
+	e.DrawBoxTitled(1, y1, 0x26, y2, 0, 0xF, "")
+	e.DisplayString(3, y1+1, 0xB, cut(it.Name(), 0x22))
+	for i, s := range l {
+		if y1+3+i < y2 {
+			e.DisplayString(3, y1+3+i, 0xA, s)
+		}
+	}
+	e.MessageRow24b(0xD, "Press any key")
+}

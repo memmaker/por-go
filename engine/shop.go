@@ -37,7 +37,7 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 		*index %= len(list)
 	}
 	e.ext.buying = true
-	key := e.ListMenu("Items: ", "Buy", 0xD, 0xA, 0xF, 1, 4, 0x26, 0x16, list, true, &redraw, index, &sel)
+	key := e.ListMenu("Items: ", "Buy Look", 0xD, 0xA, 0xF, 1, 4, 0x26, 0x16, list, true, &redraw, index, &sel)
 	e.ext.buying = false
 	*item = nil
 	for i, n := range list {
@@ -76,6 +76,10 @@ func (e *Engine) shopBuy() {
 		key := e.shopList(&index, &it)
 		if key == keyRelist>>8 {
 			continue // F1-F6 picked another buyer
+		}
+		if key == 'L' { // extra: what the item does
+			e.lookItem(it)
+			continue
 		}
 		if key != 'B' && key != 13 || it == nil {
 			return
