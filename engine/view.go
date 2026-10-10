@@ -398,7 +398,9 @@ func (e *Engine) ItemsMenu() bool {
 					key = ' '
 				}
 			case 'I':
-				e.identifyItem(it, &redraw)
+				if e.identifyItem(it) {
+					redraw = true
+				}
 			}
 		}
 		e.ApplyItems(c) // 146F: also reached with nothing selected
@@ -633,7 +635,7 @@ func (e *Engine) sellItem(it *Item) {
 }
 
 // identifyItem = ovr20:1F52 (item, redraw): 200 gp shows the hidden words.
-func (e *Engine) identifyItem(it *Item, redraw *bool) {
+func (e *Engine) identifyItem(it *Item) (redraw bool) {
 	e.ItemName(e.viewChar(), it, 0, 0, false, false)
 	e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "For 200 gold pieces I'll identify your "+it.Name())
 	if e.YesNo(0xD, 0xA, 0xF, "Is It a Deal? ") == 'Y' && e.pay(200) {
@@ -643,11 +645,12 @@ func (e *Engine) identifyItem(it *Item, redraw *bool) {
 			it.Hidden = 0
 			e.ItemName(e.viewChar(), it, 0, 0, false, false)
 			e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "It looks like some sort of "+it.Name())
-			*redraw = true
+			redraw = true
 		}
 		e.MsgDelay()
 	}
 	e.ClearCells(1, 0x15, 0x26, 0x16)
+	return
 }
 
 // overloaded = ovr20:275B (item, char): no room for one more item.

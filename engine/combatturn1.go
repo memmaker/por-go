@@ -153,8 +153,7 @@ func (e *Engine) o14_0627(c *Character) {
 		e.combatCentre(e.combatX(c), e.combatY(c), 2, 8)
 		t.Combat.Guarding = 0
 		e.o14_17F6(t, c)
-		var junk int // (var result of the attack, unused)
-		e.o14_1884(t, c, 0, nil, &junk)
+		e.o14_1884(t, c, 0, nil)
 	}
 }
 
@@ -258,7 +257,7 @@ func (e *Engine) o14_08B2(c *Character, dir int) {
 			}
 			tcb.AttackSlot = byte(w)
 			saved := t.Combat.Target
-			e.o14_1884(t, c, 1, nil, &e.v6E31)
+			e.o14_1884(t, c, 1, nil)
 			attacked = true
 			t.Combat.Target = saved
 			if c.Okay != 0 {
@@ -371,7 +370,7 @@ func (e *Engine) o14_0E82(a, b *Character) bool {
 					if t.MaxLevel == 0 {
 						e.o14_17F6(a, t)
 						a.Attacks[0] = 1
-						e.o14_1884(a, t, 0, nil, &e.v6E31)
+						e.o14_1884(a, t, 0, nil)
 						cnt--
 					}
 				}
@@ -457,7 +456,7 @@ func (e *Engine) o14_116A(c *Character) {
 		e.BottomMessage("Nothing Happens...")
 	}
 	e.countSides()
-	e.v6E31 = b2i(e.clearCombatInfo(c))
+	e.clearCombatInfo(c)
 	e.ClearMessageArea()
 }
 
@@ -481,9 +480,9 @@ func (e *Engine) o14_1351(c *Character, out **Character) bool {
 
 // o14_1406 (att, vic, w, var done): the attacker's attack slots against the
 // victim; done is 1 when the attacker has used all its attacks.
-func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
+func (e *Engine) o14_1406(a, b *Character, w int) (done bool) {
 	acb := a.Combat
-	*done = 0
+	done = false
 	e.hits6822[1], e.hits6822[2] = 0, 0
 	e.shots6E2C[1], e.shots6E2C[2] = 0, 0
 	any, stop := false, false
@@ -501,7 +500,7 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 			a.Attacks[s-1] = 0
 		}
 		any = true
-		*done = 1
+		done = true
 	} else {
 		if a.Slots[0] != nil && (b.Size > 0x80 || b.Size&7 > 1) {
 			typ := a.Slots[0].Type
@@ -558,17 +557,18 @@ func (e *Engine) o14_1406(a, b *Character, w int, done *int) {
 			e.PlaySound(e.ds2(0x2626))
 			e.o14_02F9(a, b, mode, 0, 0, 0)
 		}
-		*done = 1
+		done = true
 		for s := 1; s <= 2; s++ {
 			if a.Attacks[s-1] > 0 {
-				*done = 0
+				done = false
 			}
 		}
 		acb.Sweeps = 0
 	}
-	if *done != 0 {
-		*done = b2i(e.clearCombatInfo(a))
+	if done {
+		done = e.clearCombatInfo(a)
 	}
+	return
 }
 
 // o14_17F6 (att, vic): the victim counts one more attack and turns towards
@@ -586,7 +586,7 @@ func (e *Engine) o14_17F6(att, vic *Character) {
 // o14_1884 (att, vic, flag, item, var done): a full attack of att on vic
 // (turning both, then the slots of o14_1406). item is a thrown item that is
 // spent; done is set when the attacker's turn ends.
-func (e *Engine) o14_1884(a, b *Character, flag int, it *Item, done *int) {
+func (e *Engine) o14_1884(a, b *Character, flag int, it *Item) (done bool) {
 	if b.Combat.Attackers < 3 && flag == 0 {
 		dir := byte(e.o14_263D(b, a))
 		if e.combatOnScreen(b, false) {
@@ -606,7 +606,7 @@ func (e *Engine) o14_1884(a, b *Character, flag int, it *Item, done *int) {
 	if a.Slots[0] != nil && a.Slots[0].Type == 0x2F {
 		e.attackAnimation(a, b, a.Slots[0])
 	}
-	*done = 1
+	done = true
 	if a.Attacks[0] > 0 || a.Attacks[1] > 0 {
 		saved := e.partySel
 		for i, c := range e.party {
@@ -614,7 +614,7 @@ func (e *Engine) o14_1884(a, b *Character, flag int, it *Item, done *int) {
 				e.partySel = i
 			}
 		}
-		e.o14_1406(a, b, flag, done)
+		done = e.o14_1406(a, b, flag)
 		if it != nil {
 			if it.Count > 0 {
 				it.Count -= e.shots6E2C[1]
@@ -635,13 +635,14 @@ func (e *Engine) o14_1884(a, b *Character, flag int, it *Item, done *int) {
 		e.ApplyItems(a)
 		e.partySel = saved
 	}
-	if *done != 0 {
-		*done = b2i(e.clearCombatInfo(a))
+	if done {
+		done = e.clearCombatInfo(a)
 	}
 	if e.combatOnScreen(a, false) {
 		e.combatTurn(a, a.Combat.Facing, 1, true)
 		e.combatTurn(a, a.Combat.Facing, 0, false)
 	}
+	return
 }
 
 // o14_1B1E (att, vic, var need): the attacker's range band: every full

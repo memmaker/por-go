@@ -285,25 +285,24 @@ func (e *Engine) o23_08C3(spell, level, call, dmg, dmgType int, msg string) {
 }
 
 // spellTargetHook = lcall [DS:6B84].
-func (e *Engine) spellTargetHook(spell, mode int, ok *bool) {
+func (e *Engine) spellTargetHook(spell, mode int) bool {
 	if e.combatTargets {
-		e.o14_20C3(spell, mode, ok)
-	} else {
-		e.spellTargetSetup(spell, mode, ok)
+		return e.o14_20C3(spell, mode)
 	}
+	return e.spellTargetSetup(spell, mode)
 }
 
 // spellTargetSetup = ovr23:0A91 (spell, mode, var ok): fills the target
 // list by the targeting kind of the spell (1 the caster, 2 a chosen member,
 // 4 the whole party); ok is false for any other kind or when the choice is
 // cancelled. This is slot 0 of the DS:6B84 table; mode is not used.
-func (e *Engine) spellTargetSetup(spell, mode int, ok *bool) {
+func (e *Engine) spellTargetSetup(spell, mode int) (ok bool) {
 	if e.spellCaster == nil {
 		e.spellCaster = e.selected()
 	}
 	e.spellTarget = e.selected()
 	e.nSpellTargets = 1
-	*ok = true
+	ok = true
 	switch e.spellRec(byte(spell), 7) {
 	case 1:
 	case 2:
@@ -312,7 +311,7 @@ func (e *Engine) spellTargetSetup(spell, mode int, ok *bool) {
 		if e.spellCaster == nil {
 			e.spellTarget = nil
 			e.nSpellTargets = 0
-			*ok = false
+			ok = false
 		} else {
 			e.spellTarget = e.spellCaster
 		}
@@ -324,8 +323,9 @@ func (e *Engine) spellTargetSetup(spell, mode int, ok *bool) {
 			e.nSpellTargets = len(e.party)
 		}
 	default:
-		*ok = false
+		ok = false
 	}
+	return
 }
 
 // o23_0F4F = ovr23:0F4F (side, msg): drops the targets of the other side
@@ -372,7 +372,7 @@ func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
 		e.o23_331A(caster, "casts", int(spell))
 	}
 	for ok {
-		e.spellTargetHook(int(spell), int(mode), quit) // the asm passes the caller's var
+		*quit = e.spellTargetHook(int(spell), int(mode)) // the asm passes the caller's var
 		if *quit {
 			ok = false
 			if e.beginFlag == 5 {
@@ -725,8 +725,7 @@ func (e *Engine) o23_30D9(c *Character, a *Affect, flag int) {
 	}
 	cx, cy := e.combatX(c), e.combatY(c)
 	e.CharMessage(c, "Breathes!", 0xA, true)
-	var ok bool // DS:70C6 receives the result
-	e.spellTargetHook(0x33, 1, &ok)
+	e.spellTargetHook(0x33, 1) // the result (DS:70C6) is not used
 	e.tgtX = cx + sign(e.tgtX-cx)
 	e.tgtY = cy + sign(e.tgtY-cy)
 	if cx+1 == e.tgtX {

@@ -18,7 +18,7 @@ func (e *Engine) Combat() {
 		for c := e.nextActor(); c != nil; c = e.nextActor() {
 			e.takeTurn(c)
 		}
-		e.endRound(&done)
+		done = e.endRound()
 	}
 	e.combatEnd()
 }
@@ -111,44 +111,44 @@ func (e *Engine) playerTurn(c *Character) {
 		e.clearCombatInfo(c)
 		return
 	}
-	done := 0
-	for done == 0 {
+	done := false
+	for !done {
 		switch e.combatMenu(c) {
 		case 'M':
-			e.moveAttack(c, &done)
+			done = e.moveAttack(c)
 		case 'V':
-			done = b2i(e.ViewCharacter()) // ovr20:0AB3 (var done): ItemsMenu sets it
+			done = e.ViewCharacter() // ovr20:0AB3 (var done): ItemsMenu sets it
 			e.o14_0D23(c)
-			if done == 0 {
+			if !done {
 				e.combatUseHook()
 			}
 		case 'A':
 			var aim aimTarget
 			var ok bool
 			e.o14_3558(c, 0xFF, 1, 0, &ok, &aim)
-			done = b2i(ok)
+			done = ok
 		case 'U':
-			done = b2i(e.ItemsMenu()) // ovr20:0EF8 (var done)
+			done = e.ItemsMenu() // ovr20:0EF8 (var done)
 			e.o14_0D23(c)
-			if done == 0 {
+			if !done {
 				e.combatUseHook()
 			}
 		case 'C':
 			var ok bool
 			e.o14_2414(0, 0, &ok)
-			done = b2i(ok)
+			done = ok
 		case 'T':
 			e.o14_116A(c)
-			done = b2i(e.clearCombatInfo(c))
+			done = e.clearCombatInfo(c)
 		case 'Q':
 			e.quickOne(c)
 			e.ClearRow24()
 			e.ClearKeyboard()
 			e.Delay(200)
-			done = 1
+			done = true
 			e.o10_000F(c)
 		case 'D':
-			e.otherMenu(c, &done)
+			done = e.otherMenu(c)
 		case '2':
 			e.v6E30 ^= 1
 			if e.v6E30 != 0 {
@@ -169,16 +169,16 @@ func (e *Engine) playerTurn(c *Character) {
 			}
 			e.ClearRow24()
 			e.Delay(200)
-			done = 1
+			done = true
 		case '-':
 			if e.o14_3B93() {
 				e.combatRedrawChar(c, 3, 0)
-				done = 1
+				done = true
 			} else {
 				e.BottomMessage("That doesn't work")
 			}
 		}
-		if done == 0 {
+		if !done {
 			e.combatRedrawChar(c, 2, 1)
 			e.combatPanel(c)
 		}
@@ -223,7 +223,7 @@ func (e *Engine) combatMenu(c *Character) byte {
 }
 
 // endRound = ovr09:0880 (var done): the clock, the dying, the end check.
-func (e *Engine) endRound(done *bool) {
+func (e *Engine) endRound() (done bool) {
 	e.AdvanceClock(1, 1)
 	e.v6DE3++
 	e.o14_2879()
@@ -243,24 +243,25 @@ func (e *Engine) endRound(done *bool) {
 	e.countSides()
 	e.combatCentre(e.cmap.viewX+3, e.cmap.viewY+3, 0xFF, 8)
 	if e.rv.side[0] == 0 || e.rv.side[1] == 0 {
-		*done = true
+		done = true
 	}
 	if e.rv.side[0] > 0 && e.rv.side[1] == 0 && e.v49F4 == 0 {
 		if e.YesNo(0xD, 0xA, 0xF, "Continue Battle:") == 'Y' {
-			*done = false
+			done = false
 		}
 	}
+	return
 }
 
 // moveAttack = ovr09:09DF (char, var done): step around with the keypad;
 // stepping into someone attacks, off the map flees. Escape undoes the
 // moves of this menu.
-func (e *Engine) moveAttack(c *Character, done *int) {
+func (e *Engine) moveAttack(c *Character) (done bool) {
 	ci := c.Combat
 	moves, face := ci.Moves, ci.Facing
 	x, y := e.combatX(c), e.combatY(c)
 	key := byte(0x20)
-	*done = 0
+	done = false
 	defer e.rawArrows("keypad, arrows, click a square=step, attack|Enter, click self=done|Esc=undo the moves")()
 	mark := e.regionMark()
 	defer e.regionCut(mark)
@@ -291,7 +292,7 @@ func (e *Engine) moveAttack(c *Character, done *int) {
 		case 0:
 			ci.Moves = moves
 			e.combatClearIcon(0, 0, e.combatIndex(c))
-			*done = b2i(!e.combatSquareFree(c, x, y, false))
+			done = !e.combatSquareFree(c, x, y, false)
 			e.combatCentre(e.combatX(c), e.combatY(c), 0, 8)
 			ci.Facing = face
 		case 'H':
@@ -318,35 +319,36 @@ func (e *Engine) moveAttack(c *Character, done *int) {
 		who, g := e.groundAt(c, d)
 		switch {
 		case who > 0:
-			e.attackTarget(c, e.combatant(who), done)
+			done = e.attackTarget(c, e.combatant(who), done)
 		case g == 0:
 			switch e.YesNo(0xD, 0xA, 0xF, "Flee:") {
 			case 'Y':
-				*done = b2i(e.o14_0C6A(c))
+				done = e.o14_0C6A(c)
 			case 'N':
-				*done = 0
+				done = false
 			}
 		case e.groundInfo(g)[0] > ci.Moves:
 			e.BottomMessage("Blocked")
 		default:
 			e.o14_08B2(c, d)
 			if c.Okay == 0 {
-				*done = b2i(e.clearCombatInfo(c))
+				done = e.clearCombatInfo(c)
 				continue
 			}
 			e.o14_0712(c, d)
 			if c.Okay == 0 {
-				*done = b2i(e.clearCombatInfo(c))
+				done = e.clearCombatInfo(c)
 			}
 			e.stinkingCloud(c)
 			if e.hasAffect286B(c) {
-				*done = b2i(e.clearCombatInfo(c))
+				done = e.clearCombatInfo(c)
 			}
 		}
 	}
 	if ci.Moves < 2 {
 		ci.Moves = 0
 	}
+	return
 }
 
 // rangedWeapon = 00BA:2E03 (char): the readied weapon shoots (base item
@@ -387,26 +389,26 @@ func (e *Engine) ammoFor(c *Character, it **Item) bool {
 }
 
 // attackTarget = ovr09:0D45 (char, target, var done).
-func (e *Engine) attackTarget(c, t *Character, done *int) {
+// done passes through when no attack is made.
+func (e *Engine) attackTarget(c, t *Character, done bool) bool {
 	if e.rangedWeapon(c) && !e.throwable(c) {
 		e.BottomMessage("Not with that weapon")
-		return
+		return done
 	}
 	if !e.o14_2998(c, t) {
-		return
+		return done
 	}
 	c.Combat.Target = t
 	if e.o14_0E82(c, t) {
-		*done = 1
-		return
+		return true
 	}
 	e.o14_17F6(c, t)
-	e.o14_1884(c, t, 0, nil, done)
+	return e.o14_1884(c, t, 0, nil)
 }
 
 // otherMenu = ovr09:0E45 (char, var done): Done's submenu.
-func (e *Engine) otherMenu(c *Character, done *int) {
-	*done = 0
+func (e *Engine) otherMenu(c *Character) (done bool) {
+	done = false
 	m := ""
 	if !e.rangedWeapon(c) || e.throwable(c) {
 		m += "Guard "
@@ -416,23 +418,24 @@ func (e *Engine) otherMenu(c *Character, done *int) {
 		m += "Bandage "
 	}
 	m += "Speed Exit"
-	for key := byte(0x20); key != 0 && key != 'E' && *done == 0; {
+	for key := byte(0x20); key != 0 && key != 'E' && !done; {
 		key, _ = e.DisplayInput("", m, 0xD, 0xA, 0xF, false, false)
 		switch key {
 		case 'G':
-			*done = b2i(e.guard(c))
+			done = e.guard(c)
 		case 'D':
 			c.Combat.Delay = 1
-			*done = 1
+			done = true
 		case 'Q':
-			*done = b2i(e.clearCombatInfo(c))
+			done = e.clearCombatInfo(c)
 		case 'B':
-			*done = b2i(e.bandage(true))
-			*done = b2i(e.clearCombatInfo(c))
+			done = e.bandage(true)
+			done = e.clearCombatInfo(c)
 		case 'S':
 			e.speedMenu()
 		}
 	}
+	return
 }
 
 // guard = 00BA:2686 (char): end the turn on guard.

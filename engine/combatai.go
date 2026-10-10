@@ -191,23 +191,21 @@ func (e *Engine) aiCastKnown(c *Character) bool {
 // aiCanStep = ovr10:0675 (char, i, dir, var blocked): can the combatant
 // step in direction DS:02AE[facing*5+i]+dir; blocked is set when the
 // square is off the map.
-func (e *Engine) aiCanStep(c *Character, i, dir int, blocked *bool) bool {
+func (e *Engine) aiCanStep(c *Character, i, dir int) (ok, blocked bool) {
 	ci := c.Combat
-	*blocked = false
 	r := false
 	t := int(e.X.Bytes(0x2AE+int(ci.Pattern)*5+i, 1)[0])
 	d := (t + dir) % 8
 	who, ground := e.groundAt(c, d)
 	if ground == 0 {
-		*blocked = true
-		return false
+		return false, true
 	}
 	if who != 0 {
-		return false
+		return false, false
 	}
 	gc := e.X.Bytes(0x2744+int(ground)*4, 1)[0]
 	if gc >= ci.Moves {
-		return false
+		return false, false
 	}
 	cost := 2
 	if d&1 != 0 {
@@ -223,7 +221,7 @@ func (e *Engine) aiCanStep(c *Character, i, dir int, blocked *bool) bool {
 	if int(ci.Moves) >= cost {
 		r = true
 	}
-	return r
+	return r, false
 }
 
 // aiMoveStep = ovr10:07F2 (char): show the movement left and take one
@@ -251,10 +249,11 @@ func (e *Engine) aiMoveStep(c *Character) {
 		dir %= 8
 		dir = int(byte(dir))
 	}
-	blocked, done := false, false
+	var ok, blocked bool
+	done := false
 	i := 1
 	for i < 6 && !done {
-		if e.aiCanStep(c, i, dir, &blocked) {
+		if ok, blocked = e.aiCanStep(c, i, dir); ok {
 			break
 		}
 		if ci.Fleeing != 0 && blocked {
@@ -391,9 +390,7 @@ func (e *Engine) aiAttackLoop(c *Character) bool {
 				weapon = nil
 			}
 		}
-		d := b2i(stop)
-		e.o14_1884(c, tgt, 0, weapon, &d)
-		stop = d != 0
+		stop = e.o14_1884(c, tgt, 0, weapon)
 		if stop {
 			cont = false
 		} else if tgt.Okay == 0 {

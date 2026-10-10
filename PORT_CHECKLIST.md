@@ -92,3 +92,4 @@ original. Ticked items are ported and checked in a headless run
 - [x] Item and Affect records as typed structs (Item, affectRecord in engine/files.go): readRecords/writeRecords for .itm/.spc, MON ITM/SPC and ECL ITEM blocks, no Raw arrays or it*/af* constants; cmd/trace identical to the previous build on all scenarios plus fuzz scripts
 - [x] CombatInfo as named fields (Spell, Delay, Moves, Facing, Fleeing, ...) instead of a Raw [0x16]byte with ci* offsets; cmd/trace identical
 - [x] Stinking-cloud records (cloud) as named fields (Ground, Covered, X, Y, Num); no Raw arrays left in engine records
+- [x] Pascal "var" out-params turned into Go results where the callee only writes them (attack/turn done flags, spell targeting ok, rest/identify/AC/AI-step flags); unused DS:6E31 dropped. Cursor-state in/out params (ListMenu index/redraw, aim found) stay pointers

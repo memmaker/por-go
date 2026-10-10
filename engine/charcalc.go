@@ -180,7 +180,9 @@ func (e *Engine) ApplyItems(c *Character) {
 			continue
 		}
 		e.armourMove(it, c)
-		e.itemAC(c, it, &ac, &ringOnly)
+		if e.itemAC(c, it, &ac) {
+			ringOnly = true
+		}
 	}
 	if ringOnly {
 		ac[3] = 0
@@ -266,7 +268,7 @@ func (e *Engine) armourMove(it *Item, c *Character) {
 // itemAC = 00BA:0282 (char, item, ac, ringOnly): ac[1] shield, ac[2]
 // protective items, ac[3] best ring, ac[4] best armour; magical body
 // armour cancels rings.
-func (e *Engine) itemAC(c *Character, it *Item, ac *[5]int8, ringOnly *bool) {
+func (e *Engine) itemAC(c *Character, it *Item, ac *[5]int8) (ringOnly bool) {
 	typ := it.Type
 	v := e.baseItem(typ, 6)
 	if v <= 0x7F {
@@ -290,9 +292,10 @@ func (e *Engine) itemAC(c *Character, it *Item, ac *[5]int8, ringOnly *bool) {
 	case int(v)+int(plus) > int(ac[4]):
 		ac[4] = int8(v) + plus
 		if plus > 0 && slot == 2 {
-			*ringOnly = true
+			ringOnly = true
 		}
 	}
+	return
 }
 
 // encumbrance = 00BA:03A0: movement by the weight over the allowance.

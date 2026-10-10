@@ -205,7 +205,7 @@ func (e *Engine) memorizeInfo() bool {
 
 // restMenu = ovr16:077A (var interrupted): the longest study time of the
 // party becomes the proposed rest time, then rest (ovr21:0C9A).
-func (e *Engine) restMenu(interrupted *bool) {
+func (e *Engine) restMenu() (interrupted bool) {
 	most := 0
 	for _, c := range e.party {
 		if t := e.studyTime(c); t > most {
@@ -216,9 +216,10 @@ func (e *Engine) restMenu(interrupted *bool) {
 	r[3] = most / 60
 	r[2] = (most - 60*r[3]) / 10
 	r[1] = most % 10
-	*interrupted = e.Rest()
+	interrupted = e.Rest()
 	e.camp.rest = [7]int{}
 	e.StatusLine()
+	return
 }
 
 // sortSpells = ovr16:0824: the selected character's spell slots in spell
@@ -469,7 +470,7 @@ func (e *Engine) magicMenu(interrupted *bool) {
 		case 'S':
 			e.scribeMenu()
 		case 'R':
-			e.restMenu(interrupted)
+			*interrupted = e.restMenu()
 		}
 	}
 }
@@ -660,7 +661,7 @@ func (e *Engine) CampMenu() bool {
 		case 'M':
 			e.magicMenu(&interrupted)
 		case 'R':
-			e.restMenu(&interrupted)
+			interrupted = e.restMenu()
 		case 'A':
 			e.alterMenu()
 		}

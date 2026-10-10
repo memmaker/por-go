@@ -110,9 +110,9 @@ func (e *Engine) chooseSpellTarget(spell, silent, allowGround int, t *aimTarget)
 
 // o14_20C3 = ovr14:20C3 (spell, silent, var ok): the targets of the spell
 // into DS:6C91+4i (count DS:6C94). ok is false when none was chosen.
-func (e *Engine) o14_20C3(spell, silent int, ok *bool) {
+func (e *Engine) o14_20C3(spell, silent int) (ok bool) {
 	var tmp aimTarget
-	*ok = true
+	ok = true
 	e.nSpellTargets = 0
 	e.spellFlag6820 = 0
 	e.tgtX, e.tgtY = e.combatX(e.selected()), e.combatY(e.selected())
@@ -132,7 +132,7 @@ func (e *Engine) o14_20C3(spell, silent int, ok *bool) {
 		e.nSpellTargets = 1
 	case kind == 0xF:
 		if !e.chooseSpellTarget(spell, silent, 0, &tmp) {
-			*ok = false
+			ok = false
 		} else if sel.Combat.Target != nil {
 			e.setTgt(1, sel.Combat.Target)
 			e.nSpellTargets = 1
@@ -141,7 +141,7 @@ func (e *Engine) o14_20C3(spell, silent int, ok *bool) {
 		}
 	case kind >= 8 && kind <= 0xE:
 		if !e.chooseSpellTarget(spell, silent, 1, &tmp) {
-			*ok = false
+			ok = false
 		} else {
 			fromNear(int(e.spellData(spell, 0) & 7))
 		}
@@ -172,9 +172,10 @@ func (e *Engine) o14_20C3(spell, silent int, ok *bool) {
 		}
 		e.nSpellTargets = n
 		if n == 0 {
-			*ok = false
+			ok = false
 		}
 	}
+	return
 }
 
 // o14_2414 = ovr14:2414 (spell, a, var quit): the selected character picks
@@ -394,9 +395,7 @@ func (e *Engine) aimConfirm(c, cand *Character, mode int, found *bool, t *aimTar
 			if e.rangedWeapon(c) && e.ammoFor(c, &res) && e.throwable(c) && e.rangeTo(c, cand) == 1 {
 				res = nil
 			}
-			d := b2i(*found)
-			e.o14_1884(c, cand, 0, res, &d)
-			*found = d != 0
+			*found = e.o14_1884(c, cand, 0, res)
 		}
 	}
 }
@@ -688,23 +687,19 @@ func (e *Engine) o14_37E4(c *Character, rng, a, b int) bool {
 // o14_39D2 = ovr14:39D2 (c, affect, flag): the affect handler of an
 // attacker's rake: while DS:6823 is 2 and its victim is up, c rakes it.
 func (e *Engine) o14_39D2(c *Character, a *Affect, flag byte) {
-	var res bool
 	if e.hits6822[1] == 2 && c.Combat.Target != nil && c.Combat.Target.Okay != 0 {
 		c.Combat.AttackSlot = 2
 		c.Attacks[1], c.Dice[1], c.Sides[1], c.Attacks[0] = 2, 2, 4, 0
 		e.CharMessage(c, "Rakes...", 0xA, true)
-		d := b2i(res)
-		e.o14_1884(c, c.Combat.Target, 0, nil, &d)
-		res = d != 0
+		e.o14_1884(c, c.Combat.Target, 0, nil)
 		e.clearCombatInfo(c)
 	}
 }
 
 // o14_3A86 = ovr14:3A86 (c, affect, flag): the affect handler tying c to
-// the combatant a.Raw[3] (DS:6826): c strikes at it until one of them is
+// the combatant a.Data (DS:6826): c strikes at it until one of them is
 // down or the affect is removed.
 func (e *Engine) o14_3A86(c *Character, a *Affect, flag byte) {
-	var res bool
 	e.v6826 = e.combatant(a.Data)
 	if flag != 0 || c.Okay == 0 || e.v6826.Okay == 0 {
 		e.RemoveAffect(e.v6826, 0x3A, nil)
@@ -715,9 +710,7 @@ func (e *Engine) o14_3A86(c *Character, a *Affect, flag byte) {
 		return
 	}
 	c.Attacks[0], c.Attacks[1], c.Dice[0], c.Sides[0] = 1, 0, 3, 4
-	d := b2i(res)
-	e.o14_1884(c, e.v6826, 1, nil, &d)
-	res = d != 0
+	e.o14_1884(c, e.v6826, 1, nil)
 	e.clearCombatInfo(c)
 	if e.v6826.Okay == 0 {
 		e.RemoveAffect(c, 0x4A, a)

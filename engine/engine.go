@@ -138,7 +138,6 @@ type Engine struct {
 	v681A, v681D, v681E byte             // DS:681A speed value, 681D, 681E affect scratch
 	v6825               byte             // DS:6825 flee/surrender roll
 	hits6822, shots6E2C [3]byte          // DS:6822+i / 6E2C+i, i = 1..2 attack slots
-	v6E31               int              // DS:6E31 result of the last attack
 	v443C, v443D, v443E byte             // DS:443C..443E computer-turn movement state
 	v6DE2               byte             // DS:6DE2
 	v6826               *Character       // DS:6826 scratch target
