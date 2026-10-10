@@ -61,6 +61,7 @@ func ParseImage(b []byte, masked bool, maskColour byte) *Image {
 	if masked {
 		clearMask(im.Data, maskColour)
 	}
+	amigaTag(b[9:], im.Data)
 	return im
 }
 
@@ -141,6 +142,7 @@ func ParseSprite(b []byte, masked bool, maskColour byte, xor bool) []SpriteFrame
 			im.Mask = Clear
 			clearMask(im.Data, maskColour)
 		}
+		amigaTag(b[p-size-9:], im.Data)
 		frames = append(frames, SpriteFrame{Delay: delay, Image: im})
 	}
 	return frames

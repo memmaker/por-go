@@ -3,6 +3,8 @@ package dax
 import (
 	"encoding/binary"
 	"sort"
+
+	"por/ega"
 )
 
 // Amiga Pool of Radiance archives: u16 BE index size, 10-byte BE entries
@@ -92,7 +94,7 @@ func Unbytekill(src []byte) (out []byte) {
 // height rows padded to whole 16-pixel words, plane 0 the low bit.
 
 // chunky converts one frame of planes to DOS packed nibbles (w cells wide).
-func chunky(src []byte, h, w, stride, plane int, lut *[16]byte) []byte {
+func chunky(src []byte, h, w, stride, plane int) []byte {
 	out := make([]byte, h*w*4)
 	for y := 0; y < h; y++ {
 		for x := 0; x < w*8; x++ {
@@ -103,7 +105,6 @@ func chunky(src []byte, h, w, stride, plane int, lut *[16]byte) []byte {
 					c |= 1 << p
 				}
 			}
-			c = lut[c]
 			if x%2 == 0 {
 				out[(y*w*8+x)/2] = c << 4
 			} else {
@@ -119,13 +120,13 @@ func be16(b []byte, i int) int { return int(binary.BigEndian.Uint16(b[i:])) }
 func le16(v int) []byte { return []byte{byte(v), byte(v >> 8)} }
 
 // AmigaImage converts a plain picture block to the DOS layout ParseImage
-// reads. split cuts each frame into its two side-by-side tiles (the Amiga symbol
+// reads, tagged with the ega.Amiga palette slot its colours come from. split cuts each frame into its two side-by-side tiles (the Amiga symbol
 // and combat tile sheets pack two per frame).
-func AmigaImage(b []byte, split bool, lut *[16]byte) []byte {
+func AmigaImage(b []byte, split bool, slot byte) []byte {
 	h, w, x, y, n, plane := be16(b, 0), be16(b, 2), be16(b, 4), be16(b, 6), be16(b, 8), be16(b, 10)
 	var frames [][]byte
 	for f := 0; f < n && 12+(f+1)*4*plane <= len(b); f++ {
-		px := chunky(b[12+f*4*plane:], h, w, (w+1)/2*2, plane, lut)
+		px := chunky(b[12+f*4*plane:], h, w, (w+1)/2*2, plane)
 		if !split {
 			frames = append(frames, px)
 			continue
@@ -142,7 +143,7 @@ func AmigaImage(b []byte, split bool, lut *[16]byte) []byte {
 		w /= 2
 	}
 	out := append(append(append(append(le16(h), le16(w)...), le16(x)...), le16(y)...), byte(len(frames)))
-	out = append(out, make([]byte, 8)...)
+	out = append(out, 'A', 'M', slot, 0, 0, 0, 0, 0) // amigaTag in the unused bytes
 	for _, f := range frames {
 		out = append(out, f...)
 	}
@@ -152,7 +153,7 @@ func AmigaImage(b []byte, split bool, lut *[16]byte) []byte {
 // AmigaSprite converts an animation block (u32 frame count, per frame u32
 // delay in 50 Hz ticks and a one-frame picture) to the ParseSprite layout.
 // xor stores frames after the first XORed against it, as PIC/FINAL expect.
-func AmigaSprite(b []byte, xor bool, lut *[16]byte) []byte {
+func AmigaSprite(b []byte, xor bool, slot byte) []byte {
 	n := int(binary.BigEndian.Uint32(b))
 	out := []byte{byte(n)}
 	var first []byte
@@ -163,7 +164,7 @@ func AmigaSprite(b []byte, xor bool, lut *[16]byte) []byte {
 		if p+4*plane > len(b) {
 			break
 		}
-		px := chunky(b[p:], h, w, (w+1)/2*2, plane, lut)
+		px := chunky(b[p:], h, w, (w+1)/2*2, plane)
 		p += 4 * plane
 		if f == 0 {
 			first = px
@@ -176,7 +177,7 @@ func AmigaSprite(b []byte, xor bool, lut *[16]byte) []byte {
 		}
 		out = append(out, byte(delay), byte(delay>>8), 0, 0)
 		out = append(append(append(append(out, le16(h)...), le16(w)...), le16(x)...), le16(y)...)
-		out = append(out, make([]byte, 9)...)
+		out = append(out, 'A', 'M', slot, 0, 0, 0, 0, 0, 0)
 		out = append(out, px...)
 	}
 	return out
@@ -202,33 +203,16 @@ func WriteDOS(blocks map[int][]byte) []byte {
 	return append(append(le16(len(idx)), idx...), data...)
 }
 
-// Amiga palettes (12-bit RGB) from the program's data at 0x54020..0x54080.
-var (
-	PalUI       = [16]uint16{0x000, 0x06b, 0x096, 0x0aa, 0x000, 0x940, 0xb44, 0xfaa, 0xfe9, 0x59f, 0x0d8, 0x5ff, 0x555, 0x777, 0xaaa, 0xfff}
-	PalPortrait = [16]uint16{0x000, 0xdb9, 0xb97, 0x964, 0x521, 0x742, 0xa84, 0xcb6, 0xff9, 0x007, 0x44b, 0x444, 0x555, 0x777, 0xaaa, 0xfff}
-	PalCombat   = [16]uint16{0x000, 0x124, 0x953, 0xb97, 0xecb, 0x710, 0xa42, 0xdb0, 0xff5, 0x074, 0x053, 0x369, 0x555, 0x777, 0xaaa, 0xfff}
-)
-
-// EGALut maps an Amiga palette to the nearest EGA colours. Index 0 stays 0
-// (the sprite mask colour); no other index lands on 0 or 13, the colours
-// the engine treats as transparent.
-// ponytail: nearest-colour remap loses the Amiga shades; a per-picture
-// palette in the renderer would keep them.
-func EGALut(pal [16]uint16, ega [16][3]uint8) *[16]byte {
-	var lut [16]byte
-	for i := 1; i < 16; i++ {
-		r, g, b := int(pal[i]>>8&15)*17, int(pal[i]>>4&15)*17, int(pal[i]&15)*17
-		best := -1
-		for j := 1; j < 16; j++ {
-			if j == 13 {
-				continue
-			}
-			dr, dg, db := r-int(ega[j][0]), g-int(ega[j][1]), b-int(ega[j][2])
-			d := dr*dr + dg*dg + db*db
-			if best < 0 || d < best {
-				best, lut[i] = d, byte(j)
-			}
+// amigaTag: an "AM" mark and palette slot in a picture header's unused
+// bytes moves its colours to ega.AmigaBase+16*slot (masked pixels stay Clear).
+func amigaTag(hdr, px []byte) {
+	if len(hdr) < 3 || hdr[0] != 'A' || hdr[1] != 'M' {
+		return
+	}
+	base := byte(ega.AmigaBase + 16*int(hdr[2]))
+	for i, c := range px {
+		if c < 16 {
+			px[i] = base + c
 		}
 	}
-	return &lut
 }

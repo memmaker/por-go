@@ -121,19 +121,20 @@ func writeCover(dst string) error {
 }
 
 // amigaGfx: the Amiga Pool of Radiance graphics archives, with the palette
-// each is drawn in and whether its frames pack two tiles side by side.
+// (palette 0x54080 for PIC/FINAL, which the Amiga sets before them, 0x54040
+// for the rest) each is drawn in and whether its frames pack two tiles side by side.
 // ponytail: 8X8D (the 3D-view symbols) stays DOS; the Amiga set is laid out
 // for its own wall renderer and does not match WALLDEF's symbol numbers.
 var amigaGfx = map[string]struct {
-	pal    [16]uint16
+	slot   byte // ega.Amiga palette
 	split  bool
 	sprite bool // animation block (PIC/FINAL frames XORed against the first)
 }{
-	"icon": {dax.PalUI, false, false}, "comspr": {dax.PalUI, false, false}, "cpic": {dax.PalUI, false, false},
-	"bacpac": {dax.PalUI, true, false}, "sqrpaci": {dax.PalUI, true, false}, "wildcom": {dax.PalUI, true, false},
-	"dungcom": {dax.PalUI, true, false}, "randcom": {dax.PalUI, true, false},
-	"head": {dax.PalPortrait, false, false}, "body": {dax.PalPortrait, false, false}, "chead": {dax.PalPortrait, false, false}, "cbody": {dax.PalPortrait, false, false},
-	"pic": {dax.PalCombat, false, true}, "final": {dax.PalCombat, false, true}, "sprit": {dax.PalCombat, false, true},
+	"icon": {ega.AmigaPortrait, false, false}, "comspr": {ega.AmigaPortrait, false, false}, "cpic": {ega.AmigaPortrait, false, false},
+	"bacpac": {ega.AmigaPortrait, true, false}, "sqrpaci": {ega.AmigaPortrait, true, false}, "wildcom": {ega.AmigaPortrait, true, false},
+	"dungcom": {ega.AmigaPortrait, true, false}, "randcom": {ega.AmigaPortrait, true, false},
+	"head": {ega.AmigaPortrait, false, false}, "body": {ega.AmigaPortrait, false, false}, "chead": {ega.AmigaPortrait, false, false}, "cbody": {ega.AmigaPortrait, false, false},
+	"pic": {ega.AmigaView, false, true}, "final": {ega.AmigaView, false, true}, "sprit": {ega.AmigaPortrait, false, true},
 }
 
 // importDisk2 (-import-disk2, goplay drive B) finds the Amiga Pool of
@@ -202,7 +203,6 @@ func importDisk2(src, dst string) error {
 		if !ok {
 			continue
 		}
-		lut := dax.EGALut(g.pal, ega.Palette)
 		a := dax.OpenAmiga(f.Data)
 		blocks := map[int][]byte{}
 		for _, e := range a.Entries {
@@ -211,9 +211,9 @@ func importDisk2(src, dst string) error {
 				continue
 			}
 			if g.sprite {
-				blocks[e.ID] = dax.AmigaSprite(b, name != "sprit", lut)
+				blocks[e.ID] = dax.AmigaSprite(b, name != "sprit", g.slot)
 			} else {
-				blocks[e.ID] = dax.AmigaImage(b, g.split, lut)
+				blocks[e.ID] = dax.AmigaImage(b, g.split, g.slot)
 			}
 		}
 		if err := os.WriteFile(filepath.Join(out, strings.ToUpper(name)+".DAX"), dax.WriteDOS(blocks), 0o644); err != nil {

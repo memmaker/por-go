@@ -22,6 +22,21 @@ var Palette = [16][3]uint8{
 	{255, 82, 82}, {255, 82, 255}, {255, 255, 82}, {255, 255, 255},
 }
 
+// Amiga holds the Amiga Pool of Radiance palettes (12-bit RGB, from the
+// program's data at 0x54080 and 0x54040). Pixel values from AmigaBase up
+// are colour AmigaBase+16*slot+index of these, drawn in their own RGB.
+var Amiga = [2][16]uint16{
+	AmigaView:     {0x000, 0x124, 0x953, 0xb97, 0xecb, 0x710, 0xa42, 0xdb0, 0xff5, 0x074, 0x053, 0x369, 0x555, 0x777, 0xaaa, 0xfff},
+	AmigaPortrait: {0x000, 0xdb9, 0xb97, 0x964, 0x521, 0x742, 0xa84, 0xcb6, 0xff9, 0x007, 0x44b, 0x444, 0x555, 0x777, 0xaaa, 0xfff},
+}
+
+// Amiga palette slots: PIC/FINAL pictures; everything else.
+const (
+	AmigaView = iota
+	AmigaPortrait
+	AmigaBase = 32
+)
+
 // Screen is the shared frame buffer. The engine goroutine writes it; the
 // renderer snapshots it each frame under the lock.
 type Screen struct {
@@ -108,12 +123,12 @@ func New() *Screen {
 func (s *Screen) Lock()   { s.mu.Lock() }
 func (s *Screen) Unlock() { s.mu.Unlock() }
 
-// Set writes one pixel; values >= 16 are ignored (transparent).
+// Set writes one pixel; 17..AmigaBase-1 are ignored (transparent).
 func (s *Screen) Set(x, y int, c uint8) {
 	if c == 16 { // dax.Clear: a masked-out pixel drawn plain
 		c = 0
 	}
-	if c < 16 && x >= 0 && x < W && y >= 0 && y < H {
+	if (c < 16 || c >= AmigaBase) && x >= 0 && x < W && y >= 0 && y < H {
 		s.Pix[y*W+x] = c
 	}
 }
@@ -137,6 +152,10 @@ func (s *Screen) Fill(x0, y0, x1, y1 int, c uint8) {
 
 // RGBA returns the displayed colour of palette register i.
 func (s *Screen) RGBA(i uint8) color.RGBA {
+	if i >= AmigaBase {
+		c := Amiga[(i-AmigaBase)/16%2][i%16]
+		return color.RGBA{uint8(c>>8&15) * 17, uint8(c>>4&15) * 17, uint8(c&15) * 17, 255}
+	}
 	p := Palette[s.Pal[i&15]&15]
 	return color.RGBA{p[0], p[1], p[2], 255}
 }
