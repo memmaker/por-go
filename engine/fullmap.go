@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"por/ega"
 )
 
 // The full-screen map (extra): M on the command bar
@@ -374,6 +376,10 @@ func (e *Engine) drawFullMap(m map[int]mapLabel, cx, cy int) ([]string, map[stri
 	return texts, first
 }
 
+// doorColour is a light brown (Amiga palette 0xA84): it stands out
+// against the white walls and the grey, black and blue floors.
+const doorColour = ega.AmigaBase + 16*ega.AmigaPortrait + 6
+
 // mapWalls draws the walls of square (x, y) as lines at the edges of a
 // size-pixel cell at (px, py): doors and locked doors in their colours,
 // walls of squares not seen yet dim (s: the square's seen state).
@@ -385,7 +391,7 @@ func (e *Engine) mapWalls(x, y, px, py, size int, s uint8) {
 		c := uint8(15)
 		switch e.DoorAt(x, y, d) {
 		case 1:
-			c = 11
+			c = doorColour
 		case 2, 3:
 			c = 14
 		}

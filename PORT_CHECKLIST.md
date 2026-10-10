@@ -93,6 +93,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] Item names end in Angband-style base stats: "(1d8)" weapon damage, "<7>" armour class given (the font has no square brackets) (shop names stop before the price)
 - [x] Shop Buy list names the buyer (top right; F1-F6 change it); a missing ITEMS file (imports made before it was copied) is reported at start: every item would be the wrong class
 - [x] Shop Buy list Look (L): a box with the item's rules stats (damage, vs large, range and shots, ammunition, AC, movement, who can use it) and what special items do (oil, holy water, mirror, holy symbol, silver, scrolls) (engine/itemlook.go)
+- [x] Map and minimap doors are light brown (Amiga palette 0xA84) instead of light cyan, which ran together with the white walls
 - [x] Icon colours recolour Amiga icons too: EGA colour numbers map one-to-one onto the Amiga icon palette slots (Amiga table 0x8B10E vs DS:3CF5), so defaults match and every step shows a new colour
 
 ## Idiomatic Go
