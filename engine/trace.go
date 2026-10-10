@@ -94,11 +94,14 @@ func picID(im *dax.Image, frame int) string {
 	return fmt.Sprintf("%dx%d:%s", im.Height, im.Width*8, hex.EncodeToString(s[:])[:10])
 }
 
-// pageSet mirrors a write to the original's 168x168 drawing page DS:4A20
-// (shown at screen pixel 8,8), so Flip can hash the page as the emulator does.
+// pageSet mirrors a write to the original's drawing page DS:4A20 (shown at
+// screen pixel 8,8; wider in combat), so Flip can hash the page as the
+// emulator does and sprites can restore what they hid. It keeps the whole
+// pixel: Amiga pixels (ega.AmigaBase up) lost their palette slot to & 15,
+// and the restored floor came back EGA light red.
 func (e *Engine) pageSet(x, y int, c uint8) {
 	if x >= 0 && y >= 0 && x < pageStride && y < 168 {
-		e.page[y*pageStride+x] = c & 15
+		e.page[y*pageStride+x] = c
 	}
 }
 
