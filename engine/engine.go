@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -223,6 +224,9 @@ func (e *Engine) Run() {
 
 // Play is the rest of main after the title: party menu, then adventure.
 func (e *Engine) Play() {
+	if !slices.ContainsFunc(e.items, func(b byte) bool { return b != 0 }) {
+		e.MessageRow24b(0xE, "ITEMS missing: import the game again") // extra (readItems): waits for a key
+	}
 	e.PartyMenu()                 // ovr17:0161
 	e.SetSkyColours(0xB, 0, 7, 6) // ovr30:0155
 	e.GameLoop()                  // ovr04:32F8
