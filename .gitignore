@@ -1,12 +1,31 @@
-por
+# build output
+/por
 bin/
 .DS_Store
 __pycache__/
+
+# original game data: never commit (read from the game folder at run time)
+*.DAX
+*.EXE
+*.OVR
+/CFG.C
+/ITEMS
+/JOURNAL.TXT
+/POOL.BAT
+/POOL.CFG
+/FONTS/
+/SAVE/
+/__ Code Wheel __.pdf
 decomp/out/
+decomp/emu/saves/
+
+# written by the game at run time
+/FONT.CFG
+/MAPNOTES.TXT
+
+# local tooling
 decomp/emu/.venv/
 decomp/emu/scratch/
 decomp/emu/out/
-decomp/emu/saves/
-*.DAX
-*.EXE
-SAVE/
+.claude/settings.local.json
+.mcp.json

@@ -13,7 +13,7 @@ from unicorn.x86_const import *
 HERE = os.path.dirname(os.path.abspath(__file__))
 DECOMP = os.path.dirname(HERE)
 OUT = os.path.join(DECOMP, 'out')
-ROOT = os.path.abspath(os.path.join(DECOMP, '..', '..'))   # repo root: START.EXE, *.DAX, SAVE/
+ROOT = os.path.abspath(os.path.join(DECOMP, '..'))   # repo root: START.EXE, *.DAX, SAVE/
 
 LOAD = 0x1000            # START.bin load segment (PSP = LOAD-0x10)
 PSP = LOAD - 0x10
