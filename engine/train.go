@@ -1,6 +1,9 @@
 package engine
 
-import "por/dax"
+import (
+	"por/dax"
+	"por/ega"
+)
 
 // ovr17 (second half): Modify, Train and Add on the party screen, the
 // portrait and icon editors, and the hit point helpers they share.
@@ -535,22 +538,35 @@ func (e *Engine) iconCopy(src, dst byte, recolour bool) {
 
 // recolourIcon = 0464:1E5C (identity, to, 0, 0, icon): colour i becomes
 // to[i] for i = 0..15 in turn, so a pixel already moved to a later colour
-// moves again (3 -> 15 -> to[15]). Mask pixels are left alone.
+// moves again (3 -> 15 -> to[15]). Mask pixels are left alone. Amiga
+// pixels (extra) take the same change through amigaIconColour.
 func recolourIcon(im *dax.Image, to [16]byte) {
 	if im == nil {
 		return
 	}
-	for i := 0; i < 16; i++ {
-		if to[i] == byte(i) {
-			continue
-		}
+	var am [16]byte
+	for i, v := range to {
+		am[amigaIconColour[i]] = amigaIconColour[v]
+	}
+	for i := byte(0); i < 16; i++ {
 		for k, v := range im.Data {
-			if int(v) == i && i != im.Mask {
+			switch {
+			case v == i && int(i) != im.Mask:
 				im.Data[k] = to[i]
+			case v >= ega.AmigaBase && v&0xF == i:
+				im.Data[k] = v&^0xF | am[i]
 			}
 		}
 	}
 }
+
+// amigaIconColour (extra): the Amiga palette slot for each EGA colour
+// number a character's icon colours hold. The Amiga icon editor (its slot
+// table at 0x8B10E, against DS:3CF5) colours the parts in slots 9/1,
+// 10/2, 11/3, 6/7, 5/8 and 15/14 where DOS uses 1/9 .. 7/15; the four
+// left over pair by shade. So the DOS default colours give the Amiga
+// default icon and each step shows another Amiga colour.
+var amigaIconColour = [16]byte{0, 9, 10, 11, 6, 4, 5, 15, 12, 1, 2, 3, 7, 13, 8, 14}
 
 // o17_382D = ovr17:382D: the combat icon editor (called from the
 // character creation and the camp). States (menus DS:7BF + 0x29*state):

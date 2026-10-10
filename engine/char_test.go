@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"encoding/binary"
+	"por/dax"
 	"testing"
 	"unsafe"
 )
@@ -64,5 +65,31 @@ func TestItemAffectRecords(t *testing.T) {
 	items := readRecords[Item](b, itemRecSize)
 	if len(items) != 2 || items[1].Price != 0x7A79 || !bytes.Equal(writeRecords(items), b) {
 		t.Fatal("items do not round-trip")
+	}
+}
+
+// Amiga icon pixels follow the DOS icon colours: the DOS defaults leave
+// them as drawn, a changed part moves both its Amiga slots.
+func TestRecolourAmigaIcon(t *testing.T) {
+	seen := map[byte]bool{}
+	for _, v := range amigaIconColour {
+		seen[v] = true
+	}
+	if len(seen) != 16 {
+		t.Fatal("amigaIconColour is not a permutation")
+	}
+	im := &dax.Image{Data: []byte{48 + 9, 48 + 1, 48 + 6, 3}, Mask: 16}
+	var to [16]byte
+	for i := range to {
+		to[i] = byte(i)
+	}
+	recolourIcon(im, to)
+	if !bytes.Equal(im.Data, []byte{48 + 9, 48 + 1, 48 + 6, 3}) {
+		t.Fatalf("defaults changed the icon: %v", im.Data)
+	}
+	to[1], to[9] = 4, 12 // body: red
+	recolourIcon(im, to)
+	if !bytes.Equal(im.Data, []byte{48 + 6, 48 + 7, 48 + 6, 3}) {
+		t.Fatalf("got %v", im.Data)
 	}
 }
