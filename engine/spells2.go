@@ -278,9 +278,9 @@ func (e *Engine) o23_1B11() {
 	e.clouds = append(e.clouds, cl)
 	e.AddAffect(sel, 0x28, lvl, byte(lvl+n<<4), 1)
 	cl.Ptr00 = sel
-	cl.Raw[0x12] = byte(n)
-	cl.Raw[0x10] = byte(e.tgtX)
-	cl.Raw[0x11] = byte(e.tgtY)
+	cl.Num = byte(n)
+	cl.X = byte(e.tgtX)
+	cl.Y = byte(e.tgtY)
 	dx := e.X.Bytes(0x2736, 9)
 	dy := e.X.Bytes(0x273F, 9)
 	var who [5]byte
@@ -291,9 +291,9 @@ func (e *Engine) o23_1B11() {
 		w, g := e.mapAt(x, y)
 		who[k] = w
 		if g > 0 && e.groundInfo(g)[0] < 0xFF {
-			cl.Raw[0xB+k] = 1
+			cl.Covered[k-1] = 1
 		} else {
-			cl.Raw[0xB+k] = 0
+			cl.Covered[k-1] = 0
 		}
 		if g == 0x1E {
 			// an older cloud already covers the square: keep its ground
@@ -302,14 +302,14 @@ func (e *Engine) o23_1B11() {
 					continue
 				}
 				for j := 1; j <= 4; j++ {
-					if o.Raw[0xB+j] == 0 {
+					if o.Covered[j-1] == 0 {
 						continue
 					}
 					oj := int(e.X.Bytes(0x290D+j, 1)[0])
-					if int(int8(dx[dir]))+int(int8(e.tgtX)) == int(int8(dx[oj]))+int(int8(o.Raw[0x10])) &&
-						int(int8(dy[dir]))+int(int8(e.tgtY)) == int(int8(dy[oj]))+int(int8(o.Raw[0x11])) &&
-						o.Raw[7+j] != 0x1E {
-						g = o.Raw[7+j]
+					if int(int8(dx[dir]))+int(int8(e.tgtX)) == int(int8(dx[oj]))+int(int8(o.X)) &&
+						int(int8(dy[dir]))+int(int8(e.tgtY)) == int(int8(dy[oj]))+int(int8(o.Y)) &&
+						o.Ground[j-1] != 0x1E {
+						g = o.Ground[j-1]
 					}
 				}
 			}
@@ -321,8 +321,8 @@ func (e *Engine) o23_1B11() {
 				}
 			}
 		}
-		cl.Raw[7+k] = g
-		if cl.Raw[0xB+k] != 0 {
+		cl.Ground[k-1] = g
+		if cl.Covered[k-1] != 0 {
 			e.cmap.ground[y][x] = 0x1E
 		}
 	}

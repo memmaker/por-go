@@ -478,10 +478,14 @@ type placement struct {
 	side   byte              // DS:4658
 }
 
-// cloud is a 0x13-byte DS:6DBB record (linked at +4).
+// cloud is a 0x13-byte DS:6DBB record (linked at +4): a stinking cloud
+// over the four squares around X, Y.
 type cloud struct {
-	Raw   [0x13]byte
-	Ptr00 *Character // +0x00 the caster
+	Ptr00   *Character // +0x00 the caster
+	Ground  [4]byte    // +0x08 ground under each square
+	Covered [4]byte    // +0x0C square is covered
+	X, Y    byte       // +0x10
+	Num     byte       // +0x12 the caster's cloud number (affect data >> 4)
 }
 
 // placeCombatants = ovr11:19F5.

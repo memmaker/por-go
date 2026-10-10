@@ -494,7 +494,7 @@ func (e *Engine) o13_0CC3(c *Character, a *Affect, flag byte) {
 	side := a.Data >> 4
 	ci := -1
 	for i, cl := range e.clouds {
-		if cl.Ptr00 == c && cl.Raw[0x12] == side {
+		if cl.Ptr00 == c && cl.Num == side {
 			ci = i
 			break
 		}
@@ -507,7 +507,7 @@ func (e *Engine) o13_0CC3(c *Character, a *Affect, flag byte) {
 	ddx, ddy := e.X.Bytes(0x2736, 9), e.X.Bytes(0x273F, 9)
 	square := func(cl *cloud, k int) (x, y byte) {
 		idx := e.X.Bytes(0x290D+k, 1)[0]
-		return byte(int(int8(ddx[idx])) + int(cl.Raw[0x10])), byte(int(int8(ddy[idx])) + int(cl.Raw[0x11]))
+		return byte(int(int8(ddx[idx])) + int(cl.X)), byte(int(int8(ddy[idx])) + int(cl.Y))
 	}
 	set := func(x, y, v byte) { // the original does not check the bounds
 		if int(y) < len(e.cmap.ground) && int(x) < len(e.cmap.ground[0]) {
@@ -515,7 +515,7 @@ func (e *Engine) o13_0CC3(c *Character, a *Affect, flag byte) {
 		}
 	}
 	for k := 1; k <= 4; k++ {
-		if cl.Raw[0xB+k] == 0 {
+		if cl.Covered[k-1] == 0 {
 			continue
 		}
 		x, y := square(cl, k)
@@ -528,13 +528,13 @@ func (e *Engine) o13_0CC3(c *Character, a *Affect, flag byte) {
 		if body {
 			set(x, y, 0x1F)
 		} else {
-			set(x, y, cl.Raw[7+k])
+			set(x, y, cl.Ground[k-1])
 		}
 	}
 	e.clouds = append(e.clouds[:ci:ci], e.clouds[ci+1:]...)
 	for _, p := range e.clouds {
 		for k := 1; k <= 4; k++ {
-			if p.Raw[0xB+k] != 0 {
+			if p.Covered[k-1] != 0 {
 				x, y := square(p, k)
 				set(x, y, 0x1E)
 			}
