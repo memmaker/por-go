@@ -296,14 +296,25 @@ func (e *Engine) healParty() (interrupted bool) {
 			break // the cures do not help (nobody could cast)
 		}
 	}
-	if len(saved) > 0 {
-		for c, m := range saved {
-			c.Memorized = restoreSpells(m, c.Memorized)
-		}
-		if !interrupted {
-			if most := e.partyStudy(); most > 0 {
-				interrupted = e.restFor(most, nil)
+	if len(saved) > 0 && !interrupted {
+		for c, m := range saved { // relearn what was cast or replaced, nothing else
+			r := restoreSpells(m, c.Memorized)
+			for i, v := range m {
+				if v > 0x7F {
+					r[i] = 0
+				}
 			}
+			c.Memorized = r
+		}
+		if most := e.partyStudy(); most > 0 {
+			interrupted = e.restFor(most, nil)
+		}
+	}
+	for c, m := range saved {
+		if interrupted { // the rest is left to be memorized
+			c.Memorized = restoreSpells(m, c.Memorized)
+		} else {
+			c.Memorized = m // exactly the spells of before
 		}
 	}
 	if !interrupted && e.healMinutes() > 0 {
