@@ -80,9 +80,6 @@ func (e *Engine) o14_02F9(a, b *Character, kind, damage, shown, hit int) {
 		s = "Attacks"
 	}
 	e.CharMessage(a, s, 0xA, false)
-	row := 0xC
-	e.displayName(b, 0x17, row, false)
-	row++
 	s = ""
 	if kind == 1 {
 		s = "(from behind) "
@@ -103,8 +100,7 @@ func (e *Engine) o14_02F9(a, b *Character, kind, damage, shown, hit int) {
 		}
 		e.ApplyDamage(b, damage&0xFF)
 	}
-	e.DisplayTextBlock(0x17, row, 0x26, row+3, 0xA, true, s)
-	row = e.msgRow + 1
+	e.combatSay(b, s, false)
 	if damage&0xFF > 0 {
 		b.Combat.CanCast = 0
 		if b.Combat.Spell > 0 {
@@ -119,13 +115,12 @@ func (e *Engine) o14_02F9(a, b *Character, kind, damage, shown, hit int) {
 		e.MsgDelay()
 	}
 	if b.Okay == 0 {
-		e.CharMessage(b, "goes down", row, false)
-		row += 2
+		e.CharMessage(b, "goes down", 0, false)
 		if b.Status == 5 {
-			e.DisplayString(0x17, row, 0xA, "and is Dying")
+			e.combatSay(nil, "and is Dying", false)
 		}
 		if st := b.Status; st >= 6 && st <= 8 { // set at CS:02CF
-			e.CharMessage(b, "is killed", row, false)
+			e.CharMessage(b, "is killed", 0, false)
 		}
 		e.removeCombatAffects(b)
 		e.affectGroup(b, 0xD)

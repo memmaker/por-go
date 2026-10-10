@@ -250,10 +250,10 @@ func (e *Engine) rosterRegion() {
 }
 
 // combatSquare is the combat map square shown at cell (cx, cy): the page
-// sits at cell (1,1) and a square is 3x3 cells.
+// sits at cell (pageCol,1) and a square is 3x3 cells.
 func (e *Engine) combatSquare(cx, cy int) (x, y int, ok bool) {
-	sx, sy := (cx-1)/3, (cy-1)/3
-	if cx < 1 || cy < 1 || !combatInView(sx, sy) {
+	sx, sy := (cx-pageCol)/3, (cy-1)/3
+	if cx < pageCol || cy < 1 || !combatInView(sx, sy) {
 		return 0, 0, false
 	}
 	return e.cmap.viewX + sx, e.cmap.viewY + sy, true

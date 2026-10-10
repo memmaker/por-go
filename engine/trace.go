@@ -97,8 +97,8 @@ func picID(im *dax.Image, frame int) string {
 // pageSet mirrors a write to the original's 168x168 drawing page DS:4A20
 // (shown at screen pixel 8,8), so Flip can hash the page as the emulator does.
 func (e *Engine) pageSet(x, y int, c uint8) {
-	if x >= 0 && y >= 0 && x < 168 && y < 168 {
-		e.page[y*168+x] = c & 15
+	if x >= 0 && y >= 0 && x < pageStride && y < 168 {
+		e.page[y*pageStride+x] = c & 15
 	}
 }
 

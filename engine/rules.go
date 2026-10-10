@@ -520,9 +520,7 @@ func (e *Engine) Revive(c *Character, hp byte) bool {
 // message in the combat side panel, or in the box under the view.
 func (e *Engine) CharMessage(c *Character, msg string, row int, wait bool) {
 	if e.beginFlag == 5 {
-		e.ClearCells(0x17, row, 0x26, 0x15)
-		e.displayName(c, 0x17, row, false)
-		e.DisplayTextBlock(0x17, row+1, 0x26, 0x15, 0xA, true, msg)
+		e.combatSay(c, msg, true) // extra: under the view, not in the side pane
 	} else {
 		r := 0x11
 		if e.resting != 0 {
@@ -543,7 +541,10 @@ func (e *Engine) CharMessage(c *Character, msg string, row int, wait bool) {
 // ClearMessageArea = 00BA:17E3.
 func (e *Engine) ClearMessageArea() {
 	if e.beginFlag == 5 {
-		e.ClearCells(0x17, 0xA, 0x26, 0x15)
+		e.ClearCells(0, 0x17, 0x27, 0x18)
+		if p := e.ext.panel; p != nil {
+			e.combatPanel(p)
+		}
 	} else {
 		e.ClearCells(1, 0x12, 0x26, 0x16)
 	}

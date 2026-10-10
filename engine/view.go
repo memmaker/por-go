@@ -124,13 +124,7 @@ func (e *Engine) showCombatStats() {
 	x := 8
 	e.DisplayString(x+1, y, 0xF, "THAC0   ")
 	e.DisplayString(x+7, y, 0xA, itoa(int(byte(0x3C-c.THAC0))))
-	d := itoa(int(c.Dice[0])) + "d" + itoa(int(c.Sides[0]))
-	if b := int8(c.Bonus[0]); b > 0 {
-		d += "+" + itoa(int(b))
-	} else if b < 0 {
-		d += "-" + itoa(-int(b)) // abs in 16 bits: -128 shows 128
-	}
-	d = cut(d, 0x28)
+	d := cut(damageText(c), 0x28)
 	e.DisplayString(x, y+1, 0xF, "Damage        ")
 	e.DisplayString(x+7, y+1, 0xA, d)
 	x = 0x16

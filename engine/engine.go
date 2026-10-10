@@ -32,14 +32,14 @@ type Engine struct {
 	S         *ega.Screen
 	X         *exe.Image // START.EXE load image: data tables are read from it
 	Cfg       Config
-	tempSel   *Character      // selectTemp: selected but not in the party
-	page      [168 * 168]byte // DS:4A20 drawing page contents (pageSet)
-	pageDraw  bool            // drawing the 3D view: the original draws into page DS:4A20, one cell up and left of the screen
-	flips     int             // traced Flips (PAGEDUMP debug)
-	RandSeed  uint32          // DS:4428, Turbo Pascal RandSeed
-	FixedSeed *uint32         // if set, Randomize uses it instead of the clock (trace runs)
-	Trace     TraceFunc       // nil in normal play; see trace.go
-	tr        *traceState     // trace mode clock and key script
+	tempSel   *Character             // selectTemp: selected but not in the party
+	page      [pageStride * 168]byte // DS:4A20 drawing page contents (pageSet)
+	pageDraw  bool                   // drawing the 3D view: the original draws into page DS:4A20, one cell up and left of the screen
+	flips     int                    // traced Flips (PAGEDUMP debug)
+	RandSeed  uint32                 // DS:4428, Turbo Pascal RandSeed
+	FixedSeed *uint32                // if set, Randomize uses it instead of the clock (trace runs)
+	Trace     TraceFunc              // nil in normal play; see trace.go
+	tr        *traceState            // trace mode clock and key script
 
 	font   []byte        // DS:5E20 -> 8X8D1 block 201, 8 bytes per glyph
 	sym    [5]*dax.Image // DS:5E3A symbol sets

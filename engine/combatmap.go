@@ -112,11 +112,11 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 	var done bool
 	var cx, cy int
 	if e.combatInView(x1-e.cmap.viewX, y1-e.cmap.viewY) && e.combatInView(x2-e.cmap.viewX, y2-e.cmap.viewY) {
-		done, cx, cy = true, e.cmap.viewX+3, e.cmap.viewY+3
-	} else if abs(dX) <= 6 && abs(dY) <= 6 {
+		done, cx, cy = true, e.cmap.viewX+viewW/2, e.cmap.viewY+3
+	} else if abs(dX) <= viewW-1 && abs(dY) <= 6 {
 		done, cx, cy = true, x1+dX/2, y1+dY/2
 	} else {
-		cx, cy = e.cmap.viewX+3, e.cmap.viewY+3
+		cx, cy = e.cmap.viewX+viewW/2, e.cmap.viewY+3
 	}
 	e.combatCentre(cx, cy, 0xFF, 8)
 	i, f, ox, oy := 0, 0, 0, 0
@@ -140,7 +140,7 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 			mx, my := int(int8(ddx[d])), int(int8(ddy[d]))
 			px += mx
 			py += my
-			out = px < 0 || px > 0x12 || py < 0 || py > 0x12
+			out = px < 0 || px > viewW*3-3 || py < 0 || py > 0x12
 			if !out && i < n {
 				ox += mx
 				oy += my
@@ -161,7 +161,7 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 		}
 		if i < n {
 			if sign(x1-sx) != 0 {
-				if x1 >= e.cmap.viewX+6 {
+				if x1 >= e.cmap.viewX+viewW-1 {
 					cx = x1 + 3
 				} else if x1 <= e.cmap.viewX {
 					cx = x1 - 3

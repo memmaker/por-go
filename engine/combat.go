@@ -2,10 +2,13 @@ package engine
 
 // The combat main loop and the player's command menus (ovr09).
 
+import "strings"
+
 // Combat = ovr09:007A: set up the battle, then rounds until one side is
 // down (or the party stops fighting).
 func (e *Engine) Combat() {
 	e.beginFlag = 5
+	e.ext.battleLog, e.ext.panel = nil, nil
 	e.combatTargets = true // DS:6B84 = 0068:0066 (ovr14:20C3)
 	e.combatSetup()
 	done := e.rv.side[0] == 0 || e.rv.side[1] == 0
@@ -137,6 +140,8 @@ func (e *Engine) playerTurn(c *Character) {
 			var ok bool
 			e.o14_2414(0, 0, &ok)
 			done = ok
+		case 'L':
+			e.showBattleLog()
 		case 'T':
 			e.o14_116A(c)
 			done = e.clearCombatInfo(c)
@@ -209,14 +214,14 @@ func (e *Engine) combatMenu(c *Character) byte {
 	if int8(c.Levels[clsCleric]) > 0 && ci.TurnUsed == 0 {
 		m += "Turn "
 	}
-	m += "Quick Done"
+	m += "Log Quick Done" // Log: extra
 	for {
 		key, extra := e.DisplayInput("", m, 0xD, 0xA, 0xF, true, false)
 		if extra && !(key == 0x10 || key == 0x13 || key == '-' || key == '2') { // set cs:0626
 			key = 0
 		}
 		switch key { // set cs:0646
-		case 0x10, 0x13, ' ', '-', '2', 'A', 'C', 'D', 'M', 'Q', 'T', 'U', 'V':
+		case 0x10, 0x13, ' ', '-', '2', 'A', 'C', 'D', 'L', 'M', 'Q', 'T', 'U', 'V':
 			return key
 		}
 	}
@@ -241,7 +246,7 @@ func (e *Engine) endRound() (done bool) {
 		e.BottomMessage("Your Teammate is Dying")
 	}
 	e.countSides()
-	e.combatCentre(e.cmap.viewX+3, e.cmap.viewY+3, 0xFF, 8)
+	e.combatCentre(e.cmap.viewX+viewW/2, e.cmap.viewY+3, 0xFF, 8)
 	if e.rv.side[0] == 0 || e.rv.side[1] == 0 {
 		done = true
 	}
@@ -266,7 +271,7 @@ func (e *Engine) moveAttack(c *Character) (done bool) {
 	mark := e.regionMark()
 	defer e.regionCut(mark)
 	{ // extra (nav.go): a click on a square next to the character steps there
-		e.addRegion(region{x0: 1, y0: 1, x1: 21, y1: 21, click: func(cx, cy int) uint16 {
+		e.addRegion(region{x0: pageCol, y0: 1, x1: pageCol + viewW*3 - 1, y1: 21, click: func(cx, cy int) uint16 {
 			sx, sy, in := e.combatSquare(cx, cy)
 			dx, dy := sx-e.combatX(c), sy-e.combatY(c)
 			if !in || dx < -1 || dx > 1 || dy < -1 || dy > 1 {
@@ -494,38 +499,123 @@ func (e *Engine) quickOne(c *Character) {
 	}
 }
 
-// combatPanel = 00BA:09E3 (char): the combatant's name, hit points, AC,
-// readied weapon and status on the right of the combat screen.
+// combatPanel = 00BA:09E3 (char): the combatant's name, hit points, AC and
+// damage (or its status) on one row under the view (extra: the original's
+// side pane, gone for the full-width view).
 func (e *Engine) combatPanel(c *Character) {
-	e.ClearCells(0x17, 1, 0x26, 0x15)
-	row := 1
-	e.CharMessage(c, " ", row, false)
-	row++
-	e.DisplayString(0x17, row+1, 0xA, "Hitpoints")
-	e.displayHP(c, 0x21, row+1, false)
-	row += 2
-	e.DisplayString(0x17, row+1, 0xA, "AC")
-	e.displayAC(c, 0x1A, row+1)
-	e.msgRow = row + 1
-	if w := c.Slots[0]; w != nil {
-		row += 2
-		e.ItemName(c, w, 0, 0, false, false)
-		e.DisplayTextBlock(0x17, row+1, 0x26, row+3, 0xA, true, w.Name())
-	}
-	row = e.msgRow + 1
-	if c.Okay == 0 {
-		e.DisplayString(0x17, row+1, 0xF, e.X.PString(0x1047+0xD*int(c.Status)))
-	} else if e.hasAffect286B(c) {
-		e.DisplayString(0x17, row+1, 0xF, "(Helpless)")
+	e.ext.panel = c
+	e.ClearCells(0, 0x17, 0x27, 0x17)
+	x := 1
+	e.displayName(c, x, 0x17, false)
+	x += len(c.Name()) + 2
+	e.DisplayString(x, 0x17, 0xF, "HP")
+	e.displayHP(c, x+3, 0x17, false)
+	x += 3 + len(itoa(int(c.HP))) + 2
+	e.DisplayString(x, 0x17, 0xF, "AC")
+	e.displayAC(c, x+3, 0x17)
+	x += 8
+	switch {
+	case c.Okay == 0:
+		e.DisplayString(x, 0x17, 0xF, cut(e.X.PString(0x1047+0xD*int(c.Status)), 0x27-x))
+	case e.hasAffect286B(c):
+		e.DisplayString(x, 0x17, 0xF, "(Helpless)")
+	default:
+		e.DisplayString(x, 0x17, 0xF, "Damage")
+		e.DisplayString(x+7, 0x17, 0xA, cut(damageText(c), 0x27-x-7))
 	}
 }
 
-// combatUseHook = 00BA:2B88: redraw the combat screen: the map and panel
-// frames, rows 23-24 cleared, the map centred on the view.
+// damageText is the damage of the readied attack, as the View page shows it.
+func damageText(c *Character) string {
+	d := itoa(int(c.Dice[0])) + "d" + itoa(int(c.Sides[0]))
+	if b := int8(c.Bonus[0]); b > 0 {
+		d += "+" + itoa(int(b))
+	} else if b < 0 {
+		d += "-" + itoa(-int(b)) // abs in 16 bits: -128 shows 128
+	}
+	return d
+}
+
+// combatSay (extra) shows combat text on rows 23-24 under the view and
+// keeps it for the Log: fresh starts a new message, otherwise it goes on
+// the current one; c (if any) is named first.
+func (e *Engine) combatSay(c *Character, msg string, fresh bool) {
+	if fresh || len(e.ext.battleLog) == 0 {
+		e.ClearCells(0, 0x17, 0x27, 0x18)
+		e.msgCol, e.msgRow = 0, 0x17
+		e.ext.battleLog = append(e.ext.battleLog, "")
+	} else {
+		e.msgCol++
+	}
+	l := &e.ext.battleLog[len(e.ext.battleLog)-1]
+	add := func(s string) {
+		if *l != "" {
+			*l += " "
+		}
+		*l += s
+	}
+	if c != nil {
+		if e.msgCol+len(c.Name()) > 0x27 {
+			e.msgCol, e.msgRow = 0, e.msgRow+1
+		}
+		e.displayName(c, e.msgCol, e.msgRow, false)
+		e.msgCol += len(c.Name()) + 1
+		add(c.Name())
+	}
+	if msg = strings.TrimSpace(msg); msg != "" {
+		e.DisplayTextBlock(0, 0x17, 0x27, 0x18, 0xA, false, msg)
+		add(msg)
+	}
+}
+
+// showBattleLog (extra, Log) lists this battle's messages, newest at the
+// bottom; Up/Down and the wheel scroll, any other key goes back.
+func (e *Engine) showBattleLog() {
+	e.ext.modal++
+	e.ext.paging = true
+	defer func() { e.ext.modal--; e.ext.paging = false }()
+	restore := e.saveScreen()
+	defer restore()
+	var lines []string
+	for _, m := range e.ext.battleLog {
+		lines = append(lines, wrapText(m, 0x24)...)
+	}
+	if len(lines) == 0 {
+		lines = []string{"Nothing has happened yet."}
+	}
+	const rows = 0x15
+	top := max(len(lines)-rows, 0)
+	for {
+		e.DrawBoxTitled(1, 1, 0x26, 0x17, 0, 0xF, "Battle Log")
+		e.ClearCells(2, 2, 0x25, 0x17)
+		for i := 0; i < rows && top+i < len(lines); i++ {
+			e.DisplayString(2, 2+i, 0xA, lines[top+i])
+		}
+		hint := "press a key"
+		if len(lines) > rows {
+			hint = "up/down: scroll, " + hint
+		}
+		e.DisplayString(0x25-len(hint), 0x17, 0xA, hint)
+		switch k := e.ReadKey(); k {
+		case 0x4800:
+			top = max(top-1, 0)
+		case 0x5000:
+			top = min(top+1, max(len(lines)-rows, 0))
+		case 0x4900:
+			top = max(top-rows, 0)
+		case 0x5100:
+			top = min(top+rows, max(len(lines)-rows, 0))
+		default:
+			return
+		}
+	}
+}
+
+// combatUseHook = 00BA:2B88: redraw the combat screen: the map frame
+// (extra: full width, no panel frame), rows 23-24 cleared, the map centred on the view.
 func (e *Engine) combatUseHook() {
 	e.combatViewLeave() // ovr32:00E3: the combat palette
-	e.DrawBoxTitled(1, 1, 0x15, 0x15, 0, 0, "")
-	e.DrawBoxTitled(0x17, 1, 0x26, 0x15, 0, 0, "")
+	e.DrawBoxTitled(1, 1, 0x26, 0x15, 0, 0, "")
 	e.ClearCells(0, 0x17, 0x27, 0x18)
-	e.combatCentre(e.cmap.viewX+3, e.cmap.viewY+3, 0xFF, 8)
+	e.combatCentre(e.cmap.viewX+viewW/2, e.cmap.viewY+3, 0xFF, 8)
 }

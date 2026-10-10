@@ -99,6 +99,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] Amiga combat heads: the Amiga has one head per picture, used for both poses (the action pose took the DOS head before); chained colour changes end the same on Amiga pixels as on DOS ones
 - [x] Amiga ground tile sheets (SQRPACI, DUNGCOM, WILDCOM, RANDCOM, BACPAC): each bitplane runs through all frames, and they use the terrain palette at 0x54020 (re-import the Amiga disks to get them)
 - [x] Amiga combat icons (CHEAD, CBODY, CPIC, COMSPR, ICON) use the terrain palette too: the Amiga combat screen (0x39F0E) and icon editor (0x2EB02) set it; the part table at 0x8B10E gives each part's light/dark slots, as amigaIconColour maps them
+- [x] Combat screen full width: a 12x7-square view in one box (the side pane is gone); row 23 shows the current combatant's name, HP, AC and damage (or status); combat messages use rows 23-24 and go into a battle log, which the Log command shows (scroll with Up/Down, PgUp/PgDn, wheel) (engine/combat.go, engine/cmap.go)
 
 ## Idiomatic Go
 - [x] Character record as a typed struct (engine/char.go charRecord): named fields in the DOS layout, read and written with encoding/binary (saves and MON*CHA blocks still load byte for byte), no Raw byte array or offset constants; checked with cmd/trace against the previous build on all scenarios plus 164 fuzz scripts (identical)

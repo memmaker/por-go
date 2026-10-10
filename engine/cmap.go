@@ -32,7 +32,24 @@ type body struct {
 	ground byte
 }
 
-const pageCells = 21 // the drawing page, 21x21 cells
+const pageCells = 21 // the drawing page, 21x21 cells (outside combat)
+
+// The combat view (extra) fills the screen's width: viewW x viewH squares
+// in one box, the page at cell (pageCol, 1); the original showed 7x7 next
+// to a text pane.
+const (
+	viewW, viewH = 12, 7
+	pageCol      = 2
+	pageStride   = viewW * 24 // e.page row length in pixels
+)
+
+// pageGeom is where the drawing page sits on screen and how wide it is.
+func (e *Engine) pageGeom() (x0, w int) {
+	if e.beginFlag == 5 {
+		return pageCol * 8, viewW * 24
+	}
+	return 8, pageCells * 8
+}
 
 // footprint = ovr32:0000 (size, part, var dx, var dy): offset of one square
 // of a combatant that covers several (DS:2844).
@@ -78,6 +95,7 @@ func (e *Engine) blitPage(x, y int, im *dax.Image, frame int, masked, under bool
 	}
 	d := im.Frame(frame)
 	w := im.Width * 8
+	x0, pw := e.pageGeom()
 	e.S.Lock()
 	defer e.S.Unlock()
 	if under && len(e.sprUnder) != w*im.Height {
@@ -86,14 +104,14 @@ func (e *Engine) blitPage(x, y int, im *dax.Image, frame int, masked, under bool
 	for r := 0; r < im.Height; r++ {
 		for c := 0; c < w; c++ {
 			px, py := x*8+c, y*8+r
-			if px < 0 || py < 0 || px >= pageCells*8 || py >= pageCells*8 {
+			if px < 0 || py < 0 || px >= pw || py >= pageCells*8 {
 				continue
 			}
 			if under { // (off the page the buffer keeps what it had)
-				e.sprUnder[r*w+c] = e.page[py*168+px]
+				e.sprUnder[r*w+c] = e.page[py*pageStride+px]
 			}
 			if p := d[r*w+c]; !masked || int(p) != im.Mask {
-				e.S.Set(8+px, 8+py, p)
+				e.S.Set(x0+px, 8+py, p)
 				e.pageSet(px, py, p)
 			}
 		}
@@ -114,15 +132,16 @@ func (e *Engine) restoreUnder(x, y int, im *dax.Image) {
 		s := md5.Sum(e.sprUnder)
 		e.Trace("0464:0D71", "DrawPage", x, y, 0, 0, fmt.Sprintf("%dx%d:%s", im.Height, w, hex.EncodeToString(s[:])[:10]), "")
 	}
+	x0, pw := e.pageGeom()
 	e.S.Lock()
 	defer e.S.Unlock()
 	for r := 0; r < im.Height; r++ {
 		for c := 0; c < w; c++ {
 			px, py := x*8+c, y*8+r
-			if px < 0 || py < 0 || px >= pageCells*8 || py >= pageCells*8 {
+			if px < 0 || py < 0 || px >= pw || py >= pageCells*8 {
 				continue
 			}
-			e.S.Set(8+px, 8+py, e.sprUnder[r*w+c])
+			e.S.Set(x0+px, 8+py, e.sprUnder[r*w+c])
 			e.pageSet(px, py, e.sprUnder[r*w+c])
 		}
 	}
@@ -365,8 +384,8 @@ func (e *Engine) combatClearIcon(sx, sy, idx int) {
 	}
 }
 
-// combatInView = ovr32:06E9 (x, y): a screen square inside the 7x7 view.
-func combatInView(x, y int) bool { return x >= 0 && x <= 6 && y >= 0 && y <= 6 }
+// combatInView = ovr32:06E9 (x, y): a screen square inside the view.
+func combatInView(x, y int) bool { return x >= 0 && x < viewW && y >= 0 && y < viewH }
 
 func (e *Engine) combatInView(x, y int) bool { return combatInView(x, y) }
 
@@ -401,7 +420,8 @@ func (e *Engine) combatOnScreen(c *Character, all bool) bool {
 // recentre = ovr32:07D4 (x, y, margin): scroll the view so (x,y) is at
 // least margin squares inside it (0xFF: always centre); redraws the ground.
 func (e *Engine) recentre(x, y, r int) bool {
-	cx, cy := e.cmap.viewX+3, e.cmap.viewY+3
+	const half = viewW / 2
+	cx, cy := e.cmap.viewX+half, e.cmap.viewY+3
 	rr := r
 	if r == 0xFF {
 		rr = 0
@@ -410,11 +430,11 @@ func (e *Engine) recentre(x, y, r int) bool {
 		return false
 	}
 	if x < cx-rr {
-		for x < cx && cx > 3 {
+		for x < cx && cx > half {
 			cx--
 		}
 	} else if x > cx+rr {
-		for x > cx && cx < 0x2E {
+		for x > cx && cx < 0x31-(viewW-1-half) {
 			cx++
 		}
 	}
@@ -427,9 +447,9 @@ func (e *Engine) recentre(x, y, r int) bool {
 			cy++
 		}
 	}
-	e.cmap.viewX, e.cmap.viewY = cx-3, cy-3
-	for row := 0; row < 7; row++ {
-		for col := 0; col < 7; col++ {
+	e.cmap.viewX, e.cmap.viewY = cx-half, cy-3
+	for row := 0; row < viewH; row++ {
+		for col := 0; col < viewW; col++ {
 			e.drawTile(col*3, row*3, e.tileOf(e.cmap.viewX+col, e.cmap.viewY+row))
 		}
 	}
@@ -563,7 +583,7 @@ func (e *Engine) combatRemoveFromMap(c *Character) {
 	e.combatClearIcon(0, 0, idx)
 	e.cpos[idx].size = 0
 	e.combatRedrawMap()
-	e.combatCentre(e.cmap.viewX+3, e.cmap.viewY+3, 3, 8)
+	e.combatCentre(e.cmap.viewX+viewW/2, e.cmap.viewY+3, 3, 8)
 	ci := c.Combat
 	ci.Delay, ci.Moves, ci.Spell, ci.Guarding = 0, 0, 0, 0
 	e.soundWait(0xA)

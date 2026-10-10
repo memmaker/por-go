@@ -386,7 +386,7 @@ func (e *Engine) aimConfirm(c, cand *Character, mode int, found *bool, t *aimTar
 	t.c = cand
 	t.x, t.y = byte(e.combatX(cand)), byte(e.combatY(cand))
 	e.cmap.cursor = 0
-	e.combatCentre(e.cmap.viewX+3, e.cmap.viewY+3, 3, 8)
+	e.combatCentre(e.cmap.viewX+viewW/2, e.cmap.viewY+3, 3, 8)
 	if mode == 1 {
 		if e.o14_0E82(c, cand) {
 			*found = e.clearCombatInfo(c)
@@ -444,7 +444,7 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround int, 
 		if cand != nil {
 			e.combatPanel(cand)
 		} else {
-			e.ClearCells(0x17, 1, 0x26, 0x15)
+			e.ClearCells(0, 0x17, 0x27, 0x17)
 		}
 		if rng < dist || e.groundInfo(ground)[0] == 0xFF {
 			ok = false
@@ -472,7 +472,7 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround int, 
 		}
 		mark := e.regionMark()
 		{ // extra (nav.go): click a square to put the cursor there, again to target
-			e.addRegion(region{x0: 1, y0: 1, x1: 21, y1: 21, click: func(cx, cy int) uint16 {
+			e.addRegion(region{x0: pageCol, y0: 1, x1: pageCol + viewW*3 - 1, y1: 21, click: func(cx, cy int) uint16 {
 				sx, sy, in := e.combatSquare(cx, cy)
 				switch {
 				case !in:
@@ -737,7 +737,7 @@ func (e *Engine) o14_3B93() bool {
 		}
 		e.clearCombatInfo(c)
 	}
-	e.combatCentre(e.cmap.viewX+3, e.cmap.viewY+3, 0xFF, 8)
+	e.combatCentre(e.cmap.viewX+viewW/2, e.cmap.viewY+3, 0xFF, 8)
 	return true
 }
 

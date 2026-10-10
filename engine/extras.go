@@ -125,9 +125,11 @@ type extras struct {
 	hint   string // the hint line last sent to the window
 
 	// journal.go
-	printed   string // the text window's text since it was cleared
-	refsShown int    // journal references in it already shown
-	paging    bool   // a journal text is shown
+	printed   string     // the text window's text since it was cleared
+	refsShown int        // journal references in it already shown
+	paging    bool       // a journal text is shown
+	battleLog []string   // the combat messages of this battle (Log)
+	panel     *Character // whose line the combat status row shows
 }
 
 const (
