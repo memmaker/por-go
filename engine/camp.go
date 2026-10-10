@@ -214,20 +214,79 @@ func (e *Engine) memorizeInfo() bool {
 // restMenu = ovr16:077A (var interrupted): the longest study time of the
 // party becomes the proposed rest time, then rest (ovr21:0C9A).
 func (e *Engine) restMenu() (interrupted bool) {
-	most := 0
+	for {
+		most := 0 // studyTime also sets each member's study hours
+		for _, c := range e.party {
+			if t := e.studyTime(c); t > most {
+				most = t
+			}
+		}
+		// extra: rest for a purpose instead of setting days, hours and minutes
+		dayNight, until := "Night", 20*60
+		if !e.isDay() {
+			dayNight, until = "Day", 6*60
+		}
+		key, _ := e.DisplayInput("Rest: ", "Heal Memorize Wait "+dayNight+" Exit", 0xD, 0xA, 0xF, false, false)
+		mins, stop := 0, func() bool { return false }
+		switch key {
+		case 'H':
+			mins, stop = e.healMinutes(), func() bool { return e.healMinutes() == 0 }
+			if mins == 0 {
+				e.BottomMessage("No one can heal by resting")
+				continue
+			}
+		case 'M':
+			if mins = most; mins == 0 {
+				e.BottomMessage("No spells to memorize")
+				continue
+			}
+		case 'W':
+			mins = 60
+		case 'N', 'D':
+			mins = ((until-e.clockMinutes())%(24*60) + 24*60) % (24 * 60)
+		default:
+			return false
+		}
+		r := &e.camp.rest
+		*r = [7]int{}
+		r[1] = mins
+		e.normalizeRest()
+		interrupted = e.Rest(stop)
+		e.camp.rest = [7]int{}
+		e.StatusLine()
+		return
+	}
+}
+
+// clockMinutes (extra): the time of day in minutes.
+func (e *Engine) clockMinutes() int {
+	return 60*int(wordAt(e.area, 0x192)) + 10*int(wordAt(e.area, 0x190)) + int(wordAt(e.area, 0x18E))
+}
+
+// isDay (extra): day runs from 6:00 to 20:00.
+func (e *Engine) isDay() bool {
+	m := e.clockMinutes()
+	return m >= 6*60 && m < 20*60
+}
+
+// healMinutes (extra): the rest until every member that resting can heal
+// is at full hit points (1 HP a day, see healTick); 0 when none is.
+func (e *Engine) healMinutes() int {
+	days := 0
 	for _, c := range e.party {
-		if t := e.studyTime(c); t > most {
-			most = t
+		switch c.Status {
+		case 0, 1, 4, 5: // as Heal
+		default:
+			continue
+		}
+		if e.FindAffect(c, 0x32) == nil {
+			days = max(days, int(c.MaxHP)-int(c.HP))
 		}
 	}
-	r := &e.camp.rest
-	r[3] = most / 60
-	r[2] = (most - 60*r[3]) / 10
-	r[1] = most % 10
-	interrupted = e.Rest()
-	e.camp.rest = [7]int{}
-	e.StatusLine()
-	return
+	if days == 0 {
+		return 0
+	}
+	return days*24*60 - e.camp.heal*5
 }
 
 // sortSpells = ovr16:0824: the selected character's spell slots in spell
@@ -800,69 +859,6 @@ func (e *Engine) showRest(unit int) {
 	e.DisplayString(x+1, 0x11, col[2], twoDigits(10*r[2]+r[1]))
 }
 
-// restSetup = ovr21:0721: set the rest time; true to start resting.
-func (e *Engine) restSetup() bool {
-	start := false
-	unit := 2
-	r := &e.camp.rest
-	defer e.rawArrows("↑↓=more, less|← →=days, hours, mins|letter, click=choose|Enter=rest|Esc=back")()
-	for key := byte(0); ; {
-		e.showRest(unit)
-		var extra bool
-		key, extra = e.DisplayInput("", "Rest   daYs Hours Mins   Inc Dec   Exit", 0xD, 0xA, 0xF, true, false)
-		if extra {
-			switch key {
-			case 0x48:
-				key = 'I'
-			case 0x50:
-				key = 'D'
-			case 0x4B:
-				if unit++; unit > 4 {
-					unit = 2
-				}
-				key = 'X'
-			case 0x4D:
-				if unit--; unit < 2 {
-					unit = 4
-				}
-				key = 'X'
-			default:
-				key = 'X'
-			}
-		}
-		if key == 13 {
-			key = 'R'
-		}
-		switch key {
-		case 'R':
-			start = true
-		case 'Y':
-			unit = 4
-		case 'H':
-			unit = 3
-		case 'M':
-			unit = 2
-		case 'I':
-			if unit == 2 {
-				r[1] += 5
-			} else {
-				r[unit]++
-			}
-			e.normalizeRest()
-		case 'D':
-			if unit == 2 {
-				e.subRest(5, 1)
-			} else {
-				e.subRest(1, unit)
-			}
-			e.normalizeRest()
-		}
-		if key == 0 || key == 'E' || key == 'R' {
-			return start
-		}
-	}
-}
-
 // healTick = ovr21:0871: every 24 hours of rest everyone heals 1 HP.
 func (e *Engine) healTick() {
 	e.camp.heal++
@@ -984,7 +980,7 @@ func (e *Engine) hourTick(count *int) {
 // Rest = ovr21:0C9A: rest in five-minute steps until the time is up, a key
 // stops it, or a monster interrupts (game +0x5A4 steps between rolls,
 // +0x5A6 percent chance). Returns true when interrupted.
-func (e *Engine) Rest() bool {
+func (e *Engine) Rest(stop func() bool) bool {
 	interrupted := false
 	for i := range e.camp.study {
 		e.camp.study[i] = 0
@@ -996,10 +992,10 @@ func (e *Engine) Rest() bool {
 	e.ClearBox(1, 0x11, 0x26, 0x16)
 	e.showRest(0)
 	e.resting = 1
-	done := !e.restSetup()
+	done := false
 	r := &e.camp.rest
 	for !done {
-		if r[4] == 0 && r[3] == 0 && r[2] == 0 && r[1] == 0 {
+		if r[4] == 0 && r[3] == 0 && r[2] == 0 && r[1] == 0 || stop() {
 			break
 		}
 		if e.keyWaiting() {

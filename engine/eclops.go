@@ -120,6 +120,13 @@ func (e *Engine) opCompare() {
 	}
 	a := e.ArgValue(1)
 	b := e.ArgValue(2)
+	if (e.es.argType[1] == 1 || e.es.argType[1] == 3) && e.ArgAddr(1) == 0x49C9 && e.es.argType[2] == 0 && b == 14 {
+		// extra: the scripts pick the day sky by hour < 14; day is 6:00-20:00 instead
+		a = 14
+		if e.isDay() {
+			a = 0
+		}
+	}
 	e.CompareWords(a, b)
 }
 
