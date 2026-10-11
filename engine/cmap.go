@@ -118,6 +118,21 @@ func (e *Engine) blitPage(x, y int, im *dax.Image, frame int, masked, under bool
 	}
 }
 
+// markSquare (extra) draws a dotted frame just inside screen square
+// (sx, sy), into the page too so sprites restore it.
+func (e *Engine) markSquare(sx, sy int, c uint8) {
+	x0, _ := e.pageGeom()
+	e.S.Lock()
+	defer e.S.Unlock()
+	for i := 2; i <= 21; i += 2 {
+		for _, p := range [4][2]int{{i, 2}, {i, 21}, {2, i}, {21, i}} {
+			px, py := sx*24+p[0], sy*24+p[1]
+			e.S.Set(x0+px, 8+py, c)
+			e.pageSet(px, py, c)
+		}
+	}
+}
+
 // restoreUnder = 0464:0D71 (DS:4A24, mode 0): put back what the last
 // sprite hid.
 func (e *Engine) restoreUnder(x, y int, im *dax.Image) {

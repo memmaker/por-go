@@ -267,18 +267,27 @@ func (e *Engine) moveAttack(c *Character) (done bool) {
 	x, y := e.combatX(c), e.combatY(c)
 	key := byte(0x20)
 	done = false
-	defer e.rawArrows("keypad, arrows, click a square=step, attack|Enter, click self=done|Esc=undo the moves")()
+	defer e.rawArrows("keypad, arrows, click a square=step, attack, walk to a framed one|Enter, click self=done|Esc=undo the moves")()
 	mark := e.regionMark()
 	defer e.regionCut(mark)
-	{ // extra (nav.go): a click on a square next to the character steps there
+	var reach map[[2]int][]int
+	var path []int // extra: the steps to a clicked square, taken one by one
+	{ // extra (nav.go): a click on a square next to the character steps there, on a farther reachable one walks there
 		e.addRegion(region{x0: pageCol, y0: 1, x1: pageCol + viewW*3 - 1, y1: 21, click: func(cx, cy int) uint16 {
 			sx, sy, in := e.combatSquare(cx, cy)
 			dx, dy := sx-e.combatX(c), sy-e.combatY(c)
-			if !in || dx < -1 || dx > 1 || dy < -1 || dy > 1 {
+			if !in {
 				return 0
 			}
 			if dx == 0 && dy == 0 {
 				return 13
+			}
+			if dx < -1 || dx > 1 || dy < -1 || dy > 1 {
+				if p, ok := reach[[2]int{sx, sy}]; ok {
+					path = append([]int(nil), p...)
+					return keyNone
+				}
+				return 0
 			}
 			dxs, dys := e.X.Bytes(0x2736, 8), e.X.Bytes(0x273F, 8)
 			for d := 0; d < 8; d++ {
@@ -290,8 +299,22 @@ func (e *Engine) moveAttack(c *Character) (done bool) {
 		}})
 	}
 	for ci.Moves > 1 && key != 0 && key != 0xD {
-		e.ClearCells(0x18, 0x18, 0x27, 0x18)
-		key, _ = e.DisplayInput("Move/Attack, Move Left = "+itoa(int(ci.Moves>>1))+" ", "", 0xA, 0xA, 0xF, true, false)
+		if len(path) > 0 { // walking to a clicked square: the next step, while it is still free
+			d := path[0]
+			path = path[1:]
+			if who, g := e.groundAt(c, d); who > 0 || g == 0 || e.groundInfo(g)[0] > ci.Moves {
+				path = nil
+				continue
+			}
+			key = stepLetters[d]
+			e.Delay(0x32)
+		} else {
+			reach = e.moveReach(c)
+			e.markReach(reach, true)
+			e.ClearCells(0x18, 0x18, 0x27, 0x18)
+			key, _ = e.DisplayInput("Move/Attack, Move Left = "+itoa(int(ci.Moves>>1))+" ", "", 0xA, 0xA, 0xF, true, false)
+			e.markReach(reach, false)
+		}
 		d := 8
 		switch key {
 		case 0:
@@ -354,6 +377,73 @@ func (e *Engine) moveAttack(c *Character) (done bool) {
 		ci.Moves = 0
 	}
 	return
+}
+
+// stepLetters are the keypad letters moveAttack reads for the 8 directions.
+var stepLetters = [8]byte{'H', 'I', 'M', 'Q', 'P', 'O', 'K', 'G'}
+
+// moveReach (extra) finds the squares c can walk to with the moves it has
+// left, as moveAttack's steps allow them (2 a step, 3 diagonally, free
+// ground no dearer than the moves left), each with the steps that keep
+// the most moves.
+func (e *Engine) moveReach(c *Character) map[[2]int][]int {
+	idx := e.combatIndex(c)
+	ox, oy := e.cpos[idx].x, e.cpos[idx].y
+	defer func() { e.cpos[idx].x, e.cpos[idx].y = ox, oy }()
+	type node struct {
+		left int
+		path []int
+	}
+	best := map[[2]int]node{{int(ox), int(oy)}: {left: int(c.Combat.Moves)}}
+	queue := [][2]int{{int(ox), int(oy)}}
+	dd := e.X.Bytes(0x2736, 18)
+	for len(queue) > 0 {
+		at := queue[0]
+		queue = queue[1:]
+		n := best[at]
+		if n.left <= 1 {
+			continue
+		}
+		e.cpos[idx].x, e.cpos[idx].y = byte(at[0]), byte(at[1])
+		for d := 0; d < 8; d++ {
+			cost := 2 + d&1
+			who, g := e.groundAt(c, d)
+			if cost > n.left || who > 0 || g == 0 || int(e.groundInfo(g)[0]) > n.left {
+				continue
+			}
+			to := [2]int{at[0] + int(int8(dd[d])), at[1] + int(int8(dd[9+d]))}
+			if b, ok := best[to]; ok && b.left >= n.left-cost {
+				continue
+			}
+			best[to] = node{n.left - cost, append(append([]int(nil), n.path...), d)}
+			queue = append(queue, to)
+		}
+	}
+	out := map[[2]int][]int{}
+	for k, n := range best {
+		if len(n.path) > 0 {
+			out[k] = n.path
+		}
+	}
+	return out
+}
+
+// markReach (extra) shows the reachable squares in view with a dotted
+// frame (on) or draws them plain again (off).
+func (e *Engine) markReach(reach map[[2]int][]int, on bool) {
+	for k := range reach {
+		sx, sy := k[0]-e.cmap.viewX, k[1]-e.cmap.viewY
+		if !combatInView(sx, sy) {
+			continue
+		}
+		if on {
+			e.markSquare(sx, sy, 0xB)
+		} else {
+			e.drawTile(sx*3, sy*3, e.tileOf(k[0], k[1]))
+			e.drawOccupant(k[0], k[1])
+		}
+	}
+	e.Flip()
 }
 
 // rangedWeapon = 00BA:2E03 (char): the readied weapon shoots (base item
