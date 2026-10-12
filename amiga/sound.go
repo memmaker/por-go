@@ -92,6 +92,9 @@ func (p *Player) Effect(n int) {
 	p.wb(0x90176, byte(n))
 }
 
+// Playing tells whether the music player has the channels (else the effects).
+func (p *Player) Playing() bool { return p.rl(0x900cc) != 0 }
+
 // Tick is the vertical-blank server at 0x90082.
 func (p *Player) Tick() {
 	if p.rl(0x900cc) != 0 {

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/binary"
 	"math"
 	"os"
 	"path/filepath"
@@ -206,6 +207,11 @@ func (r *soundReader) Read(p []byte) (int, error) {
 			clear(p[:n])
 		} else {
 			s.am.Render(p[:n], sndRate)
+			kind := "sfx"
+			if s.am.Playing() {
+				kind = "music"
+			}
+			scale(p[:n], volume(kind))
 		}
 		return n, nil
 	}
@@ -234,7 +240,19 @@ func (r *soundReader) Read(p []byte) (int, error) {
 		}
 		p[i], p[i+1], p[i+2], p[i+3] = byte(v), byte(v>>8), byte(v), byte(v>>8)
 	}
+	scale(p[:n], volume("sfx")) // the DOS game has no music
 	return n, nil
+}
+
+// scale turns s16 samples down by g.
+func scale(p []byte, g float64) {
+	if g >= 1 {
+		return
+	}
+	for i := 0; i+1 < len(p); i += 2 {
+		v := float64(int16(binary.LittleEndian.Uint16(p[i:])))
+		binary.LittleEndian.PutUint16(p[i:], uint16(int16(v*g)))
+	}
 }
 
 // tick = 08AE:13EA (timer interrupt): the speaker half, then the Tandy half.
