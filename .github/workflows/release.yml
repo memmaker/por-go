@@ -1,0 +1,60 @@
+# Builds por-go for Windows, macOS and Linux when a v* tag is pushed and
+# publishes the binaries as that tag's GitHub release (no game data: players
+# bring their own files, see the README).
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: linux-amd64 }
+          - { os: windows-latest, target: windows-amd64 }
+          - { os: macos-latest, target: macos-universal }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Linux libraries (Ebiten)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libc6-dev libgl1-mesa-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxxf86vm-dev libasound2-dev pkg-config
+      - name: Build
+        shell: bash
+        run: |
+          set -e
+          out=por-go-${GITHUB_REF_NAME}-${{ matrix.target }}
+          mkdir "$out"
+          case "${{ matrix.target }}" in
+            windows-*) go build -trimpath -ldflags "-s -w -H windowsgui" -o "$out/por.exe" ./cmd/por ;;
+            macos-*)
+              CGO_ENABLED=1 GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o por-arm64 ./cmd/por
+              CGO_ENABLED=1 GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o por-amd64 ./cmd/por
+              lipo -create -output "$out/por" por-arm64 por-amd64 ;;
+            *) go build -trimpath -ldflags "-s -w" -o "$out/por" ./cmd/por ;;
+          esac
+          cp README.md "$out/"; [ -f LICENSE ] && cp LICENSE "$out/" || true
+          if [ "${{ runner.os }}" = Windows ]; then 7z a -bd "$out.zip" "$out" >/dev/null; echo "ASSET=$out.zip" >> "$GITHUB_ENV"
+          else tar czf "$out.tar.gz" "$out"; echo "ASSET=$out.tar.gz" >> "$GITHUB_ENV"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ env.ASSET }}
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
+            --notes "Binaries for Windows, macOS (universal) and Linux. No game data is included: bring your own copy of the game, see the README." *.zip *.tar.gz
