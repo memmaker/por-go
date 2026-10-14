@@ -5,6 +5,13 @@ name: release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch: # rebuild an existing tag's release
+    inputs:
+      tag:
+        description: "Tag to build and release"
+        required: true
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 permissions:
   contents: write
 jobs:
@@ -18,6 +25,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -28,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          out=por-go-${GITHUB_REF_NAME}-${{ matrix.target }}
+          out=por-go-${TAG}-${{ matrix.target }}
           mkdir "$out"
           case "${{ matrix.target }}" in
             windows-*) go build -trimpath -ldflags "-s -w -H windowsgui" -o "$out/por.exe" ./cmd/por ;;
@@ -56,5 +65,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" \
             --notes "Binaries for Windows, macOS (universal) and Linux. No game data is included: bring your own copy of the game, see the README." *.zip *.tar.gz
