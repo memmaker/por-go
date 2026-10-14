@@ -5,12 +5,6 @@ package engine
 
 import "strings"
 
-// Sound numbers kept in DS:2622/DS:2628.
-const (
-	sndBump = 7   // DS:2622
-	sndStep = 0xA // DS:2628
-)
-
 // GameLoop = ovr04:32F8: load the current area, run its start events, then
 // take commands until the script quits.
 func (e *Engine) GameLoop() {

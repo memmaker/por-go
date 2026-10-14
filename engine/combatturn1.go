@@ -180,7 +180,7 @@ func (e *Engine) o14_0712(c *Character, dir int) {
 	e.combatRedrawMap()
 	e.combatCentre(int(nx), int(ny), margin, 8)
 	cb.Attackers, cb.Flank = 0, 0
-	e.PlaySound(e.ds2(0x2628))
+	e.PlaySound(sndStep)
 	e.o14_0627(c)
 	if c.Okay == 0 || e.hasAffect286B(c) {
 		cb.Moves = 0
@@ -484,7 +484,7 @@ func (e *Engine) o14_1406(a, b *Character, w int) (done bool) {
 	e.rv.damage = 0
 	acb.Attacked = 1
 	if e.hasAffect286B(b) {
-		e.PlaySound(e.ds2(0x2622))
+		e.PlaySound(sndBump)
 		for acb.AttackSlot > 0 && a.Attacks[acb.AttackSlot-1] == 0 {
 			acb.AttackSlot--
 		}
@@ -535,7 +535,7 @@ func (e *Engine) o14_1406(a, b *Character, w int) (done bool) {
 				e.shots6E2C[s]++
 				if e.AttackHits(a, b, int(need)) || e.hasAffect286B(b) {
 					e.hits6822[s]++
-					e.PlaySound(e.ds2(0x2622))
+					e.PlaySound(sndBump)
 					any = true
 					e.o14_0191(a, b, s)
 					e.o14_02F9(a, b, mode, int(e.rv.damage), int(e.rv.damage), 1)
@@ -549,7 +549,7 @@ func (e *Engine) o14_1406(a, b *Character, w int) (done bool) {
 			}
 		}
 		if !any {
-			e.PlaySound(e.ds2(0x2626))
+			e.PlaySound(sndMiss)
 			e.o14_02F9(a, b, mode, 0, 0, 0)
 		}
 		done = true

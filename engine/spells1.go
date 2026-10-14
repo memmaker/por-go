@@ -400,11 +400,11 @@ func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
 				e.soundWait(0)
 				switch spell {
 				case 0x2F:
-					e.PlaySound(int(wordAt(e.X.Bytes(0x262A, 2), 0)))
+					e.PlaySound(sndSpell47)
 				case 0x33:
-					e.PlaySound(int(wordAt(e.X.Bytes(0x2624, 2), 0)))
+					e.PlaySound(sndSpell51)
 				default:
-					e.PlaySound(int(wordAt(e.X.Bytes(0x2618, 2), 0)))
+					e.PlaySound(sndSpell)
 				}
 				e.flyMissile(x, y, e.tgtX, e.tgtY, 4, 0x1E)
 				e.soundWait(0xA)

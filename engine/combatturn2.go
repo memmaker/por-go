@@ -275,9 +275,9 @@ func (e *Engine) attackAnimation(from, to *Character, weapon *Item) {
 		frames, delay = 2, 0x14
 	}
 	e.soundWait(0)
-	e.PlaySound(int(wordAt(e.X.Bytes(0x2620, 2), 0)))
+	e.PlaySound(sndMissile)
 	e.flyMissile(e.combatX(from), e.combatY(from), e.combatX(to), e.combatY(to), frames, delay)
-	e.PlaySound(int(wordAt(e.X.Bytes(0x262C, 2), 0)))
+	e.PlaySound(sndMissileEnd)
 	e.soundWait(0xA)
 }
 

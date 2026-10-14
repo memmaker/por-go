@@ -564,7 +564,7 @@ func (e *Engine) groundAt(c *Character, dir int) (byte, byte) {
 func (e *Engine) combatRemoveFromMap(c *Character) {
 	e.soundWait(0)
 	if e.beginFlag != 5 {
-		e.PlaySound(int(wordAt(e.X.Bytes(0x261E, 2), 0)))
+		e.PlaySound(sndFall)
 		e.MsgDelay()
 		e.soundWait(0xA)
 		return
@@ -593,7 +593,7 @@ func (e *Engine) combatRemoveFromMap(c *Character) {
 		}
 		b.c, b.x, b.y = c, byte(x), byte(y)
 	}
-	e.PlaySound(int(wordAt(e.X.Bytes(0x261E, 2), 0)))
+	e.PlaySound(sndFall)
 	e.MsgDelay()
 	e.combatClearIcon(0, 0, idx)
 	e.cpos[idx].size = 0

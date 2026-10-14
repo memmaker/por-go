@@ -568,9 +568,9 @@ func (e *Engine) hitMessage(c *Character, magical bool, msg string) {
 		e.combatCentre(e.combatX(c), e.combatY(c), 3, 8)
 	}
 	if magical {
-		e.PlaySound(int(wordAt(e.X.Bytes(0x261C, 2), 0)))
+		e.PlaySound(sndMagicHit)
 	} else {
-		e.PlaySound(int(wordAt(e.X.Bytes(0x261A, 2), 0)))
+		e.PlaySound(sndHit)
 	}
 	e.CharMessage(c, msg, 0xA, false)
 	n := 0

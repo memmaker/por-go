@@ -185,7 +185,7 @@ func (e *Engine) o23_1658() {
 		}
 		if i < e.nSpellTargets {
 			e.soundWait(0)
-			e.PlaySound(int(wordAt(e.X.Bytes(0x2618, 2), 0)))
+			e.PlaySound(sndSpell)
 			e.hitColours(0x12)
 			sel := e.selected()
 			e.flyMissile(e.combatX(sel), e.combatY(sel), e.combatX(t), e.combatY(t), 4, 0x1E)
