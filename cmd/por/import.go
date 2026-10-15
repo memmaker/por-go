@@ -19,13 +19,15 @@ import (
 )
 
 // importGame (-import, for goplay) finds a Pool of Radiance install
-// anywhere under src (the folder holding START.EXE and TITLE.DAX), copies
+// anywhere under src (the folder holding START.EXE and TITLE.DAX, but not
+// SKY.DAX or BIGPIC1.DAX: those are Curse of the Azure Bonds'), copies
 // the files the engine reads into dst, its SAVE and FONTS folders, and
 // writes dst/COVER.PNG from the title picture for the floppy label.
 func importGame(src, dst string) error {
 	var dir string
 	filepath.WalkDir(src, func(p string, d fs.DirEntry, _ error) error {
-		if d != nil && strings.EqualFold(d.Name(), "START.EXE") && has(filepath.Dir(p), "TITLE.DAX") && has(filepath.Dir(p), "8X8D1.DAX") {
+		if d != nil && strings.EqualFold(d.Name(), "START.EXE") && has(filepath.Dir(p), "TITLE.DAX") && has(filepath.Dir(p), "8X8D1.DAX") &&
+			!has(filepath.Dir(p), "SKY.DAX") && !has(filepath.Dir(p), "BIGPIC1.DAX") {
 			dir = filepath.Dir(p)
 			return fs.SkipAll
 		}
