@@ -191,7 +191,7 @@ func (e *Engine) CommandInput() byte {
 		}
 		for done := false; !done; {
 			e.ext.inCommand = true
-			k, extra := e.DisplayInput("", e.commandBar("Cast View Encamp sWeep ahead Search here"), 0xD, 0xA, 0xF, true, false)
+			k, extra := e.DisplayInput("", e.commandBar("Cast View Encamp sWeep Search"), 0xD, 0xA, 0xF, true, false)
 			e.ext.inCommand = false
 			key = k
 			if !extra {
@@ -227,7 +227,7 @@ func (e *Engine) CommandInput() byte {
 // commandBar3D = the 3D view's command bar (DS:04B6) without Area: the
 // minimap (Tab, extras.go) shows all Area showed.
 func (e *Engine) commandBar3D() string {
-	return "Cast View Encamp sWeep ahead Search here"
+	return "Cast View Encamp sWeep Search"
 }
 
 // command handles a letter from the command bar (the original's Area is
@@ -242,9 +242,9 @@ func (e *Engine) command(k byte, view3D bool) bool {
 		e.ViewCharacter() // ovr20:0AB3
 	case 'E':
 		return true
-	case 'W': // Sweep ahead (the original's Search): the slow, searching pace on or off
+	case 'W': // Sweep (the original's Search): the slow, searching pace on or off
 		e.game.Search = e.game.Search ^ 1
-	case 'S': // Search here (the original's Look): search this square once
+	case 'S': // Search (the original's Look): search this square once
 		e.game.Search = e.game.Search | 2
 		e.AdvanceClock(3, 1) // extra: 3 minutes (the original took 10)
 		e.eclPC = e.es.events[1]
