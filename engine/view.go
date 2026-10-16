@@ -346,6 +346,7 @@ func (e *Engine) SheetPortrait() {
 // (an item was used in combat).
 func (e *Engine) ItemsMenu() bool {
 	c := e.selected()
+	e.ApplyItems(c) // port: ItemCount may be stale (shop Inv for a buyer never viewed)
 	key := byte(' ')
 	var it *Item
 	index := 0

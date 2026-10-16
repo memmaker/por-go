@@ -87,7 +87,11 @@ func (e *Engine) shopBuy() {
 			continue
 		}
 		if key == 'I' { // extra: the buyer's own items
-			e.ItemsMenu()
+			if len(e.selected().Items) == 0 {
+				e.BottomMessage("No items")
+			} else {
+				e.ItemsMenu()
+			}
 			continue
 		}
 		if key != 'B' && key != 13 || it == nil {
