@@ -533,6 +533,7 @@ func (e *Engine) opWho() {
 	e.FetchArgs(1)
 	e.ClearBox(1, 0x11, 0x26, 0x16)
 	start := e.selected()
+	e.run.gambling = e.es.strAt(1) == "WHO WILL GAMBLE?"
 	if e.es.strAt(1) == "WHO WILL PAY?" { // extra: one party purse, so the first non-NPC pays (inn, ECL3 A1B4)
 		for i, c := range e.party {
 			if c.Control < 0x80 {

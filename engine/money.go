@@ -81,6 +81,9 @@ func (e *Engine) purseCoin(i int) uint16 {
 	case 3:
 		return uint16(e.purse.gold % 5)
 	case 4:
+		if e.run.gambling {
+			return uint16(min(e.purse.gold, 0xFFFF)) // the wager is in gold
+		}
 		return uint16(min(e.purse.gold/5, 0xFFFF))
 	}
 	return 0
@@ -88,6 +91,10 @@ func (e *Engine) purseCoin(i int) uint16 {
 
 // setPurseCoin is a script setting one of those coin words.
 func (e *Engine) setPurseCoin(i int, v uint16) {
+	if i == 4 && e.run.gambling { // gold beyond what a word holds stays
+		e.purse.gold += int(v) - min(e.purse.gold, 0xFFFF)
+		return
+	}
 	var c [7]uint16
 	for k := 0; k <= 4; k++ {
 		c[k] = e.purseCoin(k)
