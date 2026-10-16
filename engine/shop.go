@@ -42,7 +42,7 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 		*index %= len(list)
 	}
 	e.ext.buying = true
-	key := e.ListMenu("  Items: ", "Buy Look", 0xD, 0xA, 0xF, 2, 4, 0x26, 0x16, list, true, &redraw, index, &sel)
+	key := e.ListMenu("  Items: ", "Buy Look Inv", 0xD, 0xA, 0xF, 2, 4, 0x26, 0x16, list, true, &redraw, index, &sel)
 	e.ext.buying = false
 	*item = nil
 	for i, n := range list {
@@ -84,6 +84,10 @@ func (e *Engine) shopBuy() {
 		}
 		if key == 'L' { // extra: what the item does
 			e.lookItem(it)
+			continue
+		}
+		if key == 'I' { // extra: the buyer's own items
+			e.ItemsMenu()
 			continue
 		}
 		if key != 'B' && key != 13 || it == nil {
