@@ -34,8 +34,12 @@ func (e *Engine) adventure() {
 		e.PartyMenu()                 // ovr17:0161
 		e.SetSkyColours(0xB, 0, 7, 6) // ovr30:0155
 	}
+	party := start
 	for e.guardedRun(start) {
 		start = func() {}
+		if e.beginFlag == 0 { // a save from the party menu: no area yet, so back there
+			start = party
+		}
 	}
 }
 
@@ -65,7 +69,7 @@ func (e *Engine) unwindReset() {
 	x.switchTo, x.buying, x.campBar, x.selSet, x.skip, x.paging = false, false, false, false, false, false
 	x.fullMap, x.walk, x.back, x.aoe, x.picker, x.enemiesOnly = false, nil, false, 0, false, false
 	e.pendingScan, e.draining = 0, false
-	e.loadedGame = true // DS:49F8, as the party menu's Load
+	e.loadedGame = e.beginFlag != 0 // DS:49F8, as the party menu's Load
 }
 
 func (e *Engine) slotRoot() string { return filepath.Join(e.Cfg.SaveDir, "saves") }
