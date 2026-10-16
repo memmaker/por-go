@@ -333,11 +333,9 @@ func (e *Engine) sellOrKeep(c *Character, v uint16, word byte) {
 		it.Price = v
 		it.Weight = 1
 		it.Hidden = 0
-		// The original appends to the item list but, when the list is empty,
-		// only to its local copy: the gem is lost. Kept as written.
-		if len(c.Items) > 0 {
-			c.Items = append(c.Items, it)
-		}
+		// extra: the original loses the gem when the item list is empty
+		// (it appends only to its local copy); the port always keeps it.
+		c.Items = append(c.Items, it)
 		return
 	}
 	e.purse.gold += uint32(v)
