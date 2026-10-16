@@ -63,10 +63,10 @@ type region struct {
 // modalOn opens a modal screen (help, overview, the F9 slots): any key or
 // click closes it, but regions it adds itself (its own menus) take clicks.
 func (e *Engine) modalOn() func() {
-	floor := e.ext.floor
+	floor, menuFloor := e.ext.floor, e.ext.menuFloor
 	e.ext.modal++
-	e.ext.floor = e.regionMark()
-	return func() { e.ext.modal--; e.ext.floor = floor }
+	e.ext.floor, e.ext.menuFloor = e.regionMark(), e.ext.menu
+	return func() { e.ext.modal--; e.ext.floor, e.ext.menuFloor = floor, menuFloor }
 }
 
 // addRegion makes r clickable until the list is cut back to a mark taken
@@ -114,6 +114,12 @@ func (e *Engine) translate(k uint16) uint16 {
 			return 0
 		case k>>8 >= 0xE0 && k&0xFF == 0:
 			return 13
+		case e.ext.menu > e.ext.menuFloor && (k == 0x4800 || k == 0x4B00): // a menu bar of the screen's own (the slot screen's Overwrite? Yes No)
+			return ','
+		case e.ext.menu > e.ext.menuFloor && (k == 0x5000 || k == 0x4D00):
+			return '.'
+		case e.ext.menu > e.ext.menuFloor && k == 13 && e.enterPicks():
+			return uint16(e.ext.padHot)
 		}
 		return k
 	}

@@ -108,6 +108,7 @@ type extras struct {
 	learned     map[*Character][21]byte // the spells each caster held before using some (camp.go noteSpells)
 	picker      bool                    // the list has no menu words: a click picks (listmenu.go)
 	floor       int                     // regions below belong to the screen under the modal one
+	menuFloor   int                     // menu bars open under the modal screen
 	viewing     bool                    // the View page's own menu is waiting
 	items       bool                    // the inventory's item list is waiting
 	toItems     bool                    // the next View opens on the inventory (F1-F8)
