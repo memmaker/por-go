@@ -78,7 +78,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] Display dropped from the camp Magic menu: spell effects are on the View page (Effects line; a Magic item lists them all when they do not fit)
 - [x] Quickstart on the empty party menu: six pre-rolled members (engine/quickstart.go)
 - [x] One set of navigation keys on every menu (engine/nav.go): arrows move the highlight (Up/Down step the member where menus take the keypad), Esc picks a menu's Exit
-- [x] Mouse: hover highlights menu items, click picks items, list lines (twice = Enter), party members, combat squares (step, aim cursor, target); wheel, right button = Esc
+- [x] Mouse: hover highlights menu items, click picks items, list lines (twice = Enter), party members, combat squares (step, aim cursor, target); wheel, right button = Esc; F7 save slots (click a line, again = load; footer words are buttons) and Yes/No prompts over modal screens take clicks too
 - [x] Resizable window, picture kept 4:3 (the hint line under the picture is gone: it broke the look; ? lists the keys)
 - [x] Browser build for goplay (https://ruzzoli.de/goplay/): `-import` finds the game in what the player drops, `GOPLAY_DATA` is the data dir (cmd/por/import.go)
 - [x] Context-sensitive adventure bar (engine/cmdbar.go): Cast only when the selected member has a spell to cast

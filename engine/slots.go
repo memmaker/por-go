@@ -57,7 +57,7 @@ func (e *Engine) unwindReset() {
 	x := &e.ext
 	x.inCommand, x.padHot, x.onSelect, x.menu, x.list, x.choosing = false, 0, nil, 0, false, false
 	x.quick, x.ahead, x.later, x.regions, x.jump, x.raw = nil, nil, nil, nil, nil, ""
-	x.typing, x.modal, x.viewing, x.items, x.toItems, x.toSheet = false, 0, false, false, false, false
+	x.typing, x.modal, x.floor, x.viewing, x.items, x.toItems, x.toSheet = false, 0, 0, false, false, false, false
 	x.switchTo, x.buying, x.campBar, x.selSet, x.skip, x.paging = false, false, false, false, false, false
 	x.fullMap, x.walk, x.back, x.aoe = false, nil, false, 0
 	e.pendingScan, e.draining = 0, false
@@ -108,8 +108,7 @@ const slotRows = 0x11
 
 // SlotMenu is the F7 screen: the saves, newest first, and what to do.
 func (e *Engine) SlotMenu() {
-	e.ext.modal++
-	defer func() { e.ext.modal-- }()
+	defer e.modalOn()()
 	restore := e.saveScreen()
 	defer restore()
 	canSave := e.ext.inGame && len(e.party) > 0 && e.beginFlag != 5
@@ -136,7 +135,31 @@ func (e *Engine) SlotMenu() {
 			e.DisplayString(2, 0x15, 0xE, "S=save new  O=overwrite")
 		}
 		e.DisplayString(2, 0x16, 0xE, "Enter=load  D=delete  Esc=back")
+		// extra (nav.go): a click selects a line, a second one loads; the
+		// keys in the footer are clicked by their words
+		mark := e.regionMark()
+		e.addRegion(region{x0: 2, y0: 3, x1: 0x25, y1: 3 + slotRows - 1, click: func(_, cy int) uint16 {
+			i := top + cy - 3
+			if i >= len(list) {
+				return 0
+			}
+			if i == sel {
+				return 13
+			}
+			sel = i
+			return keyNone
+		}})
+		for _, b := range []struct {
+			x, y, w int
+			k       uint16
+		}{{2, 0x15, 10, 'S'}, {0xE, 0x15, 11, 'O'}, {2, 0x16, 10, 13}, {0xE, 0x16, 8, 'D'}, {0x18, 0x16, 8, 27}} {
+			if b.y == 0x15 && !canSave {
+				continue
+			}
+			e.addRegion(region{x0: b.x, y0: b.y, x1: b.x + b.w - 1, y1: b.y, click: func(int, int) uint16 { return b.k }})
+		}
 		k := e.ReadKey()
+		e.regionCut(mark)
 		var cur string
 		if sel < len(list) {
 			cur = list[sel].name

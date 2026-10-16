@@ -148,9 +148,9 @@ func wrapText(s string, w int) []string {
 // page or Esc, then puts the screen back. On a page with a tall picture,
 // Up and Down (and the wheel) scroll it.
 func (e *Engine) showJournal(lines []string) {
-	e.ext.modal++
+	off := e.modalOn()
 	e.ext.paging = true
-	defer func() { e.ext.modal--; e.ext.paging = false }()
+	defer func() { off(); e.ext.paging = false }()
 	restore := e.saveScreen()
 	pages := journalPages(lines)
 	draw := func(p, off int) (maxOff int) {

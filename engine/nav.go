@@ -60,14 +60,25 @@ type region struct {
 	hover          func()                  // optional: the pointer came onto it
 }
 
+// modalOn opens a modal screen (help, overview, the F7 slots): any key or
+// click closes it, but regions it adds itself (its own menus) take clicks.
+func (e *Engine) modalOn() func() {
+	floor := e.ext.floor
+	e.ext.modal++
+	e.ext.floor = e.regionMark()
+	return func() { e.ext.modal--; e.ext.floor = floor }
+}
+
 // addRegion makes r clickable until the list is cut back to a mark taken
 // before (regionMark, regionCut). Later regions lie on top.
 func (e *Engine) addRegion(r region) { e.ext.regions = append(e.ext.regions, r) }
 func (e *Engine) regionMark() int    { return len(e.ext.regions) }
 func (e *Engine) regionCut(n int)    { e.ext.regions = e.ext.regions[:n] }
 
+// regionAt is the topmost region at (cx, cy) above the floor of the open
+// modal screen, so the screen under it takes no clicks.
 func (e *Engine) regionAt(cx, cy int) *region {
-	for i := len(e.ext.regions) - 1; i >= 0; i-- {
+	for i := len(e.ext.regions) - 1; i >= e.ext.floor; i-- {
 		r := &e.ext.regions[i]
 		if cx >= r.x0 && cx <= r.x1 && cy >= r.y0 && cy <= r.y1 {
 			return r
@@ -92,6 +103,10 @@ func (e *Engine) translate(k uint16) uint16 {
 		case k >= KeyMouse:
 			if k>>10&3 == MouseRight {
 				return 27
+			}
+			cell := int(k & 0x3FF)
+			if r := e.regionAt(cell%40, cell/40); r != nil && k>>10&3 == MouseLeft {
+				return r.click(cell%40, cell/40)
 			}
 			if k>>10&3 == MouseLeft {
 				return 13
@@ -279,7 +294,7 @@ func (e *Engine) pollMouse() {
 		return
 	}
 	e.ext.mouseAt = at
-	if !ok || e.ext.modal > 0 {
+	if !ok {
 		return
 	}
 	if r := e.regionAt(cx, cy); r != nil && r.hover != nil {

@@ -47,3 +47,21 @@ func TestMenuGlyph(t *testing.T) {
 		t.Errorf("span %q", menu[a-1:b])
 	}
 }
+
+// A modal screen takes clicks on its own regions only, not the screen's under it.
+func TestModalFloor(t *testing.T) {
+	e := &Engine{}
+	e.addRegion(region{x0: 0, y0: 0, x1: 39, y1: 24, click: func(int, int) uint16 { return 'A' }})
+	off := e.modalOn()
+	if k := e.translate(MouseKey(MouseLeft, 5, 5)); k != 13 {
+		t.Errorf("click through the modal: %#x", k)
+	}
+	e.addRegion(region{x0: 5, y0: 5, x1: 5, y1: 5, click: func(int, int) uint16 { return 'Y' }})
+	if k := e.translate(MouseKey(MouseLeft, 5, 5)); k != 'Y' {
+		t.Errorf("modal's own region: %#x", k)
+	}
+	off()
+	if k := e.translate(MouseKey(MouseLeft, 1, 1)); k != 'A' {
+		t.Errorf("after the modal: %#x", k)
+	}
+}

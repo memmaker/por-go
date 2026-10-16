@@ -659,9 +659,9 @@ func (e *Engine) combatSay(c *Character, msg string, fresh bool) {
 // showBattleLog (extra, Log) lists this battle's messages, newest at the
 // bottom; Up/Down and the wheel scroll, any other key goes back.
 func (e *Engine) showBattleLog() {
-	e.ext.modal++
+	off := e.modalOn()
 	e.ext.paging = true
-	defer func() { e.ext.modal--; e.ext.paging = false }()
+	defer func() { off(); e.ext.paging = false }()
 	restore := e.saveScreen()
 	defer restore()
 	var lines []string

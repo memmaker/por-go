@@ -104,6 +104,7 @@ type extras struct {
 	raw      string         // the screen reads the arrows itself; its hint line
 	typing   bool           // InputString is waiting
 	modal    int            // help or overview shown: any key closes
+	floor    int            // regions below belong to the screen under the modal one
 	viewing  bool           // the View page's own menu is waiting
 	items    bool           // the inventory's item list is waiting
 	toItems  bool           // the next View opens on the inventory (F1-F6)
@@ -323,8 +324,7 @@ func (e *Engine) statusName(n byte) string {
 // PartyOverview shows every member's state on one screen until a key is
 // pressed, then puts the adventuring screen back.
 func (e *Engine) PartyOverview() {
-	e.ext.modal++
-	defer func() { e.ext.modal-- }()
+	defer e.modalOn()()
 	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "Party")
 	y := 3
 	e.DisplayString(2, y, 0xF, "Name")
@@ -427,9 +427,9 @@ var helpLines = [][2]string{
 // the screen back when closed: headings in white, keys in yellow. It runs
 // over pages: a key shows the next, Up/PgUp/Left the one before, Esc closes.
 func (e *Engine) Help() {
-	e.ext.modal++
+	off := e.modalOn()
 	e.ext.paging = true
-	defer func() { e.ext.modal--; e.ext.paging = false }()
+	defer func() { off(); e.ext.paging = false }()
 	restore := e.saveScreen()
 	pages := helpPages()
 	for p := 0; p < len(pages); {
