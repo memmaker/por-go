@@ -7,6 +7,7 @@ import "strings"
 
 // shopList = ovr07:0030 (var index, var list, var item, var key): the goods
 // with their prices right-aligned in a 30-character field, in a "Shop" box.
+// extra: the field runs to the box's right edge, so longer names fit.
 func (e *Engine) shopList(index *int, item **Item) byte {
 	list := make([]*ListNode, len(e.run.treasure))
 	for i, it := range e.run.treasure {
@@ -17,9 +18,10 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 		if len(price) > 0x10 {
 			price = price[:0x10]
 		}
-		line := []byte(strings.Repeat(" ", 0x1E))
-		copy(line[0x1E-len(price):], price)
-		copy(line, cut(it.Name(), 0x1D-len(price))) // extra: the name stops before the price
+		const w = 0x25 // columns 1..0x25 inside the frame (the original: 0x1E)
+		line := []byte(strings.Repeat(" ", w))
+		copy(line[w-len(price):], price)
+		copy(line, cut(it.Name(), w-1-len(price))) // extra: the name stops before the price
 		list[i] = &ListNode{Text: string(line)}
 		list[i].Dim = !e.canUseItem(e.selected(), it) // extra: what the buyer cannot use is grey and passed over
 	}
