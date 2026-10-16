@@ -35,7 +35,15 @@ func (e *Engine) adventure() {
 		e.SetSkyColours(0xB, 0, 7, 6) // ovr30:0155
 	}
 	party := start
-	for e.guardedRun(start) {
+	for {
+		if !e.guardedRun(start) {
+			// extra: the original exits to DOS when the party is lost
+			// (start:013D-0142); the port goes back to the party menu
+			e.unwindReset()
+			e.loadedGame = false
+			start = party
+			continue
+		}
 		start = func() {}
 		if e.beginFlag == 0 { // a save from the party menu: no area yet, so back there
 			start = party
