@@ -31,7 +31,7 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 	if c := e.selected(); len(e.party) > 0 { // extra: who is buying (F1-F8 change it)
 		e.displayName(c, 2, 2, false) // over the items; the class over the prices
 		cls := cut(classNames[int8(c.Class)], 0x23-len(c.Name()))
-		e.DisplayString(0x26-len(cls), 2, 0xA, cls)
+		e.DisplayString(0x26-len(cls), 2, 0xB, cls)
 	}
 	redraw := true
 	var sel *ListNode
