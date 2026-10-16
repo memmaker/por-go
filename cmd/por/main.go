@@ -56,6 +56,10 @@ type game struct {
 	overlays []ega.Overlay                 // the engine's, copied each frame
 	scans    map[image.Image]*ebiten.Image // their GPU copies
 
+	pads    []ebiten.GamepadID // input buffers, reused each tick
+	pressed []ebiten.Key
+	chars   []rune
+
 	stickDir  uint16 // left stick direction being held
 	stickHeld int    // ticks it has been held
 
@@ -74,7 +78,7 @@ const tps = 120
 func (g *game) Update() error {
 	g.sent = false
 	g.keys()
-	for _, id := range ebiten.AppendGamepadIDs(nil) {
+	for _, id := range ebiten.AppendGamepadIDs(g.pads[:0]) {
 		g.gamepad(id)
 	}
 	g.mouse()
@@ -95,8 +99,12 @@ func (g *game) push(k uint16) {
 // later). Gosched, not Sleep: in the browser the engine shares the thread.
 func (g *game) settle() {
 	t0 := time.Now()
-	for !g.scr.Settled() && time.Since(t0) < 8*time.Millisecond {
-		runtime.Gosched()
+	for n := 0; !g.scr.Settled() && time.Since(t0) < 8*time.Millisecond; n++ {
+		if n < 50 {
+			runtime.Gosched()
+		} else {
+			time.Sleep(100 * time.Microsecond) // a long job: stop burning the CPU
+		}
 	}
 }
 
@@ -116,7 +124,7 @@ func (g *game) keys() {
 			g.push(code)
 		}
 	}
-	for _, k := range inpututil.AppendJustPressedKeys(nil) {
+	for _, k := range inpututil.AppendJustPressedKeys(g.pressed[:0]) {
 		if code, ok := biosKey(k); ok {
 			g.push(code)
 		} else if k == ebiten.KeyF && ebiten.IsKeyPressed(ebiten.KeyControl) && ebiten.IsKeyPressed(ebiten.KeyShift) {
@@ -129,7 +137,7 @@ func (g *game) keys() {
 	if ebiten.IsKeyPressed(ebiten.KeyControl) && !ebiten.IsKeyPressed(ebiten.KeyAlt) {
 		return
 	}
-	for _, r := range ebiten.AppendInputChars(nil) {
+	for _, r := range ebiten.AppendInputChars(g.chars[:0]) {
 		if r < 128 {
 			g.push(uint16(r))
 		}
@@ -274,6 +282,16 @@ func (g *game) Draw(dst *ebiten.Image) {
 	dst.DrawImage(g.img, op)
 
 	// Overlays (journal scans) at the window's own resolution.
+	for img, im := range g.scans { // drop the copies of scans no longer shown
+		keep := false
+		for _, o := range g.overlays {
+			keep = keep || o.Img == img
+		}
+		if !keep {
+			im.Deallocate()
+			delete(g.scans, img)
+		}
+	}
 	for _, o := range g.overlays {
 		im := g.scans[o.Img]
 		if im == nil {
@@ -300,13 +318,14 @@ func (g *game) drawNote(s string) {
 		s = s[:40]
 	}
 	x0 := (40 - len(s)) * 4
+	bg, fg := g.lut[1], g.lut[15]
 	for i := 0; i < len(s); i++ {
 		gl := g.eng.Glyph(s[i])
 		for r := 0; r < 8; r++ {
 			for b := 0; b < 8; b++ {
-				c := g.scr.RGBA(1)
+				c := bg
 				if gl[r]&(0x80>>b) != 0 {
-					c = g.scr.RGBA(15)
+					c = fg
 				}
 				p := ((r+4)*ega.W + x0 + i*8 + b) * 4
 				g.buf[p], g.buf[p+1], g.buf[p+2] = c.R, c.G, c.B
