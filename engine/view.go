@@ -380,6 +380,7 @@ func (e *Engine) ItemsMenu() bool {
 		if !hired && e.beginFlag == 1 {
 			menu += " Sell"
 		}
+		menu += " Look" // extra: what the item does, as the shop's Look
 		menu = cut(menu, 0x28)
 		list := make([]*ListNode, len(c.Items))
 		for i, x := range c.Items {
@@ -433,6 +434,9 @@ func (e *Engine) ItemsMenu() bool {
 					e.ext.throwing = it
 					key = 'E'
 				}
+			case 'L':
+				e.lookItem(it)
+				full = true
 			case 'G':
 				e.tradeItem(it)
 				full = true

@@ -470,7 +470,7 @@ func (e *Engine) throwable(c *Character) bool {
 
 // throwableItem (extra): the item would be a throwable weapon if readied.
 func (e *Engine) throwableItem(it *Item) bool {
-	return e.baseItem(it.Type, 0xC) > 1 && e.baseItem(it.Type, 0xE)&0x14 == 0x14
+	return e.baseItem(it.Type, 0xC) > 1 && e.baseItem(it.Type, 0xE)&0x10 != 0 // thrown: also darts and javelins, used up
 }
 
 // throwItem (extra): Throw from the inventory readies the item in place of
