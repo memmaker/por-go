@@ -138,11 +138,11 @@ func (e *Engine) lettered() bool { return e.Trace != nil }
 // slotName keeps what a folder name may hold.
 func slotName(s string) string {
 	s = strings.Map(func(r rune) rune {
-		if r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune(" -_!'", r) {
+		if r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || strings.ContainsRune(" -_!'", r) {
 			return r
 		}
 		return -1
-	}, strings.ToUpper(s))
+	}, s)
 	return strings.TrimSpace(s)
 }
 
@@ -284,13 +284,16 @@ func (e *Engine) SlotMenu(loadOnly bool) bool {
 		case k == 0x5000:
 			sel++
 		case k == 13 && canSave && cur == "": // New Slot
-			name := slotName(e.InputString("Save as: ", 0xA, 0x14))
+			name := slotName(e.inputLine("Save as: ", 0xA, 0x14)) // extra: the case as typed
 			if name == "" {
 				continue
 			}
-			if slices.ContainsFunc(list, func(s slot) bool { return s.name == name }) &&
-				e.YesNo(0xE, 0xA, 0xF, cut("Overwrite "+name+"? ", 0x28)) != 'Y' {
-				continue
+			// one slot per name in any case (the folders may not tell case apart)
+			if i := slices.IndexFunc(list, func(s slot) bool { return strings.EqualFold(s.name, name) }); i >= 0 {
+				if e.YesNo(0xE, 0xA, 0xF, cut("Overwrite "+list[i].name+"? ", 0x28)) != 'Y' {
+					continue
+				}
+				os.RemoveAll(filepath.Join(e.slotRoot(), list[i].name))
 			}
 			e.saveTo(name)
 			sel = first
