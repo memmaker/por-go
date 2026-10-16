@@ -350,14 +350,34 @@ func (e *Engine) aimPrompt(c, cand *Character, rng, showRange int) byte {
 		e.DisplayString(0, 0x17, 0xA, "Range = "+itoa(e.rangeTo(c, cand))+"  ")
 	}
 	if e.canTarget(c, cand, rng, showRange) {
-		menu = "Target "
+		menu = "Attack " // extra: Target renamed
 	}
 	menu = cut("Next Prev Manual "+menu+"Center Exit", 0x28)
 	e.combatRedrawChar(cand, 3, 1)
 	e.combatPanel(cand)
 	_, undo := e.aoeMarks(e.combatX(cand), e.combatY(cand), "") // the menu leaves no room for the count
+	mark := e.regionMark()
+	// extra (nav.go): click a foe to aim at it, the aimed one again to attack
+	e.addRegion(region{x0: pageCol, y0: 1, x1: pageCol + viewW*3 - 1, y1: 21, click: func(cx, cy int) uint16 {
+		sx, sy, in := e.combatSquare(cx, cy)
+		switch {
+		case !in || e.occ[sy][sx] == 0:
+			return 0
+		case e.combatant(e.occ[sy][sx]) == cand:
+			if menu[0] == 'A' {
+				return 'A'
+			}
+			return 0
+		}
+		e.ext.jump = &[2]int8{int8(sx), int8(sy)}
+		return 'N'
+	}})
 	key, _ := e.combatInput("Aim:", menu, false)
+	e.regionCut(mark)
 	undo()
+	if key == 'A' {
+		key = 'T'
+	}
 	return key
 }
 
@@ -484,7 +504,7 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround int, 
 		}
 		menu := "Center Exit"
 		if ok {
-			menu = cut("Target "+menu, 0x28)
+			menu = cut("Attack "+menu, 0x28) // extra: Target renamed
 		}
 		mark := e.regionMark()
 		{ // extra (nav.go): click a square to put the cursor there, again to target
@@ -507,6 +527,9 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround int, 
 		prompt, undo := e.aoeMarks(int(x), int(y), "(Use Cursor keys) ")
 		key, _ = e.combatInput(prompt, menu, true)
 		undo()
+		if key == 'A' {
+			key = 'T'
+		}
 		e.regionCut(mark)
 		if j := e.ext.jump; j != nil { // the clicked square; the step below is dir 8 (none)
 			e.ext.jump = nil
@@ -649,6 +672,16 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 		switch key {
 		case 'N':
 			by, showBy = 1, 1
+			if j := e.ext.jump; j != nil { // extra: the clicked foe
+				e.ext.jump = nil
+				showBy = 0
+				for i, n := range list {
+					if n.index == e.occ[j[1]][j[0]] {
+						e.eraseCursor(e.combatX(cand), e.combatY(cand))
+						cur = byte(i + 1) // step(0) below lands on it
+					}
+				}
+			}
 		case 'P':
 			by, showBy = 0xFF, 0xFF
 		case 'M':
