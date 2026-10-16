@@ -188,13 +188,27 @@ func (e *Engine) aiCastKnown(c *Character) bool {
 	return false
 }
 
+// aiStep = DS:02AE[pattern*5+i], i 1..6: i 5 reads the next pattern's
+// first byte, pattern 6 then DS:02D1 (4), and i 6 (only reached when no
+// step was found, the value unused) DS:02D2.
+func aiStep(pattern byte, i int) byte {
+	n := int(pattern)*5 + i
+	switch {
+	case n < 35:
+		return aiStepPattern[n/5][n%5]
+	case n == 35:
+		return 4
+	}
+	return placeDirs[0][0]
+}
+
 // aiCanStep = ovr10:0675 (char, i, dir, var blocked): can the combatant
 // step in direction DS:02AE[facing*5+i]+dir; blocked is set when the
 // square is off the map.
 func (e *Engine) aiCanStep(c *Character, i, dir int) (ok, blocked bool) {
 	ci := c.Combat
 	r := false
-	t := int(aiStepPattern[ci.Pattern][i])
+	t := int(aiStep(ci.Pattern, i))
 	d := (t + dir) % 8
 	who, ground := e.groundAt(c, d)
 	if ground == 0 {
@@ -268,7 +282,7 @@ func (e *Engine) aiMoveStep(c *Character) {
 		ci.Fleeing = 0
 		done = e.clearCombatInfo(c)
 	} else {
-		d = (int(aiStepPattern[ci.Pattern][i]) + dir) % 8
+		d = (int(aiStep(ci.Pattern, i)) + dir) % 8
 		if i == 6 || int(e.v443C) == (d+4)%8 {
 			e.v443D++
 			ci.Pattern = byte(int(ci.Pattern)%6 + 1)
