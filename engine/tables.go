@@ -1151,3 +1151,12 @@ var partyMenu = [11]struct {
 	{"Remove Character from Party", false}, {"Load Saved Game", true}, {"Save Current Game", false},
 	{"BEGIN Adventuring", false}, {"Exit to DOS", true},
 }
+
+// className (extra) is classNames[b], "" for a class byte past the table
+// (a damaged save).
+func className(b byte) string {
+	if int(b) < len(classNames) {
+		return classNames[b]
+	}
+	return ""
+}

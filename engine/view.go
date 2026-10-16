@@ -42,7 +42,7 @@ func (e *Engine) CharacterSheet() {
 	x += len(s) + 1
 	e.DisplayString(x, 3, 0xF, "Age "+itoa(int(c.Age)))
 	e.DisplayString(1, 4, 0xF, alignmentNames[int8(c.Alignment)])
-	e.DisplayString(1, 5, 0xF, classNames[int8(c.Class)])
+	e.DisplayString(1, 5, 0xF, className(c.Class))
 	for i, l := range []string{"STR ", "INT ", "WIS ", "DEX ", "CON ", "CHA "} {
 		e.DisplayString(1, i+7, 0xA, l)
 		e.showStat(i, false)
@@ -357,11 +357,8 @@ func (e *Engine) ItemsMenu() bool {
 	quit := false
 	for key != 0 && key != 'E' && !quit && c.ItemCount > 0 {
 		count := c.ItemCount
-		if len(c.Items) == 0 {
-			if c.ItemCount != count {
-				redraw = true
-			}
-			continue
+		if len(c.Items) == 0 { // extra: a stale count with no items (the original spins here)
+			break
 		}
 		hired := c.Control >= 0x80 && c.Okay != 0 && c.Status != 1
 		menu := "Ready"

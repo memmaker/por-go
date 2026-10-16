@@ -656,6 +656,9 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 		return res
 	}
 	rebuild()
+	if count == 0 { // extra: nobody to aim at (N/P would spin)
+		return
+	}
 	cur = 1
 	var by, showBy byte // showBy is uninitialised in the original until a key sets it
 	cand := step(by, true)

@@ -133,7 +133,7 @@ func (e *Engine) CreateCharacter() {
 	list = newList(cnt + 1)
 	list[0].Flag, list[0].Text = 1, "Pick Class"
 	for k := 1; k <= cnt; k++ {
-		list[k].Text = "  " + classNames[int8(raceClasses[race][k])]
+		list[k].Text = "  " + className(raceClasses[race][k])
 	}
 	if idx, ok = pick(list); !ok {
 		return
