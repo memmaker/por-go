@@ -35,6 +35,11 @@ func (e *Engine) combatEnd() {
 	e.clouds = nil
 	e.cmap = nil
 	e.spr = nil
+	for _, p := range e.party {
+		if p.Control < 0x80 {
+			p.Auto = 0 // extra: Quick lasts one battle (the original kept it until space)
+		}
+	}
 	e.combatViewEnter()
 }
 
