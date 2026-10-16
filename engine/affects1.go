@@ -117,7 +117,7 @@ func (e *Engine) poisonAttack(c *Character, bonus int) {
 		e.CharMessage(t, "is Poisoned", 0xA, false)
 		e.MsgDelay()
 		e.AddAffect(t, 0x37, 0, 0xFF, 0)
-		e.killWithMessage(t, 6, "is killed")
+		e.killWithMessage(t, 6, "dies from poison") // extra: the original says "is killed"
 	}
 }
 

@@ -73,7 +73,7 @@ func (e *Engine) CharacterSheet() {
 	}
 	y++
 	e.DisplayString(1, y, 0xF, "Status")
-	e.DisplayString(8, y, 0xA, e.statusName(c.Status))
+	e.DisplayString(8, y, 0xA, e.statusName(c))
 	e.sheetEffects(c)
 	if e.flag49F5 != 0 && e.symDAX == "8X8D3" { // DS:5376 == 3
 		e.SheetPortrait()

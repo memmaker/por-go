@@ -318,12 +318,16 @@ func (e *Engine) sheetKey() uint16 {
 	return 0
 }
 
-// statusName = DS:1047 + 0xD*n, the status words.
-func (e *Engine) statusName(n byte) string {
-	if n > 8 {
+// statusName = DS:1047 + 0xD*n, the status words. extra: dead with the
+// poison still in (0x37, Slow Poison can still raise) reads "Poisoned".
+func (e *Engine) statusName(c *Character) string {
+	if c.Status > 8 {
 		return ""
 	}
-	return statusNames[n]
+	if c.Status == 6 && e.FindAffect(c, 0x37) != nil {
+		return "Poisoned"
+	}
+	return statusNames[c.Status]
 }
 
 // PartyOverview shows every member's state on one screen until a key is
@@ -356,7 +360,7 @@ func (e *Engine) PartyOverview() {
 		}
 		e.DisplayString(0x12, y, hpc, itoa(hp)+"/"+itoa(max))
 		e.displayAC(c, 0x1A, y)
-		e.DisplayString(0x1E, y, 0xA, e.statusName(c.Status))
+		e.DisplayString(0x1E, y, 0xA, e.statusName(c))
 		// Hit point bar, 32 pixels wide, under the name.
 		px, py := 2*8, (y+1)*8+2
 		w := 0

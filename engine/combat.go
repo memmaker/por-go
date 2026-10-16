@@ -604,7 +604,7 @@ func (e *Engine) combatPanel(c *Character) {
 	x += 8
 	switch {
 	case c.Okay == 0:
-		e.DisplayString(x, 0x17, 0xF, cut(statusNames[c.Status], 0x27-x))
+		e.DisplayString(x, 0x17, 0xF, cut(e.statusName(c), 0x27-x))
 	case e.hasAffect286B(c):
 		e.DisplayString(x, 0x17, 0xF, "(Helpless)")
 	default:
