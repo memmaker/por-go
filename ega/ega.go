@@ -60,11 +60,10 @@ func (o Overlay) Part() image.Rectangle {
 // Screen is the shared frame buffer. The engine goroutine writes it; the
 // renderer snapshots it each frame under the lock.
 type Screen struct {
-	mu    sync.Mutex
-	Pix   [W * H]uint8 // colour index per pixel
-	Pal   [16]uint8    // palette register -> colour (SetPalette remaps)
-	Keys  chan uint16  // BIOS style: low byte ASCII, high byte scan code
-	Dirty bool
+	mu   sync.Mutex
+	Pix  [W * H]uint8 // colour index per pixel
+	Pal  [16]uint8    // palette register -> colour (SetPalette remaps)
+	Keys chan uint16  // BIOS style: low byte ASCII, high byte scan code
 
 	held  int          // Hold depth: while > 0 the window shows shown
 	shown [W * H]uint8 // last released frame
@@ -165,9 +164,17 @@ func (s *Screen) Get(x, y int) uint8 {
 
 // Fill paints a rectangle [x0,x1) x [y0,y1).
 func (s *Screen) Fill(x0, y0, x1, y1 int, c uint8) {
-	for y := y0; y < y1; y++ {
-		for x := x0; x < x1; x++ {
-			s.Set(x, y, c)
+	if c == 16 {
+		c = 0
+	}
+	if c >= 16 && c < AmigaBase { // transparent: Set ignores it
+		return
+	}
+	x0, y0, x1, y1 = max(x0, 0), max(y0, 0), min(x1, W), min(y1, H)
+	for y := y0; y < y1 && x0 < x1; y++ {
+		row := s.Pix[y*W+x0 : y*W+x1]
+		for i := range row {
+			row[i] = c
 		}
 	}
 }

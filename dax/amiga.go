@@ -118,8 +118,6 @@ func chunky(src []byte, h, w, stride, plane int) []byte {
 
 func be16(b []byte, i int) int { return int(binary.BigEndian.Uint16(b[i:])) }
 
-func le16(v int) []byte { return []byte{byte(v), byte(v >> 8)} }
-
 // AmigaImage converts a plain picture block to the DOS layout ParseImage
 // reads, tagged with the ega.Amiga palette slot its colours come from.
 // split is for the tile sheets: each frame holds two side-by-side tiles,
@@ -148,7 +146,11 @@ func AmigaImage(b []byte, split bool, slot byte) []byte {
 	if split {
 		w /= 2
 	}
-	out := append(append(append(append(le16(h), le16(w)...), le16(x)...), le16(y)...), byte(len(frames)))
+	out := binary.LittleEndian.AppendUint16(nil, uint16(h))
+	out = binary.LittleEndian.AppendUint16(out, uint16(w))
+	out = binary.LittleEndian.AppendUint16(out, uint16(x))
+	out = binary.LittleEndian.AppendUint16(out, uint16(y))
+	out = append(out, byte(len(frames)))
 	out = append(out, 'A', 'M', slot, 0, 0, 0, 0, 0) // amigaTag in the unused bytes
 	for _, f := range frames {
 		out = append(out, f...)
@@ -182,7 +184,10 @@ func AmigaSprite(b []byte, xor bool, slot byte) []byte {
 			}
 		}
 		out = append(out, byte(delay), byte(delay>>8), 0, 0)
-		out = append(append(append(append(out, le16(h)...), le16(w)...), le16(x)...), le16(y)...)
+		out = binary.LittleEndian.AppendUint16(out, uint16(h))
+		out = binary.LittleEndian.AppendUint16(out, uint16(w))
+		out = binary.LittleEndian.AppendUint16(out, uint16(x))
+		out = binary.LittleEndian.AppendUint16(out, uint16(y))
 		out = append(out, 'A', 'M', slot, 0, 0, 0, 0, 0, 0)
 		out = append(out, px...)
 	}
@@ -206,7 +211,8 @@ func WriteDOS(blocks map[int][]byte) []byte {
 		idx = binary.LittleEndian.AppendUint16(idx, uint16(len(b)))
 		data = append(data, b...)
 	}
-	return append(append(le16(len(idx)), idx...), data...)
+	out := binary.LittleEndian.AppendUint16(nil, uint16(len(idx)))
+	return append(append(out, idx...), data...)
 }
 
 // amigaTag: an "AM" mark and palette slot in a picture header's unused

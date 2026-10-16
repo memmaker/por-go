@@ -209,8 +209,9 @@ func (e *Engine) SaveCharacter(c *Character, name string) {
 		base, ext = name, ".sav"
 	}
 	os.MkdirAll(e.Cfg.SaveDir, 0o755)
-	if err := os.WriteFile(e.savePath(base+ext), c.record(), 0o644); err != nil {
-		e.fileError("write", e.savePath(base+ext))
+	path := e.savePath(base + ext)
+	if err := os.WriteFile(path, c.record(), 0o644); err != nil {
+		e.fileError("write", path)
 	}
 	os.Remove(e.savePath(base + ".itm"))
 	if len(c.Items) > 0 {
@@ -234,9 +235,10 @@ func (e *Engine) LoadCharacter(name string, c *Character, useSav bool) bool {
 	if useSav {
 		ext = ".sav"
 	}
-	b, err := os.ReadFile(e.savePath(nm + ext))
+	path := e.savePath(nm + ext)
+	b, err := os.ReadFile(path)
 	if err != nil {
-		e.fileError("read", e.savePath(nm+ext))
+		e.fileError("read", path)
 		return false
 	}
 	c.setRecord(b)
@@ -424,9 +426,10 @@ func (e *Engine) oldWalls() { e.viewAnim = e.fileWallsB[2] }
 
 // loadSlot is LoadGame after the prompt: savgam<key>.dat and its party.
 func (e *Engine) loadSlot(key byte) bool {
-	b, err := os.ReadFile(e.savePath("savgam" + string(key) + ".dat"))
+	path := e.savePath("savgam" + string(key) + ".dat")
+	b, err := os.ReadFile(path)
 	if err != nil || len(b) < 0x3351 {
-		e.fileError("read", e.savePath("savgam"+string(key)+".dat"))
+		e.fileError("read", path)
 		return false
 	}
 	e.ClearRow24()
@@ -543,8 +546,9 @@ func (e *Engine) saveSlot(key byte) {
 	b = append(b, names...)
 	b = appendPurse(b, e.purse)
 	os.MkdirAll(e.Cfg.SaveDir, 0o755)
-	if err := os.WriteFile(e.savePath("savgam"+string(key)+".dat"), b, 0o644); err != nil {
-		e.fileError("write", e.savePath("savgam"+string(key)+".dat"))
+	path := e.savePath("savgam" + string(key) + ".dat")
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		e.fileError("write", path)
 	}
 	for i, c := range e.party {
 		e.SaveCharacter(c, "CHRDAT"+string(key)+strconv.Itoa(i+1))

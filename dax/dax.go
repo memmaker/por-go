@@ -52,12 +52,13 @@ func Open(path string) (*File, error) {
 	return f, nil
 }
 
-// Block returns the decoded block with the given id (a copy), or nil.
+// Block returns the decoded block with the given id, or nil. The slice is
+// the cached one: callers must not modify it.
 func (f *File) Block(id int) []byte {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if b, ok := f.cache[id]; ok {
-		return append([]byte(nil), b...)
+		return b
 	}
 	for _, e := range f.Entries {
 		if e.ID != id {
@@ -71,7 +72,7 @@ func (f *File) Block(id int) []byte {
 			out = Decode(src, int(e.RawSize))
 		}
 		f.cache[id] = out
-		return append([]byte(nil), out...)
+		return out
 	}
 	return nil
 }
@@ -111,8 +112,14 @@ type Loader struct {
 	Dir   string
 	mu    sync.Mutex
 	files map[string]*File
-	names map[string]string // lower-case name -> real file name
-	amiga *Loader           // DIR/DISK2: Amiga graphics by base name (PIC.DAX for PIC1..8)
+	names map[string]string   // lower-case name -> real file name
+	amiga *Loader             // DIR/DISK2: Amiga graphics by base name (PIC.DAX for PIC1..8)
+	memo  map[amigaKey][]byte // finished Amiga blocks (name munging and centre done once)
+}
+
+type amigaKey struct {
+	name string
+	id   int
 }
 
 // NewLoader scans dir for files.
@@ -169,8 +176,15 @@ func (l *Loader) File(name string) *File {
 // Block loads block id from archive name; nil if either is missing.
 func (l *Loader) Block(name string, id int) []byte {
 	if l.amiga != nil {
+		k := amigaKey{name, id}
+		l.mu.Lock()
+		b, ok := l.memo[k]
+		l.mu.Unlock()
+		if ok {
+			return b
+		}
 		base := strings.TrimRight(strings.TrimSuffix(strings.ToUpper(name), ".DAX"), "0123456789")
-		b := l.amiga.Block(base, id)
+		b = l.amiga.Block(base, id)
 		if b == nil && base == "CHEAD" && id >= 0x80 {
 			b = l.amiga.Block(base, id-0x80) // one Amiga head for both poses, not the DOS action head
 		}
@@ -178,6 +192,12 @@ func (l *Loader) Block(name string, id int) []byte {
 			if base == "HEAD" { // here, not at import, so older imports get it too
 				b = centre(b, 11)
 			}
+			l.mu.Lock()
+			if l.memo == nil {
+				l.memo = map[amigaKey][]byte{}
+			}
+			l.memo[k] = b
+			l.mu.Unlock()
 			return b
 		}
 	}

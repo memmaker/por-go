@@ -1,6 +1,9 @@
 package engine
 
-import "por/dax"
+import (
+	"por/dax"
+	"por/ega"
+)
 
 // symFix = DS:2722 / coab symbol_set_fix: first symbol id of each set.
 var symFix = [5]int{0x001, 0x02E, 0x074, 0x0BA, 0x100}
@@ -54,9 +57,33 @@ func (e *Engine) DrawPicture(x, y int, im *dax.Image, frame int) {
 	w := im.Width * 8
 	e.S.Lock()
 	defer e.S.Unlock()
-	for r := 0; r < im.Height; r++ {
+	e.blit(x*8, y*8, w, im.Height, d, -1, false)
+}
+
+// blit writes h rows of w pixels at pixel (x0,y0) with ega.Set's rules (16
+// draws as 0, 17..AmigaBase-1 are skipped, off-screen is clipped), leaving
+// out pixels equal to mask; with page the drawing page gets the raw pixel.
+func (e *Engine) blit(x0, y0, w, h int, d []byte, mask int, page bool) {
+	cx0, cx1 := max(-x0, 0), min(ega.W-x0, w) // columns on screen
+	for r := 0; r < h; r++ {
+		y := y0 + r
 		for c := 0; c < w; c++ {
-			e.S.Set(x*8+c, y*8+r, d[r*w+c])
+			p := d[r*w+c]
+			if int(p) == mask {
+				continue
+			}
+			if page {
+				e.pageSet(x0+c-8, y-8, p)
+			}
+			if c < cx0 || c >= cx1 || y < 0 || y >= ega.H {
+				continue
+			}
+			if p == 16 {
+				p = 0
+			}
+			if p < 16 || p >= ega.AmigaBase {
+				e.S.Pix[y*ega.W+x0+c] = p
+			}
 		}
 	}
 }
@@ -115,14 +142,9 @@ func (e *Engine) DrawPictureMasked(x, y int, im *dax.Image, frame, mode int) {
 	w := im.Width * 8
 	e.S.Lock()
 	defer e.S.Unlock()
-	for r := 0; r < im.Height; r++ {
-		for c := 0; c < w; c++ {
-			if p := d[r*w+c]; !masked || int(p) != im.Mask {
-				e.S.Set(x*8+c, y*8+r, p)
-				if e.pageDraw {
-					e.pageSet(x*8+c-8, y*8+r-8, p)
-				}
-			}
-		}
+	m := -1
+	if masked {
+		m = im.Mask
 	}
+	e.blit(x*8, y*8, w, im.Height, d, m, e.pageDraw)
 }

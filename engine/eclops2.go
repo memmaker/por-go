@@ -1,5 +1,7 @@
 package engine
 
+import "slices"
+
 // ECL opcodes 0x25..0x3D, ported from ovr04 (continued from eclops.go).
 
 func init() {
@@ -54,9 +56,9 @@ func (e *Engine) opTreasure() {
 			e.MessageRow24b(0xF, "Unable to find item file")
 			e.Exit()
 		}
-		for _, it := range readRecords[Item](b, itemRecSize) {
-			e.run.treasure = append([]*Item{it}, e.run.treasure...)
-		}
+		add := readRecords[Item](b, itemRecSize)
+		slices.Reverse(add)
+		e.run.treasure = append(add, e.run.treasure...)
 		return
 	case v == 0xFF:
 		return
