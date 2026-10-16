@@ -29,7 +29,8 @@ const (
 // tavernHouseLimit is the original 1000 platinum in gold.
 const tavernHouseLimit = 5000
 
-// tavernGamble = ECL3 A501..A643, after "WHO WILL GAMBLE?": spin a top for
+// tavernGamble = ECL3 A501..A643, after "WHO WILL GAMBLE?" (opWho picks the
+// gambler: the purse is shared): spin a top for
 // a gold wager. 8-9 of a d10 (from 0) is green, the wager won; 3-7 blue,
 // the wager back; 0-2 red, the wager lost. The script counted the selected
 // member's platinum in a 16-bit word; here it is the party's gold.

@@ -533,12 +533,18 @@ func (e *Engine) opWho() {
 	e.FetchArgs(1)
 	e.ClearBox(1, 0x11, 0x26, 0x16)
 	start := e.selected()
-	if e.es.strAt(1) == "WHO WILL PAY?" { // extra: one party purse, so the first non-NPC pays (inn, ECL3 A1B4)
+	// extra: one party purse, so the first non-NPC pays (inn, ECL3 A1B4) or
+	// gambles (tavern, A501), an okay one if there is one
+	if q := e.es.strAt(1); q == "WHO WILL PAY?" || q == "WHO WILL GAMBLE?" {
+		pick := -1
 		for i, c := range e.party {
-			if c.Control < 0x80 {
-				e.partySel = i
-				return
+			if c.Control < 0x80 && (pick < 0 || c.Okay != 0 && e.party[pick].Okay == 0) {
+				pick = i
 			}
+		}
+		if pick >= 0 {
+			e.partySel = pick
+			return
 		}
 	}
 	e.whoVar = true
