@@ -37,3 +37,18 @@ func TestAdoptLettered(t *testing.T) {
 		t.Errorf("a deleted slot came back: %v", got)
 	}
 }
+
+// An F9 save leaves the area block as it was: saveSlot packs the wall slots
+// into area+0x3F4.., and area+0x3FE is the view animation flag.
+func TestSaveToKeepsArea(t *testing.T) {
+	e := &Engine{area: make([]byte, 0x800), game: make([]byte, 0x800), aux: make([]byte, 0x400), ecl: make([]byte, 0x1E00), symDAX: "8X8D1"}
+	e.Cfg.SaveDir = t.TempDir()
+	e.mapPairB = [3]int{5, 6, 7}
+	e.saveTo("X")
+	if w := wordAt(e.area, 0x3FE); w != 0 {
+		t.Errorf("area+0x3FE = %d after a save, want 0", w)
+	}
+	if _, err := os.Stat(filepath.Join(e.slotRoot(), "X", "SAVGAMA.DAT")); err != nil {
+		t.Error("no save written")
+	}
+}
