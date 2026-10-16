@@ -292,7 +292,7 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 		start, _ := menuItems(m)
 		if w := e.ext.listWord[menu]; w != 0 { // extra: the same word stays highlighted on every page
 			for j := 1; j < len(start); j++ {
-				if m[start[j]-1] == w {
+				if start[j] > 0 && m[start[j]-1] == w { // an empty bar has no words
 					e.ext.selSet, e.menuSel = true, j
 				}
 			}
@@ -301,7 +301,7 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 		key, extra := e.DisplayInput(title, m, promptColour, normal, hi, true, false)
 		e.ext.list, e.ext.picker = false, false
 		e.lmDrawRow(c, *index, false)
-		if e.menuSel >= 1 && e.menuSel < len(start) {
+		if e.menuSel >= 1 && e.menuSel < len(start) && start[e.menuSel] > 0 {
 			if e.ext.listWord == nil {
 				e.ext.listWord = map[string]byte{}
 			}
@@ -310,7 +310,7 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 		// extra: Enter picks the highlighted menu word (a click on the line
 		// still takes the first)
 		if key == 13 && !clicked && !extra && menu != "" {
-			if e.menuSel >= 1 && e.menuSel < len(start) {
+			if e.menuSel >= 1 && e.menuSel < len(start) && start[e.menuSel] > 0 {
 				key = m[start[e.menuSel]-1]
 			}
 		}

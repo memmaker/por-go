@@ -65,3 +65,12 @@ func TestModalFloor(t *testing.T) {
 		t.Errorf("after the modal: %#x", k)
 	}
 }
+
+// An ECL picker list (opVMenu) has an empty bar: menuItems gives one item
+// with no word, which ListMenu must not index.
+func TestMenuItemsEmpty(t *testing.T) {
+	start, _ := menuItems("")
+	if len(start) != 2 || start[1] != 0 {
+		t.Fatalf("start = %v", start)
+	}
+}
