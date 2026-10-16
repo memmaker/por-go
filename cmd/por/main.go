@@ -310,6 +310,8 @@ func biosKey(k ebiten.Key) (uint16, bool) {
 		return 9, true
 	case ebiten.KeyF1, ebiten.KeyF2, ebiten.KeyF3, ebiten.KeyF4, ebiten.KeyF5, ebiten.KeyF6:
 		return engine.KeyF1 + uint16(k-ebiten.KeyF1)<<8, true
+	case ebiten.KeyF7:
+		return engine.KeyF7, true
 	case ebiten.KeyArrowUp, ebiten.KeyKP8:
 		return 0x4800, true
 	case ebiten.KeyArrowDown, ebiten.KeyKP2:
