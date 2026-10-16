@@ -134,7 +134,9 @@ func (e *Engine) playerTurn(c *Character) {
 		case 'A':
 			var aim aimTarget
 			var ok bool
+			e.ext.enemiesOnly = true // extra: Next/Prev pass over allies
 			e.o14_3558(c, 0xFF, 1, 0, &ok, &aim)
+			e.ext.enemiesOnly = false
 			done = ok
 		case 'U':
 			done = e.ItemsMenu() // ovr20:0EF8 (var done)
@@ -494,7 +496,9 @@ func (e *Engine) throwItem(c *Character) (done bool) {
 	e.ApplyItems(c)
 	if it.Readied != 0 {
 		var aim aimTarget
+		e.ext.enemiesOnly = true
 		e.o14_3558(c, 0xFF, 1, 0, &done, &aim)
+		e.ext.enemiesOnly = false
 		if slices.Contains(c.Items, it) && it.Readied != 0 {
 			e.readyItem(it)
 		}

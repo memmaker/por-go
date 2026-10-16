@@ -4,6 +4,8 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"runtime/debug"
 	"strings"
 
 	"por/dax"
@@ -115,6 +117,42 @@ func (e *Engine) blitPage(x, y int, im *dax.Image, frame int, masked, under bool
 				e.pageSet(px, py, p)
 			}
 		}
+	}
+}
+
+// drawEdges (extra): the one-cell strips left and right of the combat page
+// show the ground of the squares just outside the view, so the map reaches
+// the frame. Ground only: what stands there is out of view.
+func (e *Engine) drawEdges(row int) {
+	if row == 0 && os.Getenv("DBGEDGE") != "" {
+		debug.PrintStack()
+	}
+	x0, pw := e.pageGeom()
+	for _, col := range []int{-1, viewW} {
+		mx, my := e.cmap.viewX+col, e.cmap.viewY+row
+		t := e.groundInfo(0)[3]
+		if mx >= 0 && mx < 50 {
+			t = e.tileOf(mx, my)
+		}
+		im, f := e.sqrpaci[0], int(t)
+		if t > 0x7F {
+			im, f = e.sqrpaci[1], int(t&0x7F)
+		}
+		if im == nil || f >= im.Count {
+			continue
+		}
+		d, w := im.Frame(f), im.Width*8
+		from, sx := w-8, x0-8 // the square's last cell, left of the page
+		if col == viewW {
+			from, sx = 0, x0+pw // its first cell, right of the page
+		}
+		e.S.Lock()
+		for r := 0; r < im.Height; r++ {
+			for c := 0; c < 8; c++ {
+				e.S.Set(sx+c, 8+row*24+r, d[r*w+from+c])
+			}
+		}
+		e.S.Unlock()
 	}
 }
 
@@ -467,6 +505,7 @@ func (e *Engine) recentre(x, y, r int) bool {
 		for col := 0; col < viewW; col++ {
 			e.drawTile(col*3, row*3, e.tileOf(e.cmap.viewX+col, e.cmap.viewY+row))
 		}
+		e.drawEdges(row)
 	}
 	e.updateScreenPos()
 	return true
