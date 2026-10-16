@@ -2,7 +2,7 @@ package engine
 
 // Area of effect preview (extra): while the player aims a spell that hits
 // everyone round the target square (o14_20C3's kinds 9..E), the combatants
-// it would hit are marked with the cursor icon and counted in the prompt.
+// it would hit get the dotted frame Move and Aim use (markReach) and counted in the prompt.
 // The test is the cast's own: buildNear round the square, radius kind&7.
 // ponytail: Lightning Bolt (kind 8, a line) gets no preview; boltPath
 // would need a dry run.
@@ -19,6 +19,7 @@ func (e *Engine) aoeMarks(x, y int, prompt string) (string, func()) {
 	hit := e.near.list
 	e.near.list = saved
 	foes, friends := 0, 0
+	marks := map[[2]int][]int{}
 	for _, n := range hit {
 		p := e.cpos[n.index]
 		if c := e.combatant(n.index); c != nil && c.Side == e.selected().Side {
@@ -26,18 +27,11 @@ func (e *Engine) aoeMarks(x, y int, prompt string) (string, func()) {
 		} else {
 			foes++
 		}
-		if sx, sy := int(p.x)-e.cmap.viewX, int(p.y)-e.cmap.viewY; combatInView(sx, sy) {
-			e.drawIcon(sx, sy, 0, 0, 0x19)
-			e.drawOccupant(int(p.x), int(p.y))
+		if int(p.x) != x || int(p.y) != y || e.cmap.cursor == 0 { // the cursor marks its own square
+			marks[[2]int{int(p.x), int(p.y)}] = nil
 		}
 	}
-	undo := func() {
-		for _, n := range hit {
-			p := e.cpos[n.index]
-			if int(p.x) != x || int(p.y) != y || e.cmap.cursor == 0 {
-				e.eraseCursor(int(p.x), int(p.y))
-			}
-		}
-	}
+	e.markReach(marks, true)
+	undo := func() { e.markReach(marks, false) }
 	return "Hits " + itoa(foes) + " foe " + itoa(friends) + " ally ", undo
 }
