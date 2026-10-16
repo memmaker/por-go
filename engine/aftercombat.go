@@ -291,6 +291,14 @@ func (e *Engine) showResult(exp int32) {
 		}
 		e.DisplayTextBlock(1, 9, 0x26, 0x16, 0xA, true, "The party takes "+strings.Join(got, ", ")+".")
 	}
+	y := 0xC // extra: who came out of the fight hurt, dead or worse
+	for _, c := range e.party {
+		if st := e.statusName(c); c.Status != 0 && c.Status != 3 && st != "" && y <= 0x15 {
+			e.DisplayString(1, y, 0xB, cut(c.Name(), 15))
+			e.DisplayString(0x12, y, 0xC, st)
+			y++
+		}
+	}
 	e.DisplayInput("", "press <enter>/<return> to continue", 0xF, 0xF, 0xF, true, false)
 }
 
