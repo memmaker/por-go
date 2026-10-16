@@ -291,13 +291,17 @@ func (e *Engine) showResult(exp int32) {
 		}
 		e.DisplayTextBlock(1, 9, 0x26, 0x16, 0xA, true, "The party takes "+strings.Join(got, ", ")+".")
 	}
-	y := 0xC // extra: who came out of the fight dead or worse, or with spell effects on them
+	y := 0xC // extra: who came out of the fight dead or worse, or with harmful effects on them
 	for _, c := range e.party {
 		var what []string
 		if st := e.statusName(c); c.Status != 0 && c.Status != 3 && st != "" {
 			what = append(what, st)
 		}
-		what = append(what, e.affectList(c)...) // the camp's Display list
+		for _, a := range c.Affects {
+			if name := e.harmfulAffect(a.Type); name != "" {
+				what = append(what, name)
+			}
+		}
 		if len(what) > 0 && y <= 0x15 {
 			e.DisplayString(1, y, 0xB, cut(c.Name(), 15))
 			e.DisplayString(0x12, y, 0xC, cut(strings.Join(what, ", "), 0x26-0x12))
@@ -427,4 +431,22 @@ func longAt(b []byte, o int) uint32 { return uint32(wordAt(b, o)) | uint32(wordA
 func putLongAt(b []byte, o int, v uint32) {
 	putWord(b, o, uint16(v))
 	putWord(b, o+2, uint16(v>>16))
+}
+
+// harmfulAffect (extra) names affect t when it hurts its bearer: one a
+// hostile spell gives (spell table +7 is 0, as Aim reads it) or one of the
+// named harms; "" otherwise.
+func (e *Engine) harmfulAffect(t byte) string {
+	switch t {
+	case 0x1F, 0x2C, 0x32, 0x36, 0x37:
+		return affectNames[t]
+	}
+	if listedAffect(t) {
+		for s := 1; s <= 0x38; s++ {
+			if spellTable[s][10] == t && spellTable[s][7] == 0 {
+				return e.spellName(s)
+			}
+		}
+	}
+	return ""
 }
