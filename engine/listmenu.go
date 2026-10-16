@@ -220,7 +220,7 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 	*index++
 	e.lmMoveCursor(c, false)
 	clicked := false // the 13 came from a click on the line
-	{ // extra (nav.go): a click moves the cursor to the line, a second one is
+	{                // extra (nav.go): a click moves the cursor to the line, a second one is
 		// Enter; a pure picker (no menu words) picks on the first click, and
 		// the line under the pointer is highlighted
 		mark := e.regionMark()
