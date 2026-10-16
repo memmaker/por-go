@@ -141,7 +141,7 @@ func (e *Engine) Encamp() {
 }
 
 // CommandInput = ovr15:0989: the adventuring command bar. Returns the
-// command that ends input: 'E' encamp, 'L' look, or a movement key.
+// command that ends input: 'E' encamp, 'S' search here, or a movement key.
 func (e *Engine) CommandInput() byte {
 	putWord(e.game, 0x592, 0)
 	e.unback() // a backward step the scripts ended
@@ -191,7 +191,7 @@ func (e *Engine) CommandInput() byte {
 		}
 		for done := false; !done; {
 			e.ext.inCommand = true
-			k, extra := e.DisplayInput("", e.commandBar("Cast View Encamp Search Look"), 0xD, 0xA, 0xF, true, false)
+			k, extra := e.DisplayInput("", e.commandBar("Cast View Encamp sWeep ahead Search here"), 0xD, 0xA, 0xF, true, false)
 			e.ext.inCommand = false
 			key = k
 			if !extra {
@@ -227,7 +227,7 @@ func (e *Engine) CommandInput() byte {
 // commandBar3D = the 3D view's command bar (DS:04B6) without Area: the
 // minimap (Tab, extras.go) shows all Area showed.
 func (e *Engine) commandBar3D() string {
-	return "Cast View Encamp Search Look"
+	return "Cast View Encamp sWeep ahead Search here"
 }
 
 // command handles a letter from the command bar (the original's Area is
@@ -242,11 +242,11 @@ func (e *Engine) command(k byte, view3D bool) bool {
 		e.ViewCharacter() // ovr20:0AB3
 	case 'E':
 		return true
-	case 'S':
+	case 'W': // Sweep ahead (the original's Search): the slow, searching pace on or off
 		putWord(e.game, 0x594, wordAt(e.game, 0x594)^1)
-	case 'L':
+	case 'S': // Search here (the original's Look): search this square once
 		putWord(e.game, 0x594, wordAt(e.game, 0x594)|2)
-		e.AdvanceClock(1, 2)
+		e.AdvanceClock(3, 1) // extra: 3 minutes (the original took 10)
 		e.eclPC = e.es.events[1]
 		return true
 	}
@@ -534,7 +534,7 @@ func (e *Engine) stepAhead() {
 	e.run.doorTry = [3]byte{1, 1, 1}
 	e.es.cell = e.MapCell(e.posX, e.posY)
 	if wordAt(e.game, 0x594)&1 != 0 {
-		e.AdvanceClock(1, 2)
+		e.AdvanceClock(3, 1) // extra: 3 minutes a sweeping step (the original took 10)
 	} else {
 		e.AdvanceClock(1, 1)
 	}

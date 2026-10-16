@@ -1,5 +1,7 @@
 package engine
 
+import "strings"
+
 // Menu input, ported from ovr26.
 
 func isHotkey(c byte) bool { return c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' } // set [0-9A-Z]
@@ -44,7 +46,31 @@ func itemSpan(menu string, start, end []int, j int) (a, b int) {
 			return start[j], max(end[j], start[j])
 		}
 	}
-	return a, b
+	for { // extra: lowercase words after it belong to the item ("sWeep ahead")
+		w := b + 1
+		for w < len(menu) && menu[w] != ' ' {
+			w++
+		}
+		if b >= len(menu) || w == b+1 || strings.IndexFunc(menu[b+1:w], func(r rune) bool { return isHotkey(byte(r)) }) >= 0 {
+			return a, b
+		}
+		b = w
+	}
+}
+
+// menuGlyph (extra): how menu character i (1-based) is shown. A hotkey
+// inside a word reads lower case and the word's first letter upper case,
+// so "sWeep" shows as "Sweep" with the w lit.
+func menuGlyph(menu string, i int) byte {
+	c := menu[i-1]
+	lower := func(c byte) bool { return c >= 'a' && c <= 'z' }
+	switch {
+	case isHotkey(c) && c >= 'A' && i > 1 && lower(menu[i-2]):
+		return c + 32
+	case lower(c) && (i == 1 || menu[i-2] == ' ') && i < len(menu) && menu[i] >= 'A' && menu[i] <= 'Z':
+		return c - 32
+	}
+	return c
 }
 
 // drawMenu = ovr26:01DA.
@@ -67,17 +93,18 @@ func (e *Engine) drawMenu(prompt, menu string, start, end []int, sel, normal, hi
 	bg := selBg(normal, highlight)
 	for i := 1; i <= len(menu); i++ {
 		c := menu[i-1]
+		g := menuGlyph(menu, i)
 		switch {
 		case s0 <= i && i <= e0 && highlight != 0: // extra: the item keeps its colours on the selection background
 			col := normal
 			if isHotkey(c) {
 				col = highlight
 			}
-			e.displayCharBg(x0+i-1, 24, col, bg, c, true)
+			e.displayCharBg(x0+i-1, 24, col, bg, g, true)
 		case isHotkey(c):
-			e.DisplayChar(x0+i-1, 24, highlight, c, true)
+			e.DisplayChar(x0+i-1, 24, highlight, g, true)
 		default:
-			e.DisplayChar(x0+i-1, 24, normal, c, true)
+			e.DisplayChar(x0+i-1, 24, normal, g, true)
 		}
 	}
 	if x0+len(menu) < 0x27 {

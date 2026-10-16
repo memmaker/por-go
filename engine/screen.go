@@ -147,7 +147,7 @@ func (e *Engine) StatusLine() {
 	if e.beginFlag == 2 {
 		s += " camping"
 	} else if wordAt(e.game, 0x594)&1 != 0 {
-		s += " search"
+		s += " sweeping"
 	}
 	if len(s) > 0x28 {
 		s = s[:0x28]

@@ -405,6 +405,8 @@ var helpLines = [][2]string{
 	{"Home End", "prev. / next member"},
 	{"F1 - F6", "items of member 1 - 6; in camp: pick member"},
 	{"P", "items  <->  character"},
+	{"W", "sweep ahead: search as you walk"},
+	{"S", "search here: this square, once"},
 	{"Tab", "minimap"},
 	{"M", "map: walk, labels"},
 	{"P", "party overview"},

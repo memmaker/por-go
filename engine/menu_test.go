@@ -29,3 +29,21 @@ func TestItemStats(t *testing.T) {
 		}
 	}
 }
+
+func TestMenuGlyph(t *testing.T) {
+	menu := "Cast sWeep ahead Search here"
+	got := make([]byte, len(menu))
+	for i := range got {
+		got[i] = menuGlyph(menu, i+1)
+	}
+	if string(got) != "Cast Sweep ahead Search here" {
+		t.Errorf("shown %q", got)
+	}
+	start, end := menuItems(menu)
+	if a, b := itemSpan(menu, start, end, 2); menu[a-1:b] != "sWeep ahead" {
+		t.Errorf("span %q", menu[a-1:b])
+	}
+	if a, b := itemSpan(menu, start, end, 3); menu[a-1:b] != "Search here" {
+		t.Errorf("span %q", menu[a-1:b])
+	}
+}
