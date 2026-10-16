@@ -112,7 +112,7 @@ func (e *Engine) Shop() {
 	}
 	for leave := false; !leave; {
 		e.shopMoney()
-		key, _ := e.DisplayInput("", "Buy View Appraise Exit", 0xD, 0xA, 0xF, true, false)
+		key, _ := e.DisplayInput("", "Buy View Appraise Id Exit", 0xD, 0xA, 0xF, true, false)
 		appraised := false
 		switch key {
 		case 'B':
@@ -121,12 +121,14 @@ func (e *Engine) Shop() {
 			e.ViewCharacter()
 		case 'A':
 			appraised = e.Appraise()
+		case 'I':
+			appraised = e.identifyMenu()
 		case 'E':
 			leave = true
 		case 'G', 'O':
 			e.partyKeypad(key)
 		}
-		if key == 'B' || key == 'A' && appraised {
+		if key == 'B' || (key == 'A' || key == 'I') && appraised {
 			e.DrawMainScreen()
 		}
 		e.DisplayPartyList()
@@ -137,4 +139,63 @@ func (e *Engine) Shop() {
 // Class test of readyItem).
 func (e *Engine) canUseItem(c *Character, it *Item) bool {
 	return e.baseItem(it.Type, 0xD)&c.ClassMask != 0
+}
+
+// unknown (extra): Id would reveal a word of the item's name.
+func unknown(it *Item) bool {
+	for i := 1; i <= 3; i++ {
+		if it.Words[i-1] != 0 && (it.Hidden>>(3-i))&1 != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// identifyMenu (extra): the shop's Id, moved out of the item menu. The
+// party's unknown items under their owners' names; only those Id tells
+// something about. Returns true when the screen needs redrawing.
+func (e *Engine) identifyMenu() bool {
+	index := 0
+	e.listTop = 0
+	for {
+		var list []*ListNode
+		var owner []*Character
+		var item []*Item
+		for _, c := range e.party {
+			head := false
+			for _, it := range c.Items {
+				if !unknown(it) {
+					continue
+				}
+				if !head {
+					list, owner, item = append(list, &ListNode{Text: c.Name(), Flag: 1}), append(owner, nil), append(item, nil)
+					head = true
+				}
+				e.ItemName(c, it, 0, 0, false, false)
+				list, owner, item = append(list, &ListNode{Text: cut(" "+it.Name(), 0x24)}), append(owner, c), append(item, it)
+			}
+		}
+		if len(list) == 0 {
+			if index == 0 {
+				e.BottomMessage("No unknown items")
+				return false
+			}
+			return true
+		}
+		if index == 0 || index >= len(list) || list[index].Flag != 0 {
+			index = 1
+		}
+		e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "Identify")
+		redraw := true
+		var sel *ListNode
+		key := e.ListMenu("", "Id", 0xB, 0xA, 0xF, 2, 3, 0x26, 0x16, list, true, &redraw, &index, &sel)
+		if key != 'I' && key != 13 || sel == nil {
+			return true
+		}
+		for i, n := range list {
+			if n == sel && item[i] != nil {
+				e.identifyItem(owner[i], item[i])
+			}
+		}
+	}
 }

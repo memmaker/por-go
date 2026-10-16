@@ -377,9 +377,6 @@ func (e *Engine) ItemsMenu() bool {
 		if !hired && e.beginFlag == 1 {
 			menu += " Sell"
 		}
-		if e.beginFlag == 1 {
-			menu += " Id"
-		}
 		menu = cut(menu, 0x28)
 		list := make([]*ListNode, len(c.Items))
 		for i, x := range c.Items {
@@ -450,10 +447,6 @@ func (e *Engine) ItemsMenu() bool {
 					e.sellItem(it)
 				} else {
 					key = ' '
-				}
-			case 'I':
-				if e.identifyItem(it) {
-					redraw = true
 				}
 			}
 		}
@@ -690,15 +683,15 @@ func (e *Engine) sellItem(it *Item) {
 }
 
 // identifyItem = ovr20:1F52 (item, redraw): 200 gp shows the hidden words.
-func (e *Engine) identifyItem(it *Item) (redraw bool) {
-	e.ItemName(e.viewChar(), it, 0, 0, false, false)
+func (e *Engine) identifyItem(c *Character, it *Item) (redraw bool) {
+	e.ItemName(c, it, 0, 0, false, false)
 	e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "For 200 gold pieces I'll identify your "+it.Name())
 	if e.YesNo(0xD, 0xA, 0xF, "Is It a Deal? ") == 'Y' && e.pay(200) {
 		if it.Hidden == 0 {
 			e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "I can't tell anything new about your "+it.Name())
 		} else {
 			it.Hidden = 0
-			e.ItemName(e.viewChar(), it, 0, 0, false, false)
+			e.ItemName(c, it, 0, 0, false, false)
 			e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "It looks like some sort of "+it.Name())
 			redraw = true
 		}

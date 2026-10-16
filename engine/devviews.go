@@ -35,6 +35,10 @@ func (e *Engine) DevScene(name string) func() {
 			for _, t := range []byte{0x3F, 0x15, 0x49, 0x3D, 0x32, 0x05} {
 				e.run.treasure = append(e.run.treasure, e.RandomItem(t))
 			}
+			if len(e.party) > 2 { // unknown items for Id
+				e.party[0].Items = append(e.party[0].Items, e.RandomItem(0x15))
+				e.party[2].Items = append(e.party[2].Items, e.RandomItem(0x32), e.RandomItem(0x05))
+			}
 			e.Shop()
 			e.DrawMainScreen()
 		}
