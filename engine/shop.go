@@ -90,7 +90,9 @@ func (e *Engine) shopBuy() {
 			if len(e.selected().Items) == 0 {
 				e.BottomMessage("No items")
 			} else {
+				top := e.listTop // extra: back on the same page of the list
 				e.ItemsMenu()
+				e.listTop = top
 			}
 			continue
 		}
