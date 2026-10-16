@@ -144,6 +144,8 @@ func (e *Engine) translate(k uint16) uint16 {
 		return e.navArrow(k)
 	case k == 27:
 		return e.escKey()
+	case (k == 'm' || k == 'M') && e.ext.fullMap && !e.ext.typing: // M closes the map it opened
+		return 'E'
 	case k == 13 && e.enterPicks():
 		return uint16(e.ext.padHot)
 	case e.extraKey(byte(k)):

@@ -234,7 +234,7 @@ func (e *Engine) FullMap() {
 		}
 		return 0
 	}})
-	defer e.rawArrows("arrows, click=square|W=walk there|L=label|R=remove|Esc=back")()
+	defer e.rawArrows("arrows, click=square|W=walk there|L=label|R=remove|M,Esc=back")()
 	for {
 		texts, firstSq = e.drawFullMap(m, cx, cy)
 		k, ext := e.DisplayInput("", "Walk Label Remove Exit", 0xD, 0xA, 0xF, true, false)
