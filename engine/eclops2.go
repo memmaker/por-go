@@ -145,7 +145,7 @@ func (e *Engine) opRob() {
 		robbed = e.party
 	}
 	share := float64(pct) / 100 * float64(len(robbed)) / float64(max(len(e.party), 1))
-	for _, n := range []*int{&e.purse.gold, &e.purse.gems, &e.purse.jewelry} {
+	for _, n := range []*int{&e.purse.gold, &e.purse.copper, &e.purse.gems, &e.purse.jewelry} {
 		*n -= int(float64(*n) * share)
 	}
 	for _, c := range robbed {
@@ -533,6 +533,14 @@ func (e *Engine) opWho() {
 	e.FetchArgs(1)
 	e.ClearBox(1, 0x11, 0x26, 0x16)
 	start := e.selected()
+	if e.es.strAt(1) == "WHO WILL PAY?" { // extra: one party purse, so the first non-NPC pays (inn, ECL3 A1B4)
+		for i, c := range e.party {
+			if c.Control < 0x80 {
+				e.partySel = i
+				return
+			}
+		}
+	}
 	e.whoVar = true
 	who := e.SelectCharacter(e.es.strAt(1), false, start) // 00BA:2C48 (var DS:5D92)
 	e.whoVar = false

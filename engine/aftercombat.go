@@ -236,7 +236,7 @@ func (e *Engine) hiredShare() {
 	if shares == 0 || e.loot.empty() {
 		return
 	}
-	for _, n := range []*int{&e.loot.gold, &e.loot.gems, &e.loot.jewelry} {
+	for _, n := range []*int{&e.loot.gold, &e.loot.copper, &e.loot.gems, &e.loot.jewelry} {
 		*n -= *n / parts * shares
 	}
 	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "")
@@ -278,10 +278,13 @@ func (e *Engine) showResult(exp int32) {
 	e.DisplayString(1, 7, 0xA, "experience points.")
 	if l := e.loot; !l.empty() {
 		var got []string
+		if l.gold > 0 || l.copper > 0 {
+			got = append(got, moneyText(l.gold, l.copper))
+		}
 		for _, p := range []struct {
 			n    int
 			name string
-		}{{l.gold, " gold"}, {l.gems, " gems"}, {l.jewelry, " jewelry"}} {
+		}{{l.gems, " gems"}, {l.jewelry, " jewelry"}} {
 			if p.n > 0 {
 				got = append(got, itoa(p.n)+p.name)
 			}

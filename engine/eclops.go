@@ -309,6 +309,12 @@ func (e *Engine) opInputString() {
 }
 
 // opPrint = ovr04:0A09 (PRINT 0x11, PRINTCLEAR 0x12).
+// platinumPrices (extra) reprices the scripts' platinum in gold: the purse
+// holds gold and copper, and a script's platinum is 5 of its gold.
+var platinumPrices = strings.NewReplacer(
+	"1 PLATINUM PIECE", "5 GOLD PIECES", // inn, harbor master (ECL3)
+	"ENOUGH PLATINUM", "ENOUGH GOLD")
+
 func (e *Engine) opPrint() {
 	e.FetchArgs(1)
 	e.run.f84E4 = 0
@@ -316,6 +322,7 @@ func (e *Engine) opPrint() {
 	if e.es.argType[1] < 0x80 {
 		e.es.str[1] = strconv.Itoa(int(e.ArgValue(1))) // 00BA:1073
 	}
+	e.es.str[1] = platinumPrices.Replace(e.es.str[1])
 	if w := e.ext.walk; w != nil && strings.TrimSpace(e.es.str[1]) != "" {
 		w.event = true // (extra, walk.go) blank text only clears the window
 	}

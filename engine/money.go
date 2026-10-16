@@ -4,15 +4,35 @@ import "encoding/binary"
 
 // The party's money. The original gave every character a purse of seven
 // coin kinds plus a treasure pool (ovr22); here the party shares one purse
-// and every coin is counted in gold pieces.
+// and every coin is counted in gold pieces plus the copper left over.
 
-// purse is the party's money: gold pieces, and gems and jewelry to appraise.
-type purse struct{ gold, gems, jewelry int }
+// purse is the party's money: gold pieces, copper (under 200, a gold piece),
+// and gems and jewelry to appraise.
+type purse struct{ gold, copper, gems, jewelry int }
 
 func (p *purse) add(q purse) {
 	p.gold += q.gold
+	p.addCopper(q.copper)
 	p.gems += q.gems
 	p.jewelry += q.jewelry
+}
+
+// addCopper adds n copper, changing every 200 into a gold piece.
+func (p *purse) addCopper(n int) {
+	p.copper += n
+	p.gold += p.copper / 200
+	p.copper %= 200
+}
+
+// moneyText is gold and copper as "12 gold" / "12 gold and 50 copper".
+func moneyText(gold, copper int) string {
+	switch {
+	case copper == 0:
+		return itoa(gold) + " gold"
+	case gold == 0:
+		return itoa(copper) + " copper"
+	}
+	return itoa(gold) + " gold and " + itoa(copper) + " copper"
 }
 
 func (p purse) empty() bool { return p == purse{} }
@@ -22,13 +42,13 @@ func (p purse) empty() bool { return p == purse{} }
 var coinCopper = [5]int{1, 10, 100, 200, 1000}
 
 // coinsToPurse counts coins of the seven kinds (the last two gems and
-// jewelry) as gold, rounded to the nearest piece.
+// jewelry) as gold and copper.
 func coinsToPurse(c [7]uint16) purse {
 	var t int
 	for i, v := range coinCopper {
 		t += int(c[i]) * v
 	}
-	return purse{gold: (t + 100) / 200, gems: int(c[5]), jewelry: int(c[6])}
+	return purse{gold: t / 200, copper: t % 200, gems: int(c[5]), jewelry: int(c[6])}
 }
 
 // takeRecordCoins moves the coins in a character record (starting gold,
@@ -53,9 +73,11 @@ func (e *Engine) pay(gold int) bool {
 }
 
 // purseCoin is what ECL scripts see in the selected character's coin words
-// (DS:6BBB.. copper to platinum): the purse as platinum and gold.
+// (DS:6BBB.. copper to platinum): the purse as platinum, gold and copper.
 func (e *Engine) purseCoin(i int) uint16 {
 	switch i {
+	case 0:
+		return uint16(e.purse.copper)
 	case 3:
 		return uint16(e.purse.gold % 5)
 	case 4:
@@ -71,12 +93,13 @@ func (e *Engine) setPurseCoin(i int, v uint16) {
 		c[k] = e.purseCoin(k)
 	}
 	c[i] = v
-	e.purse = purse{gold: coinsToPurse(c).gold, gems: e.purse.gems, jewelry: e.purse.jewelry}
+	p := coinsToPurse(c)
+	e.purse.gold, e.purse.copper = p.gold, p.copper
 }
 
 // appendPurse / readPurse keep the purse after the original save game data.
 func appendPurse(b []byte, p purse) []byte {
-	for _, v := range []int{p.gold, p.gems, p.jewelry} {
+	for _, v := range []int{p.gold, p.gems, p.jewelry, p.copper} {
 		b = binary.LittleEndian.AppendUint32(b, uint32(v))
 	}
 	return b
@@ -87,7 +110,11 @@ func readPurse(b []byte) purse {
 		return purse{}
 	}
 	v := func(i int) int { return int(binary.LittleEndian.Uint32(b[4*i:])) }
-	return purse{v(0), v(1), v(2)}
+	p := purse{gold: v(0), gems: v(1), jewelry: v(2)}
+	if len(b) >= 16 { // copper came later: older saves end after jewelry
+		p.copper = v(3)
+	}
+	return p
 }
 
 // showMoney = ovr20:050D: the party's purse on the character sheet.
@@ -97,7 +124,7 @@ func (e *Engine) showMoney() {
 	for _, l := range []struct {
 		name string
 		n    int
-	}{{"Gold", e.purse.gold}, {"Gems", e.purse.gems}, {"Jewelry", e.purse.jewelry}} {
+	}{{"Gold", e.purse.gold}, {"Copper", e.purse.copper}, {"Gems", e.purse.gems}, {"Jewelry", e.purse.jewelry}} {
 		if l.n == 0 {
 			continue
 		}
@@ -113,7 +140,7 @@ func (e *Engine) shopMoney() {
 	e.DisplayString(1, 0x15, 0xE, e.moneyLine())
 }
 
-func (e *Engine) moneyLine() string { return "Party gold " + itoa(e.purse.gold) }
+func (e *Engine) moneyLine() string { return "Party money " + moneyText(e.purse.gold, e.purse.copper) }
 
 // randomItemClass = ovr22:0FD2: d20 1-14 → 1, 15-19 → 2, 20 → 3.
 func (e *Engine) randomItemClass() int {

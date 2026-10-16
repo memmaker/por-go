@@ -670,20 +670,21 @@ func (e *Engine) spellRec(spell byte, k int) byte {
 }
 
 // sellItem = ovr20:1CEE (item): half the value (a twentieth per piece
-// of a stack), paid into the party's gold.
+// of a stack), paid into the party's purse. extra: the halves are kept as
+// copper where the original dropped them.
 func (e *Engine) sellItem(it *Item) {
-	v := it.Price >> 1
+	v := int(it.Price) * 100 // copper
 	if it.Count > 1 {
 		// (the arrows/quarrels branch of the original can never be taken)
-		v = uint16(uint32(uint16(uint32(it.Count)*uint32(v))) / 0x14)
+		v = int(it.Count) * v / 0x14
 	}
 	e.ItemName(e.viewChar(), it, 0, 0, false, false)
 	e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true,
-		"I'll give you "+itoa(int(v))+" gold pieces for your "+it.Name())
+		"I'll give you "+moneyText(v/200, v%200)+" for your "+it.Name())
 	if e.YesNo(0xD, 0xA, 0xF, "Is It a Deal? ") == 'Y' {
 		e.BottomMessage("Sold!")
 		e.RemoveItem(e.selected(), it)
-		e.purse.gold += int(v)
+		e.purse.addCopper(v)
 	}
 	e.ClearCells(1, 0x15, 0x26, 0x16)
 }
