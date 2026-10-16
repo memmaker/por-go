@@ -4,8 +4,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"os"
-	"runtime/debug"
 	"strings"
 
 	"por/dax"
@@ -124,9 +122,6 @@ func (e *Engine) blitPage(x, y int, im *dax.Image, frame int, masked, under bool
 // show the ground of the squares just outside the view, so the map reaches
 // the frame. Ground only: what stands there is out of view.
 func (e *Engine) drawEdges(row int) {
-	if row == 0 && os.Getenv("DBGEDGE") != "" {
-		debug.PrintStack()
-	}
 	x0, pw := e.pageGeom()
 	for _, col := range []int{-1, viewW} {
 		mx, my := e.cmap.viewX+col, e.cmap.viewY+row
