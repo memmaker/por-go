@@ -331,7 +331,9 @@ func (e *Engine) CreateCharacter() {
 			if i == 2 && *st < 0xD && class >= 8 && class <= 0xC { // set [8..12] at cs:0525
 				*st = 0xD
 			}
-			e.showStat(i, false) // ovr20:0901
+			if tries == 0 {
+				e.showStat(i, false) // ovr20:0901
+			}
 		}
 
 		// Hit points: one die per class, averaged, with the constitution
@@ -376,18 +378,21 @@ func (e *Engine) CreateCharacter() {
 		}
 		c.HP = c.MaxHP
 		c.HPRoll = byte(int(c.HPRoll) / int(count))
+		if tries > 0 { // Minimal stats: draw only the settled roll
+			if tries--; tries > 0 && !e.meetsMinStats(c) {
+				continue
+			}
+			tries = 0
+			for i := 0; i <= 5; i++ {
+				e.showStat(i, false)
+			}
+		}
 		e.showCombatStats() // ovr20:0608
 		if q := e.ext.quick; q != nil {
 			if q.good(c) {
 				break
 			}
 			continue
-		}
-		if tries > 0 {
-			if tries--; tries > 0 && !e.meetsMinStats(c) {
-				continue
-			}
-			tries = 0
 		}
 		e.menuSel = 2
 		e.ext.selSet = true
