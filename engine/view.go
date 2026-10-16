@@ -382,6 +382,9 @@ func (e *Engine) ItemsMenu() bool {
 		for i, x := range c.Items {
 			e.ItemName(c, x, 0, 0, true, false)
 			list[i] = &ListNode{Text: x.Name()}
+			if !e.isScroll(x) && !(x.Spells[1] > 0 && x.Spells[2] < 0x80) {
+				list[i].Without = "Use" // extra: Use only for an item that has a use
+			}
 		}
 		if full || e.itemsRedraw {
 			e.ClearScreen()

@@ -1,5 +1,7 @@
 package engine
 
+import "strings"
+
 // List menu, ported from ovr26:0D9A (the node count of ovr26:0067 is len(list)).
 
 // ListNode is the ovr26 list node: 0x2E bytes, text string[40] at +0, flag at
@@ -9,6 +11,8 @@ type ListNode struct {
 	Text string
 	Flag byte
 	Dim  bool // (extra) greyed out and passed over by the cursor, as headers
+	// Without (extra): a menu word left off the bar while this line is selected
+	Without string
 }
 
 // dimColour draws a greyed-out line.
@@ -268,6 +272,9 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 		*redraw = false
 		e.lmDrawRow(c, *index, true)
 		m := menu
+		if p := c.nth(*index); p != nil && p.Without != "" {
+			m = strings.Replace(m, " "+p.Without, "", 1)
+		}
 		hasNext, hasPrev := false, false
 		if c.total-c.rows > e.listTop {
 			m += " Next"
