@@ -11,8 +11,8 @@ type ListNode struct {
 	Text string
 	Flag byte
 	Dim  bool // (extra) greyed out and passed over by the cursor, as headers
-	// Without (extra): a menu word left off the bar while this line is selected
-	Without string
+	// Without (extra): menu words left off the bar while this line is selected
+	Without []string
 }
 
 // dimColour draws a greyed-out line.
@@ -272,8 +272,10 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 		*redraw = false
 		e.lmDrawRow(c, *index, true)
 		m := menu
-		if p := c.nth(*index); p != nil && p.Without != "" {
-			m = strings.Replace(m, " "+p.Without, "", 1)
+		if p := c.nth(*index); p != nil {
+			for _, w := range p.Without {
+				m = strings.Replace(m, " "+w, "", 1)
+			}
 		}
 		hasNext, hasPrev := false, false
 		if c.total-c.rows > e.listTop {

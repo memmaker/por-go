@@ -114,6 +114,7 @@ type extras struct {
 	toItems     bool                    // the next View opens on the inventory (F1-F8)
 	toSheet     bool                    // P left the inventory for the View page
 	switchTo    bool                    // F1-F8 left the inventory for another member
+	throwing    *Item                   // combat: Throw left the inventory to aim this item
 	buying      bool                    // the shop's Buy list is waiting: F1-F8 change the buyer
 	campBar     bool                    // a camp menu bar is waiting: F1-F8 change the member
 	later       []uint16                // keys handed to the game one at a time (Engine.ReadKey)

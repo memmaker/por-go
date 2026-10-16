@@ -2,7 +2,10 @@ package engine
 
 // The combat main loop and the player's command menus (ovr09).
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // Combat = ovr09:007A: set up the battle, then rounds until one side is
 // down (or the party stops fighting).
@@ -125,6 +128,9 @@ func (e *Engine) playerTurn(c *Character) {
 			if !done {
 				e.combatUseHook()
 			}
+			if e.ext.throwing != nil {
+				done = e.throwItem(c)
+			}
 		case 'A':
 			var aim aimTarget
 			var ok bool
@@ -135,6 +141,9 @@ func (e *Engine) playerTurn(c *Character) {
 			e.o14_0D23(c)
 			if !done {
 				e.combatUseHook()
+			}
+			if e.ext.throwing != nil {
+				done = e.throwItem(c)
 			}
 		case 'C':
 			var ok bool
@@ -455,6 +464,46 @@ func (e *Engine) rangedWeapon(c *Character) bool {
 // (base item flags 0x14).
 func (e *Engine) throwable(c *Character) bool {
 	return e.rangedWeapon(c) && e.baseItem(c.Slots[0].Type, 0xE)&0x14 == 0x14
+}
+
+// throwableItem (extra): the item would be a throwable weapon if readied.
+func (e *Engine) throwableItem(it *Item) bool {
+	return e.baseItem(it.Type, 0xC) > 1 && e.baseItem(it.Type, 0xE)&0x14 == 0x14
+}
+
+// throwItem (extra): Throw from the inventory readies the item in place of
+// the weapon, aims as Aim does, then readies the weapon again. Nothing
+// changes when the swap fails or the aim is given up.
+func (e *Engine) throwItem(c *Character) (done bool) {
+	it, w := e.ext.throwing, c.Slots[0]
+	e.ext.throwing = nil
+	saved := e.partySel
+	for i, p := range e.party {
+		if p == c {
+			e.partySel = i // readyItem works on the selected member
+		}
+	}
+	defer func() { e.partySel = saved }()
+	if w != nil {
+		e.readyItem(w)
+		if w.Readied != 0 { // cursed
+			return false
+		}
+	}
+	e.readyItem(it)
+	e.ApplyItems(c)
+	if it.Readied != 0 {
+		var aim aimTarget
+		e.o14_3558(c, 0xFF, 1, 0, &done, &aim)
+		if slices.Contains(c.Items, it) && it.Readied != 0 {
+			e.readyItem(it)
+		}
+	}
+	if w != nil && slices.Contains(c.Items, w) && w.Readied == 0 {
+		e.readyItem(w)
+	}
+	e.ApplyItems(c)
+	return done
 }
 
 // ammoFor = 00BA:2E8B (char, var item): the item a ranged attack uses up

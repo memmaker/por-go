@@ -305,7 +305,7 @@ func (e *Engine) paladinCure(c *Character) {
 func (e *Engine) inventory(direct bool) (quit, leave bool) {
 	e.ext.toSheet, e.ext.switchTo = false, false
 	quit = e.ItemsMenu()
-	leave = !quit && (e.ext.switchTo || direct && !e.ext.toSheet)
+	leave = !quit && (e.ext.switchTo || direct && !e.ext.toSheet || e.ext.throwing != nil)
 	e.ext.toSheet, e.ext.switchTo = false, false
 	return quit, leave
 }
@@ -365,6 +365,9 @@ func (e *Engine) ItemsMenu() bool {
 		}
 		hired := c.Control >= 0x80 && c.Okay != 0 && c.Status != 1
 		menu := "Ready"
+		if e.beginFlag == 5 && c.Okay != 0 {
+			menu += " Throw" // extra: an unreadied throwable item, aimed at once
+		}
 		if c.Okay != 0 && e.area.NoMagic == 0 &&
 			(e.beginFlag == 2 || e.beginFlag == 3 || e.beginFlag == 4 ||
 				e.beginFlag == 5 && c.Combat != nil && c.Combat.CanUse != 0) {
@@ -383,7 +386,10 @@ func (e *Engine) ItemsMenu() bool {
 			e.ItemName(c, x, 0, 0, true, false)
 			list[i] = &ListNode{Text: x.Name()}
 			if !e.isScroll(x) && !(x.Spells[1] > 0 && x.Spells[2] < 0x80) {
-				list[i].Without = "Use" // extra: Use only for an item that has a use
+				list[i].Without = []string{"Use"} // extra: Use only for an item that has a use
+			}
+			if x.Readied != 0 || !e.throwableItem(x) {
+				list[i].Without = append(list[i].Without, "Throw")
 			}
 		}
 		if full || e.itemsRedraw {
@@ -421,6 +427,11 @@ func (e *Engine) ItemsMenu() bool {
 					if !quit {
 						full = true
 					}
+				}
+			case 'T':
+				if it.Readied == 0 && e.throwableItem(it) {
+					e.ext.throwing = it
+					key = 'E'
 				}
 			case 'G':
 				e.tradeItem(it)
