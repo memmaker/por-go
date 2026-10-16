@@ -225,7 +225,7 @@ func (e *Engine) combatMenu(c *Character) byte {
 	if int8(c.Levels[clsCleric]) > 0 && ci.TurnUsed == 0 {
 		m += "Turn "
 	}
-	m += "Log Quick Done" // Log: extra
+	m += "Quick Done" // extra: L still opens the Log
 	for {
 		key, extra := e.DisplayInput("", m, 0xD, 0xA, 0xF, true, false)
 		if extra && !(key == 0x10 || key == 0x13 || key == '-' || key == '2') { // set cs:0626
