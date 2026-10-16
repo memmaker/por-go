@@ -1,6 +1,9 @@
 package engine
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // ovr20: the View screen (character sheet, items, money, spell lists).
 
@@ -370,11 +373,7 @@ func (e *Engine) ItemsMenu() bool {
 		if !hired && e.beginFlag != 5 {
 			menu += " Give" // extra: Trade renamed
 		}
-		menu += " Drop"
-		if c.ItemCount < 0x10 {
-			menu += " Halve"
-		}
-		menu += " Join"
+		menu += " Drop" // extra: no Halve or Join, Give takes an amount and stacks join on arrival
 		if !hired && e.beginFlag == 1 {
 			menu += " Sell"
 		}
@@ -421,14 +420,7 @@ func (e *Engine) ItemsMenu() bool {
 					}
 				}
 			case 'G':
-				if it.Readied != 0 { // extra: Give unreadies it first (curses still hold)
-					e.readyItem(it)
-				}
-				if it.Readied == 0 && e.canLoseItem(it) {
-					e.tradeItem(it)
-				} else {
-					key = ' '
-				}
+				e.tradeItem(it)
 				full = true
 			case 'D':
 				if e.canLoseItem(it) {
@@ -442,10 +434,6 @@ func (e *Engine) ItemsMenu() bool {
 				} else {
 					key = ' '
 				}
-			case 'H':
-				e.halveItem(it)
-			case 'J':
-				e.joinItems(it)
 			case 'S':
 				if e.canLoseItem(it) {
 					e.sellItem(it)
@@ -537,8 +525,33 @@ func (e *Engine) itemAffect(it *Item, c *Character, flag byte) {
 	e.callAffect(it.Spells[2], c, a, flag)
 }
 
-// tradeItem = ovr20:1734 (item).
+// tradeItem = ovr20:1734 (item). extra: a stack asks how many (all by
+// default); giving all of a readied item unreadies it first (curses hold).
 func (e *Engine) tradeItem(it *Item) {
+	give := *it
+	if it.Count > 1 {
+		s := strings.TrimSpace(e.InputString("How many? ("+itoa(int(it.Count))+") ", 0xD, 3))
+		n, err := strconv.Atoi(s)
+		switch {
+		case s == "":
+		case err != nil || n < 1:
+			return
+		case n < int(it.Count):
+			give.Count = byte(n)
+			give.Readied = 0
+		}
+	}
+	all := give.Count == it.Count
+	if all && it.Readied != 0 {
+		e.readyItem(it)
+		if it.Readied != 0 {
+			return
+		}
+		give.Readied = 0
+	}
+	if all && !e.canLoseItem(it) {
+		return
+	}
 	to := e.view.start
 	e.DrawMainScreen()
 	to = e.SelectCharacter("Give to Whom?", true, to)
@@ -546,47 +559,25 @@ func (e *Engine) tradeItem(it *Item) {
 		return
 	}
 	e.view.start = to
-	if e.overloaded(it, to) {
+	if e.overloaded(&give, to) {
 		e.BottomMessage("Overloaded")
 		return
 	}
-	e.AddItemCopy(to, it)
-	e.RemoveItem(e.selected(), it)
+	e.AddItemCopy(to, &give)
+	if all {
+		e.RemoveItem(e.selected(), it)
+	} else {
+		it.Count -= give.Count
+	}
 	e.ApplyItems(to)
-}
-
-// halveItem = ovr20:17ED (item): half the stack becomes a new unreadied
-// item right after it.
-func (e *Engine) halveItem(it *Item) {
-	half := it.Count >> 1
-	if half == 0 {
-		e.BottomMessage("Can't halve that")
-		return
-	}
-	n := *it
-	n.Count = half
-	n.Readied = 0
-	it.Count -= half
-	c := e.selected()
-	for i, x := range c.Items {
-		if x == it {
-			c.Items = append(c.Items[:i+1], append([]*Item{&n}, c.Items[i+1:]...)...)
-			return
-		}
-	}
 }
 
 // joinItems = ovr20:189D (item): every matching stack joins it, up to 255
 // a stack. (The original compares +0x3C..+0x3E of each item with itself.)
-func (e *Engine) joinItems(it *Item) {
+func (e *Engine) joinItems(c *Character, it *Item) {
 	total := int(it.Count)
-	c := e.selected()
 	for _, p := range append([]*Item(nil), c.Items...) {
-		if p == it || p.Count == 0 {
-			continue
-		}
-		same := p.Words == it.Words && p.Type == it.Type && p.Plus == it.Plus && p.Plus2 == it.Plus2 && p.Magic == it.Magic
-		if !same || p.Weight != it.Weight || p.Spells[0] >= 2 {
+		if p == it || !sameStack(p, it) {
 			continue
 		}
 		if int(p.Count)+total <= 0xFF {

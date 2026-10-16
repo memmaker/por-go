@@ -125,7 +125,24 @@ func (e *Engine) RemoveItem(c *Character, it *Item) {
 func (e *Engine) AddItemCopy(c *Character, it *Item) *Item {
 	n := *it
 	c.Items = append(c.Items, &n)
+	// extra: a stack joins the first like stack the character has, so no
+	// two exist below the 255 a stack holds (the byte count's limit)
+	if n.Count == 0 || n.Spells[0] >= 2 {
+		return &n
+	}
+	for _, p := range c.Items {
+		if sameStack(p, &n) {
+			e.joinItems(c, p)
+			return p
+		}
+	}
 	return &n
+}
+
+// sameStack: joinItems's test for two stacks of the same thing.
+func sameStack(p, it *Item) bool {
+	return p.Count > 0 && p.Spells[0] < 2 && p.Words == it.Words && p.Type == it.Type &&
+		p.Plus == it.Plus && p.Plus2 == it.Plus2 && p.Magic == it.Magic && p.Weight == it.Weight
 }
 
 // BottomMessage = 00BA:1693: the string on row 24 for the message delay.
