@@ -1,5 +1,7 @@
 package engine
 
+import "strings"
+
 // keyWaiting = 0A40:02FD as Turbo Pascal's Crt has it: true while the
 // scan code of an extended key is still to be read, else the BIOS check.
 // keyWaiting = Turbo Pascal KeyPressed: a pending scan code counts.
@@ -69,6 +71,11 @@ func (e *Engine) ClearRow24() { e.DisplaySpaces(0, 24, 0, 40) }
 // one cell right of the last; backspace erases; Enter or Esc ends; the
 // result is upcased.
 func (e *Engine) InputString(prompt string, colour, maxlen int) string {
+	return strings.ToUpper(e.inputLine(prompt, colour, maxlen))
+}
+
+// inputLine is InputString keeping the case as typed (extra: character names).
+func (e *Engine) inputLine(prompt string, colour, maxlen int) string {
 	if len(prompt) > 40 {
 		prompt = prompt[:40]
 	}
@@ -99,9 +106,6 @@ func (e *Engine) InputString(prompt string, colour, maxlen int) string {
 		}
 	}
 	e.ClearRow24()
-	for i := range s {
-		s[i] = upper(s[i])
-	}
 	return string(s)
 }
 

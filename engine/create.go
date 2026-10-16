@@ -413,7 +413,7 @@ func (e *Engine) CreateCharacter() {
 		c.PortHead, c.PortBody = q.head, q.body
 	}
 	for c.PName[0] == 0 {
-		c.SetName(e.InputString("Character name: ", 0xD, 0xF)) // 0709:09E3
+		c.SetName(e.inputLine("Character name: ", 0xD, 0xF)) // 0709:09E3 (extra: case kept)
 		if c.PName[0] != 0 {
 			break
 		}
