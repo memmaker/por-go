@@ -209,9 +209,7 @@ func (e *Engine) Run() {
 	if e.Trace != nil {
 		e.Trace("ovr03:00FD", "CopyProtection")
 	}
-	e.PartyMenu()                 // ovr17:0161
-	e.SetSkyColours(0xB, 0, 7, 6) // ovr30:0155
-	e.GameLoop()                  // ovr04:32F8
+	e.adventure()
 	e.Exit()
 }
 
@@ -220,9 +218,7 @@ func (e *Engine) Play() {
 	if !slices.ContainsFunc(e.items, func(b byte) bool { return b != 0 }) {
 		e.MessageRow24b(0xE, "ITEMS missing: import the game again") // extra (readItems): waits for a key
 	}
-	e.PartyMenu()                 // ovr17:0161
-	e.SetSkyColours(0xB, 0, 7, 6) // ovr30:0155
-	e.GameLoop()                  // ovr04:32F8
+	e.adventure()
 }
 
 // Exit = 0899:0000: back to DOS.

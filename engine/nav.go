@@ -113,6 +113,9 @@ func (e *Engine) translate(k uint16) uint16 {
 	case k == '?' && !e.ext.typing:
 		e.Help()
 		return 0
+	case k == KeyF7 && e.ext.guarded && e.tr == nil:
+		e.SlotMenu()
+		return 0
 	case k >= KeyF1 && k <= KeyF1+5<<8 && k&0xFF == 0:
 		return e.viewKey(int(k-KeyF1) >> 8)
 	case (k == 'p' || k == 'P') && (e.ext.viewing || e.ext.items):

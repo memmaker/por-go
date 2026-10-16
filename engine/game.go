@@ -7,6 +7,7 @@ package engine
 // take commands until the script quits.
 func (e *Engine) GameLoop() {
 	r := &e.run
+	e.ext.inGame = true
 	r.walldefSet, r.geoSet = 0, 0
 	r.restoreSel = false
 	r.scriptLoad = 0

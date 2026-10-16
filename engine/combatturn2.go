@@ -139,7 +139,12 @@ func (e *Engine) o14_20C3(spell, silent int) (ok bool) {
 			fromNear(int(e.spellData(spell, 0)&0xF) >> 4) // always 0, as in the original
 		}
 	case kind >= 8 && kind <= 0xE:
-		if !e.chooseSpellTarget(spell, silent, 1, &tmp) {
+		if kind > 8 {
+			e.ext.aoe = int(kind&7) + 1 // extra: area preview (aoe.go)
+		}
+		picked := e.chooseSpellTarget(spell, silent, 1, &tmp)
+		e.ext.aoe = 0
+		if !picked {
 			ok = false
 		} else {
 			fromNear(int(e.spellData(spell, 0) & 7))
@@ -360,7 +365,9 @@ func (e *Engine) aimPrompt(c, cand *Character, rng, showRange int) byte {
 	menu = cut("Next Prev Manual "+menu+"Center Exit", 0x28)
 	e.combatRedrawChar(cand, 3, 1)
 	e.combatPanel(cand)
+	_, undo := e.aoeMarks(e.combatX(cand), e.combatY(cand), "") // the menu leaves no room for the count
 	key, _ := e.combatInput("Aim:", menu, false)
+	undo()
 	return key
 }
 
@@ -485,7 +492,9 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround int, 
 				return keyNone
 			}})
 		}
-		key, _ = e.combatInput("(Use Cursor keys) ", menu, true)
+		prompt, undo := e.aoeMarks(int(x), int(y), "(Use Cursor keys) ")
+		key, _ = e.combatInput(prompt, menu, true)
+		undo()
 		e.regionCut(mark)
 		if j := e.ext.jump; j != nil { // the clicked square; the step below is dir 8 (none)
 			e.ext.jump = nil

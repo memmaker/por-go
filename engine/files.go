@@ -414,10 +414,15 @@ func (e *Engine) LoadGame() {
 			return
 		}
 	}
+	e.loadSlot(key)
+}
+
+// loadSlot is LoadGame after the prompt: savgam<key>.dat and its party.
+func (e *Engine) loadSlot(key byte) bool {
 	b, err := os.ReadFile(e.savePath("savgam" + string(key) + ".dat"))
 	if err != nil || len(b) < 0x3351 {
 		e.fileError("read", e.savePath("savgam"+string(key)+".dat"))
-		return
+		return false
 	}
 	e.ClearRow24()
 	e.DisplayString(0, 24, 0xA, "Loading...Please Wait")
@@ -482,6 +487,7 @@ func (e *Engine) LoadGame() {
 	}
 	e.ClearKeyboard()
 	e.ClearRow24()
+	return true
 }
 
 // SaveGame = ovr18:1D58.
@@ -496,6 +502,11 @@ func (e *Engine) SaveGame() {
 	if key == 0 {
 		return
 	}
+	e.saveSlot(key)
+}
+
+// saveSlot is SaveGame after the prompt.
+func (e *Engine) saveSlot(key byte) {
 	e.ClearRow24()
 	e.DisplayString(0, 24, 0xA, "Saving...Please Wait")
 	for i := 1; i <= 3; i++ {

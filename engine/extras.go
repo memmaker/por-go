@@ -22,6 +22,7 @@ import (
 //	       P switches between it and the View page
 //	Ctrl-L next text font (Ctrl-Shift-L the one before; fonts.go)
 //	Q    quickstart on the empty party menu: a ready-made party of six
+//	F7   named save slots: save and load at any time (slots.go)
 //
 // One set of navigation keys for every menu, the mouse and the hint line
 // below the picture are in nav.go.
@@ -40,6 +41,7 @@ const (
 	KeyPadLeft     = 0xE500
 	KeyPadRight    = 0xE600
 	KeyF1          = 0x3B00 // F1; F2..F6 follow at +0x100 (BIOS scan codes the original never reads)
+	KeyF7          = 0x4100 // save / load (slots.go)
 )
 
 // padArrow is the BIOS arrow key for each d-pad direction.
@@ -89,6 +91,9 @@ type extras struct {
 	seen      map[int]*[256]uint8 // per area: 1 seen, 2 visited
 	quick     *quickPick          // CreateCharacter answers its own menus (quickstart)
 	minStats  [6]int              // "Minimal stats": per-stat floor, STR as st*100+str00
+	guarded   bool                // slots.go: a load can unwind to adventure
+	inGame    bool                // slots.go: GameLoop has started: saving allowed
+	aoe       int                 // aoe.go: radius+1 of the spell being aimed, 0 none
 
 	// nav.go: keys and mouse
 	ahead    []uint16       // translated keys not yet read
@@ -411,6 +416,7 @@ var helpLines = [][2]string{
 	{"Wheel", "move the highlight"},
 	{"Right button", "back"},
 	{"", ""},
+	{"F7", "save / load game"},
 	{"Ctrl L", "font (+Shift: back)"},
 	{"?", "this help, any time"},
 }
