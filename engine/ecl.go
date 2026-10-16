@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/binary"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -698,7 +699,7 @@ func (e *Engine) HitMessage(c *Character, dmg int) {
 	if int(c.HP)+10 < dmg {
 		msg = "  " + c.Name() + " dies. "
 	} else {
-		msg = "  " + c.Name() + " is hit FOR " + padLeft(strconv.Itoa(dmg), 3) + " points of Damage."
+		msg = "  " + c.Name() + " is hit FOR " + fmt.Sprintf("%3d", dmg) + " points of Damage."
 	}
 	clear := false
 	if e.msgRow > 0x16 {
@@ -711,11 +712,4 @@ func (e *Engine) HitMessage(c *Character, dmg int) {
 	e.ApplyDamage(c, dmg&0xFF) // 00BA:2228
 	e.ClearBox(0x11, 1, 0x26, 0xF)
 	e.DisplayPartyList()
-}
-
-func padLeft(s string, n int) string {
-	for len(s) < n {
-		s = " " + s
-	}
-	return s
 }

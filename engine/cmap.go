@@ -435,8 +435,6 @@ func (e *Engine) combatClearIcon(sx, sy, idx int) {
 // combatInView = ovr32:06E9 (x, y): a screen square inside the view.
 func combatInView(x, y int) bool { return x >= 0 && x < viewW && y >= 0 && y < viewH }
 
-func (e *Engine) combatInView(x, y int) bool { return combatInView(x, y) }
-
 // combatOnScreen = ovr32:071A (char, all): any (or with all, every) square
 // of the combatant in view.
 func (e *Engine) combatOnScreen(c *Character, all bool) bool {
@@ -686,7 +684,7 @@ func (e *Engine) combatRedrawChar(c *Character, r int, cursor byte) {
 
 // nearSort = ovr31:002E: order the near list by distance.
 func (e *Engine) nearSort() {
-	l := e.near.list
+	l := e.near
 	for i := 0; i < len(l)-1; i++ {
 		for j := i + 1; j < len(l); j++ {
 			a, b := l[i], l[j]
@@ -763,7 +761,7 @@ func (e *Engine) buildNear(x, y, rng, dir, size int) {
 		dx, dy, ok := e.footprint(size, k)
 		sx[k], sy[k], sok[k] = x+dx, y+dy, ok
 	}
-	e.near.list = e.near.list[:0]
+	e.near = e.near[:0]
 	for i := 1; i <= e.ncomb; i++ {
 		p := e.cpos[i]
 		if p.size == 0 {
@@ -804,7 +802,7 @@ func (e *Engine) buildNear(x, y, rng, dir, size int) {
 				d++
 			}
 		}
-		e.near.list = append(e.near.list, nearEntry{byte(i), byte(best), byte(d)})
+		e.near = append(e.near, nearEntry{byte(i), byte(best), byte(d)})
 	}
 	e.nearSort()
 }

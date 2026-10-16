@@ -4,8 +4,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"os"
-	"strconv"
 
 	"por/dax"
 )
@@ -114,9 +112,6 @@ func (e *Engine) pageSet(x, y int, c uint8) {
 func (e *Engine) traceFlip() {
 	if e.Trace != nil {
 		e.flips++
-		if os.Getenv("PAGEDUMP") == strconv.Itoa(e.flips) { // debug: raw page of the Nth Flip
-			os.WriteFile("out/page.go.bin", e.page[:], 0o644)
-		}
 		s := md5.Sum(e.page[:])
 		e.Trace("0464:1B52", "Flip", "168x168:"+hex.EncodeToString(s[:])[:10])
 	}

@@ -173,7 +173,7 @@ func (e *Engine) o14_0712(c *Character, dir int) {
 	margin := 1
 	if c.Auto != 0 {
 		margin = 3
-		if !e.combatInView(int(int8(nx))-e.cmap.viewX, int(int8(ny))-e.cmap.viewY) {
+		if !combatInView(int(int8(nx))-e.cmap.viewX, int(int8(ny))-e.cmap.viewY) {
 			e.combatCentre(int(ox), int(oy), 2, 8)
 		}
 	}

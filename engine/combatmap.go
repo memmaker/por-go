@@ -1,13 +1,12 @@
 package engine
 
+import "slices"
+
 // Combat map services (ovr31/ovr32 and the START sprite blitter) that the
-// rules call. They are placeholders until the combat overlays are ported;
-// outside combat none of them is reached.
+// rules call: the near list and the helpers over the combat map.
 
 // nearEntry is one 3-byte record of the DS:6718 list built by ovr31:0909.
 type nearEntry struct{ index, dist, dir byte }
-
-type nearState struct{ list []nearEntry } // DS:6716..671A
 
 // MsgDelay = 0709:0DBE: wait msgDelay*225 ms.
 func (e *Engine) MsgDelay() { e.Delay(int(e.msgDelay) * 225) }
@@ -109,7 +108,7 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 	dX, dY := x2-x1, y2-y1
 	var done bool
 	var cx, cy int
-	if e.combatInView(x1-e.cmap.viewX, y1-e.cmap.viewY) && e.combatInView(x2-e.cmap.viewX, y2-e.cmap.viewY) {
+	if combatInView(x1-e.cmap.viewX, y1-e.cmap.viewY) && combatInView(x2-e.cmap.viewX, y2-e.cmap.viewY) {
 		done, cx, cy = true, e.cmap.viewX+viewW/2, e.cmap.viewY+3
 	} else if abs(dX) <= viewW-1 && abs(dY) <= 6 {
 		done, cx, cy = true, x1+dX/2, y1+dY/2
@@ -175,7 +174,7 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 			e.combatCentre(cx, cy, 0xFF, 8)
 		} else {
 			done = true
-			if !e.combatInView(x2-e.cmap.viewX, y2-e.cmap.viewY) {
+			if !combatInView(x2-e.cmap.viewX, y2-e.cmap.viewY) {
 				e.combatCentre(x2, y2, 3, 8)
 			}
 			px, py := (x2-e.cmap.viewX)*3, (y2-e.cmap.viewY)*3
@@ -200,17 +199,15 @@ func isParty(c *Character) bool { return c.Side == 0 }
 // within range; the near list keeps only them, copied to DS:6DE4.
 func (e *Engine) nearEnemies(c *Character, r int) int {
 	e.nearCombatants(c, e.combatX(c), e.combatY(c), r)
-	kept := e.near.list[:0]
 	var want byte // the original keeps the targets whose side byte equals isParty(c)
 	if isParty(c) {
 		want = 1
 	}
-	for _, n := range e.near.list {
-		if t := e.combatant(n.index); t != nil && t.Side == want {
-			kept = append(kept, n)
-		}
-	}
-	e.near.list = kept
+	kept := slices.DeleteFunc(e.near, func(n nearEntry) bool {
+		t := e.combatant(n.index)
+		return t == nil || t.Side != want
+	})
+	e.near = kept
 	for i, n := range kept {
 		e.targets[i+1] = n.index
 	}
@@ -221,21 +218,21 @@ func (e *Engine) nearEnemies(c *Character, r int) int {
 // halved) from char to target, the near list left as it was.
 func (e *Engine) rangeTo(c, t *Character) int {
 	saved := e.near
-	e.near.list = append([]nearEntry(nil), saved.list...)
+	e.near = append([]nearEntry(nil), saved...)
 	e.cmap.seeAll = 1 // [DS:6716]+6: line of sight ignores walls
 	e.nearCombatants(c, e.combatX(c), e.combatY(c), 0xFF)
 	e.cmap.seeAll = 0
 	var d byte
-	for i, n := range e.near.list {
-		if e.combatant(n.index) == t || i == len(e.near.list)-1 {
+	for i, n := range e.near {
+		if e.combatant(n.index) == t || i == len(e.near)-1 {
 			d = n.dist
 			break
 		}
 	}
 	// only the 0xD8 entry bytes come back, the count (DS:671A) stays
-	list := make([]nearEntry, len(e.near.list))
-	copy(list, saved.list)
-	e.near.list = list
+	list := make([]nearEntry, len(e.near))
+	copy(list, saved)
+	e.near = list
 	return int(d >> 1)
 }
 

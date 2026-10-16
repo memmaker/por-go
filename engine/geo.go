@@ -276,8 +276,8 @@ func (e *Engine) DrawOverheadMap(x, y, dir int) {
 	defer e.traceFlip()
 	defer func() { e.pageDraw = false }()
 	defer e.S.Release() // 014C: near thunk to Flip
-	ox := clamp(x-5, 0, 5)
-	oy := clamp(y-5, 0, 5)
+	ox := min(max(x-5, 0), 5)
+	oy := min(max(y-5, 0), 5)
 	for row := 0; row <= 10; row++ {
 		for col := 0; col <= 10; col++ {
 			mx, my := ox+col, oy+row
@@ -291,16 +291,6 @@ func (e *Engine) DrawOverheadMap(x, y, dir int) {
 		}
 	}
 	e.Put8x8SymbolPage(x-ox+viewX, y-oy+viewY, 0x100+dir/2)
-}
-
-func clamp(v, lo, hi int) int {
-	if v < lo {
-		return lo
-	}
-	if v > hi {
-		return hi
-	}
-	return v
 }
 
 // wallSlots = ovr30:0DE8 set {1,2,3}.

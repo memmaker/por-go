@@ -33,7 +33,7 @@ type Engine struct {
 	tempSel   *Character             // selectTemp: selected but not in the party
 	page      [pageStride * 168]byte // DS:4A20 drawing page contents (pageSet)
 	pageDraw  bool                   // drawing the 3D view: the original draws into page DS:4A20, one cell up and left of the screen
-	flips     int                    // traced Flips (PAGEDUMP debug)
+	flips     int                    // traced Flips
 	RandSeed  uint32                 // DS:4428, Turbo Pascal RandSeed
 	FixedSeed *uint32                // if set, Randomize uses it instead of the clock (trace runs)
 	Trace     TraceFunc              // nil in normal play; see trace.go
@@ -82,7 +82,6 @@ type Engine struct {
 	fileWallsA, fileWallsB [3]uint16
 	loadingMonster         bool // DS:557C
 
-	cm             charMgmtState       // ovr17 create/modify/train state
 	es             eclState            // ovr08/ovr04 interpreter state
 	symPrev        string              // DS:5377
 	msgRow, msgCol int                 // DS:5E25 / 5E24 text-block cursor
@@ -106,8 +105,8 @@ type Engine struct {
 	usedScroll     *Item               // DS:6B80
 	spellMenuKey   byte                // (extra) the key that closed the last spell menu
 	rv             ruleVars            // DS:6814..682A rule globals
-	near           nearState           // DS:6716 combatants near a square
-	nearList       nearState           // DS:671B copy kept by checkAffect
+	near           []nearEntry         // DS:6716 combatants near a square
+	nearList       []nearEntry         // DS:671B copy kept by checkAffect
 	combatScreenX  [0x48]int8          // DS:604A
 	combatScreenY  [0x48]int8          // DS:6092
 	combatants     []*Character        // DS:65BD, combatant i (1-based) at [i-1]; filled by combat setup

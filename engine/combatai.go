@@ -102,8 +102,8 @@ func (e *Engine) canCast(c *Character, spell, level int) bool {
 		r := false
 		e.buildNear(x, y, int(spellTable[spell][15]), 0xFF, 1)
 		sel := b2i(isParty(e.selected()))
-		for i := 1; i <= len(e.near.list); i++ {
-			if int(e.combatant(e.near.list[i-1].index).Side) != sel {
+		for i := 1; i <= len(e.near); i++ {
+			if int(e.combatant(e.near[i-1].index).Side) != sel {
 				r = true
 			}
 		}

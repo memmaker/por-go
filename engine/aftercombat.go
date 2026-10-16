@@ -8,12 +8,11 @@ import "strings"
 
 // afterCombat holds the ovr06 globals.
 type afterCombat struct {
-	monsters  bool  // DS:443A: there were monsters to beat
-	fled      bool  // DS:443B
-	idle      int   // DS:84D5: members who get no experience
-	exp       int32 // DS:84D6
-	won       bool  // DS:84DA
-	treasures int   // items taken from monsters (computeExp)
+	monsters bool  // DS:443A: there were monsters to beat
+	fled     bool  // DS:443B
+	idle     int   // DS:84D5: members who get no experience
+	exp      int32 // DS:84D6
+	won      bool  // DS:84DA
 }
 
 func (e *Engine) duel() bool { return e.run.f84D4 != 0 }
@@ -425,12 +424,6 @@ func (e *Engine) AfterCombat() {
 	e.slowText = true
 	g := &e.game
 	g.MonsterHit, g.PartyHit, g.PartyMove, g.NoLoot, g.Duel = 0, 0, 0, 0, 0
-}
-
-func longAt(b []byte, o int) uint32 { return uint32(wordAt(b, o)) | uint32(wordAt(b, o+2))<<16 }
-func putLongAt(b []byte, o int, v uint32) {
-	putWord(b, o, uint16(v))
-	putWord(b, o+2, uint16(v>>16))
 }
 
 // harmfulAffect (extra) names affect t when it hurts its bearer: one a

@@ -81,7 +81,7 @@ func (e *Engine) chooseSpellTarget(spell, silent, allowGround int, t *aimTarget)
 			tp := sel.Combat.Target
 			if area := int(e.spellData(spell, 9)); area > 0 {
 				e.buildNear(e.combatX(tp), e.combatY(tp), area, 0xFF, 1)
-				for _, n := range e.near.list {
+				for _, n := range e.near {
 					if int(e.combatant(n.index).Side) != b2i(isParty(sel)) {
 						ok = false
 					}
@@ -120,10 +120,10 @@ func (e *Engine) o14_20C3(spell, silent int) (ok bool) {
 	sel := e.selected()
 	fromNear := func(rng int) {
 		e.buildNear(int(e.tgtX), int(e.tgtY), rng, 0xFF, 1)
-		for i, n := range e.near.list {
+		for i, n := range e.near {
 			e.setTgt(i+1, e.combatant(n.index))
 		}
-		e.nSpellTargets = len(e.near.list)
+		e.nSpellTargets = len(e.near)
 		e.spellFlag6820 = 1
 	}
 	kind := e.spellData(spell, 0) & 0xF
@@ -609,7 +609,7 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 	rebuild := func() { // ovr14:32E6
 		e.markReach(e.ext.aimMarks, false)
 		e.buildNear(e.combatX(c), e.combatY(c), 0x7F, 0xFF, e.combatSize(c))
-		list = append([]nearEntry(nil), e.near.list...)
+		list = append([]nearEntry(nil), e.near...)
 		count = byte(len(list))
 		skipAlly, hitOnly = false, false
 		for _, n := range list {

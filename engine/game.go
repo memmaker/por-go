@@ -554,8 +554,8 @@ func (e *Engine) stepAhead() {
 // mapMove = ovr15:0818: one step on the area map, unless the target square
 // is impassable (DS:3648 map, 0x2C bytes a row).
 func (e *Engine) mapMove() {
-	x := clamp(int(int8(byte(int(e.area.MapX)+dirDX[e.facing]))), 0, 0xF)
-	y := clamp(int(int8(byte(int(e.area.MapY)+dirDY[e.facing]))), 0, 0x23)
+	x := min(max(int(int8(byte(int(e.area.MapX)+dirDX[e.facing]))), 0), 0xF)
+	y := min(max(int(int8(byte(int(e.area.MapY)+dirDY[e.facing]))), 0), 0x23)
 	col := int(int8(byte(int(viewModeShift[e.viewMode]) + x)))
 	t := terrainMap[y][col]
 	switch {
@@ -682,7 +682,7 @@ func (e *Engine) tickEffects(count, unit int) {
 					cur = next(c, cur)
 				default:
 					after := next(c, cur)
-					e.RemoveEffect(c, cur) // ovr25:0026
+					e.RemoveAffect(c, cur.Type, cur) // ovr25:0026
 					// ovr21:0203 quirk: when the node before the removed one
 					// is the head, the walk restarts at the head.
 					if pred == head(c) {

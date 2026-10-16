@@ -297,7 +297,7 @@ func (s *sound) snSilence() {
 
 // SoundReader attaches an audio sink and returns its source: signed 16-bit
 // little endian stereo at 44100 Hz, to be fed to an audio player.
-func (e *Engine) SoundReader() *soundReader {
+func (e *Engine) SoundReader() *sound {
 	s := &e.snd
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -319,16 +319,13 @@ func (e *Engine) SoundReader() *soundReader {
 	if img, err := os.ReadFile(filepath.Join(e.L.Dir, "DISK2", "SOUND.BIN")); err == nil && len(img) == amiga.End-amiga.Base {
 		s.am = amiga.New(img)
 	}
-	return &soundReader{s}
+	return s
 }
-
-type soundReader struct{ s *sound }
 
 // Read renders the speaker as a square wave (plus the SN76489 when the
 // Tandy chip is present), running the sequencer once per timer tick while
 // the interrupt is hooked.
-func (r *soundReader) Read(p []byte) (int, error) {
-	s := r.s
+func (s *sound) Read(p []byte) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n := len(p) / 4 * 4

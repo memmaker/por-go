@@ -13,11 +13,11 @@ func (e *Engine) aoeMarks(x, y int, prompt string) (string, func()) {
 	if e.ext.aoe == 0 {
 		return prompt, func() {}
 	}
-	saved := e.near.list
-	e.near.list = nil
+	saved := e.near
+	e.near = nil
 	e.buildNear(x, y, e.ext.aoe-1, 0xFF, 1)
-	hit := e.near.list
-	e.near.list = saved
+	hit := e.near
+	e.near = saved
 	foes, friends := 0, 0
 	marks := map[[2]int][]int{}
 	for _, n := range hit {

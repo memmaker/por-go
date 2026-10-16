@@ -61,8 +61,8 @@ func (e *Engine) Redraw() {
 		e.viewDrawn()
 	case mode >= 2 && mode <= 4:
 		// ovr27:0250/0272: byte locals, signed clamps
-		x := clamp(int(int8(int(viewModeShift[mode])+int(e.area.MapX)-2)), 0, 0x27)
-		y := clamp(int(int8(int(e.area.MapY)-2)), 0, 0x1F)
+		x := min(max(int(int8(int(viewModeShift[mode])+int(e.area.MapX)-2)), 0), 0x27)
+		y := min(max(int(int8(int(e.area.MapY)-2)), 0), 0x1F)
 		e.DrawAreaMap(x, y)
 		e.drawAreaMapParty()
 	}

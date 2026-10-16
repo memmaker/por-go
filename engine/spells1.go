@@ -481,10 +481,10 @@ func (e *Engine) fxFireball() {
 	}
 	if e.area.In3D == 0 {
 		e.buildNear(e.tgtX, e.tgtY, 2, 0xFF, 1)
-		for i, n := range e.near.list {
+		for i, n := range e.near {
 			e.setTgt(i+1, e.combatant(n.index))
 		}
-		e.nSpellTargets = len(e.near.list)
+		e.nSpellTargets = len(e.near)
 	}
 	e.combatCentre(e.tgtX, e.tgtY, 0, 8)
 	e.o23_08C3(int(e.curSpell), 0, 0, e.RollDice(lvl, 6), 9, "")

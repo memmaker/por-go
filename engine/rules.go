@@ -82,9 +82,6 @@ func (e *Engine) RemoveAffect(c *Character, typ byte, a *Affect) {
 	}
 }
 
-// RemoveEffect is the old name of RemoveAffect used by the clock code.
-func (e *Engine) RemoveEffect(c *Character, a *Affect) { e.RemoveAffect(c, a.Type, a) }
-
 // AddAffect = ovr25:0E52 (char, type, time, data, call): append a node.
 func (e *Engine) AddAffect(c *Character, typ byte, time int, data, call byte) {
 	a := &Affect{affectRecord: affectRecord{Type: typ, Time: uint16(time), Data: data, Call: call}}
@@ -122,7 +119,7 @@ func (e *Engine) checkAffect(c *Character, typ byte) {
 			}
 			e.nearCombatants(p, e.combatX(p), e.combatY(p), r)
 			me := e.combatIndex(c)
-			for _, n := range e.near.list {
+			for _, n := range e.near {
 				if int(n.index) == me {
 					found = true
 				}
@@ -162,7 +159,6 @@ var affectGroups = [][]byte{
 
 // Affect check groups by use.
 const (
-	grpStatus    = 0x00
 	grpDamage    = 0x06
 	grpAddAffect = 0x09
 	grpAttacker  = 0x0A
@@ -371,7 +367,6 @@ func (e *Engine) SetStrength(c *Character, str, str00 byte) (byte, bool) {
 
 // DamageMode values for Damage (what a successful save does).
 const (
-	saveNone   = 0
 	saveNegate = 1
 	saveHalf   = 2
 )

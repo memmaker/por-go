@@ -7,9 +7,6 @@ import (
 
 // Character creation and dropping, ported from ovr17.
 
-// charMgmtState holds ovr17 state (filled in by the ovr17 port).
-type charMgmtState struct{}
-
 // freeCharacter = ovr17:0000 (var c): disposes the combat block, the item
 // and affect lists and the record, then nils the pointer. Go's collector
 // does the freeing.
