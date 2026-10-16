@@ -129,7 +129,7 @@ func (e *Engine) translate(k uint16) uint16 {
 		e.Help()
 		return 0
 	case k == KeyF9 && e.ext.guarded && e.tr == nil:
-		e.SlotMenu()
+		e.SlotMenu(false)
 		return 0
 	case k >= KeyF1 && k <= KeyF1+7<<8 && k&0xFF == 0:
 		return e.viewKey(int(k-KeyF1) >> 8)

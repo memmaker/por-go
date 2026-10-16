@@ -1,6 +1,6 @@
 // Command snap renders engine screens to PNG without a window (dev check).
 //
-//	snap DATA OUTDIR [title|party|view [SAVE-LETTER]]
+//	snap DATA OUTDIR [title|party|view [SLOT-NAME]]
 package main
 
 import (
@@ -71,7 +71,7 @@ func dumpHi(s *ega.Screen, name string) {
 
 func main() {
 	if len(os.Args) < 3 {
-		log.Fatal("usage: snap DATA OUTDIR [title|party|view [A-J]]")
+		log.Fatal("usage: snap DATA OUTDIR [title|party|view [SLOT-NAME]]")
 	}
 	data, out := os.Args[1], os.Args[2]
 	mode := "title"
@@ -207,13 +207,12 @@ func main() {
 			os.WriteFile(fmt.Sprintf("%s/game_%02d.txt", out, shot), []byte(scr.Hint()+"\n"), 0o644)
 		}
 	case "view":
-		slot := "A"
+		slot := "GAME A"
 		if len(os.Args) > 4 {
 			slot = os.Args[4]
 		}
 		e.Init()
-		scr.PushKey(uint16(slot[0]))
-		e.LoadGame()
+		e.LoadSlotNamed(slot)
 		for _, v := range e.DevViews() {
 			v.Draw()
 			dump(scr, out+"/view_"+v.Name+".png")

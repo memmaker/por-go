@@ -393,31 +393,8 @@ func (e *Engine) eraseRosterCopies(c *Character, nested bool) {
 	}
 }
 
-// LoadGame = ovr18:1602.
-func (e *Engine) LoadGame() {
-	menu := ""
-	for L := byte('A'); L <= 'J'; L++ {
-		if e.fileExists(e.savePath("savgam" + string(L) + ".dat")) {
-			menu += string(L) + " "
-		}
-	}
-	if menu == "" {
-		return
-	}
-	var key byte
-	for {
-		key, _ = e.DisplayInput("Load Which Game: ", menu, 0xD, 0xA, 0xF, false, false)
-		if key >= 'A' && key <= 'J' && e.fileExists(e.savePath("savgam"+string(key)+".dat")) {
-			break
-		}
-		if key == 0 {
-			return
-		}
-	}
-	e.loadSlot(key)
-}
-
-// loadSlot is LoadGame after the prompt: savgam<key>.dat and its party.
+// loadSlot = the end of LoadGame (ovr18:1602): savgam<key>.dat and its party.
+// Only the slot screen (slots.go) calls it, always with key A.
 func (e *Engine) loadSlot(key byte) bool {
 	b, err := os.ReadFile(e.savePath("savgam" + string(key) + ".dat"))
 	if err != nil || len(b) < 0x3351 {
@@ -490,22 +467,7 @@ func (e *Engine) loadSlot(key byte) bool {
 	return true
 }
 
-// SaveGame = ovr18:1D58.
-func (e *Engine) SaveGame() {
-	var key byte
-	for {
-		key, _ = e.DisplayInput("Save Which Game: ", "A B C D E F G H I J", 0xD, 0xA, 0xF, false, e.beginFlag == 2) // ovr18:1D8B
-		if key == 0 || key >= 'A' && key <= 'J' {
-			break
-		}
-	}
-	if key == 0 {
-		return
-	}
-	e.saveSlot(key)
-}
-
-// saveSlot is SaveGame after the prompt.
+// saveSlot = the end of SaveGame (ovr18:1D58), as loadSlot.
 func (e *Engine) saveSlot(key byte) {
 	e.ClearRow24()
 	e.DisplayString(0, 24, 0xA, "Saving...Please Wait")

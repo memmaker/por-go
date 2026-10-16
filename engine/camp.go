@@ -932,20 +932,15 @@ func (e *Engine) CampMenu() bool {
 	e.clearStudy()
 	interrupted := false
 	for key := byte(' '); !interrupted && key != 0 && key != 'E'; {
-		menu := "Save View Magic Rest Alter Exit"
+		menu := "View Magic Rest Alter Exit" // (extra) no Save: F9 saves
 		if e.magicCommands() == "" {
-			menu = "Save View Rest Alter Exit"
+			menu = "View Rest Alter Exit"
 		}
 		var again bool
 		if key, again = e.campInput("Camp: ", menu); again {
 			continue
 		}
 		switch key {
-		case 'S':
-			e.SaveGame()
-			if e.YesNo(0xE, 0xA, 0xF, "Quit TO DOS ") == 'Y' {
-				e.Exit()
-			}
 		case 'V':
 			e.ViewCharacter()
 		case 'M':

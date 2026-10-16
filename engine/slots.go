@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-// Named save slots (extra), F9 at any prompt once a game is under way.
+// Named save slots (extra), F9 at any prompt once a game is under way, and
+// the party menu's Load (loading only). They replace the original's lettered
+// saves A-J: Save is gone from camp and the party menu, and lettered saves
+// in the save directory (an imported game's) become slots "GAME A".."GAME J".
 // A slot is a folder <SaveDir>/saves/<name> holding the game's own save A
 // (savgamA.dat and its CHRDATA* files), so the format is the original's.
 // Loading unwinds whatever is running (a menu, a script, a battle) back to
@@ -68,6 +71,7 @@ func (e *Engine) slotRoot() string { return filepath.Join(e.Cfg.SaveDir, "saves"
 
 // slots lists the saved games, newest first.
 func (e *Engine) slots() []slot {
+	e.adoptLettered()
 	ents, _ := os.ReadDir(e.slotRoot())
 	var out []slot
 	for _, en := range ents {
@@ -78,6 +82,31 @@ func (e *Engine) slots() []slot {
 	}
 	slices.SortFunc(out, func(a, b slot) int { return b.at.Compare(a.at) })
 	return out
+}
+
+// adoptLettered moves each savgam<L>.dat in the save directory, with its
+// CHRDAT<L>* files, into the slot "GAME <L>" as SAVGAMA.DAT. The party file
+// names inside the save stay as they are; loadSlot finds them in the folder.
+func (e *Engine) adoptLettered() {
+	ents, _ := os.ReadDir(e.Cfg.SaveDir)
+	for _, en := range ents {
+		up := strings.ToUpper(en.Name())
+		if len(up) != 11 || !strings.HasPrefix(up, "SAVGAM") || !strings.HasSuffix(up, ".DAT") || up[6] < 'A' || up[6] > 'J' {
+			continue
+		}
+		dir := filepath.Join(e.slotRoot(), "GAME "+up[6:7])
+		if _, err := os.Stat(dir); err == nil {
+			continue // ponytail: a slot of that name already exists; the old save stays put
+		}
+		if os.MkdirAll(dir, 0o755) != nil || os.Rename(filepath.Join(e.Cfg.SaveDir, en.Name()), filepath.Join(dir, "SAVGAMA.DAT")) != nil {
+			continue
+		}
+		for _, f := range ents {
+			if strings.HasPrefix(strings.ToUpper(f.Name()), "CHRDAT"+up[6:7]) {
+				os.Rename(filepath.Join(e.Cfg.SaveDir, f.Name()), filepath.Join(dir, f.Name()))
+			}
+		}
+	}
 }
 
 // slotName keeps what a folder name may hold.
@@ -99,6 +128,13 @@ func (e *Engine) inSlot(name string, f func()) {
 	f()
 }
 
+// LoadSlotNamed loads the slot without the screen (cmd/snap).
+func (e *Engine) LoadSlotNamed(name string) (ok bool) {
+	e.adoptLettered()
+	e.inSlot(name, func() { ok = e.loadSlot('A') })
+	return ok
+}
+
 func (e *Engine) saveTo(name string) {
 	os.RemoveAll(filepath.Join(e.slotRoot(), name)) // no stale CHRDAT files of a bigger party
 	e.inSlot(name, func() { e.saveSlot('A') })
@@ -107,11 +143,13 @@ func (e *Engine) saveTo(name string) {
 const slotRows = 0x11
 
 // SlotMenu is the F9 screen: the saves, newest first, and what to do.
-func (e *Engine) SlotMenu() {
+// loadOnly (the party menu's Load) offers no saving and returns true after
+// a load instead of unwinding to adventure.
+func (e *Engine) SlotMenu(loadOnly bool) bool {
 	defer e.modalOn()()
 	restore := e.saveScreen()
 	defer restore()
-	canSave := e.ext.inGame && len(e.party) > 0 && e.beginFlag != 5
+	canSave := !loadOnly && e.ext.inGame && len(e.party) > 0 && e.beginFlag != 5
 	sel, top := 0, 0
 	for {
 		list := e.slots()
@@ -166,7 +204,7 @@ func (e *Engine) SlotMenu() {
 		}
 		switch {
 		case k == 27 || k == KeyF9:
-			return
+			return false
 		case k == 0x4800:
 			sel--
 		case k == 0x5000:
@@ -197,6 +235,9 @@ func (e *Engine) SlotMenu() {
 			}
 			ok := false
 			e.inSlot(cur, func() { ok = e.loadSlot('A') })
+			if ok && loadOnly {
+				return true
+			}
 			if ok {
 				panic(slotLoaded{})
 			}
