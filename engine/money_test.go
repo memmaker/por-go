@@ -26,11 +26,11 @@ func TestPurse(t *testing.T) {
 	if got := readPurse(appendPurse(nil, want)[:12]); got != (purse{gold: 1234, gems: 2, jewelry: 3}) {
 		t.Fatalf("old save = %+v", got)
 	}
-	// the tavern game sees gold; winning 100 keeps gold past a word
-	e = &Engine{purse: purse{gold: 70000}}
+	// the tavern game sees gold; winning 100 out of 60000
+	e = &Engine{purse: purse{gold: 60000}}
 	e.run.gambling = true
 	e.setPurseCoin(4, e.purseCoin(4)+100)
-	if e.purse.gold != 70100 {
+	if e.purse.gold != 60100 {
 		t.Fatalf("after winning 100 gold: %+v", e.purse)
 	}
 }

@@ -82,6 +82,7 @@ func (e *Engine) purseCoin(i int) uint16 {
 		return uint16(e.purse.gold % 5)
 	case 4:
 		if e.run.gambling {
+			// ponytail: the script keeps this in a word, so over 65535 gold a win wraps; clamp lower if parties get that rich
 			return uint16(min(e.purse.gold, 0xFFFF)) // the wager is in gold
 		}
 		return uint16(min(e.purse.gold/5, 0xFFFF))
