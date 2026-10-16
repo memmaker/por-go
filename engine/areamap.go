@@ -13,10 +13,10 @@ func (e *Engine) DrawAreaMap(x, y int) {
 		for col := byte(0); col < 5; col++ {
 			tx := byte(col + byte(x))
 			ty := byte(row + byte(y))
-			icon := e.X.Bytes(0x3648+int(int8(ty))*0x2C+int(int8(tx)), 1)[0] - 1
+			icon := terrainMap[int8(ty)][int8(tx)] - 1
 			for k := 1; k <= 9; k++ {
-				ent := e.X.Bytes(0xC30+6*k, 6)
-				if int(int8(tx)) != int(wordAt(ent, 0)) || int(int8(ty)) != int(wordAt(ent, 2)) {
+				ent := areaMapMarks[k]
+				if int(int8(tx)) != int(ent[0]) || int(int8(ty)) != int(ent[1]) {
 					continue
 				}
 				set := false
@@ -35,7 +35,7 @@ func (e *Engine) DrawAreaMap(x, y int) {
 					set = wordAt(e.area, 0x366) > 0xFD
 				}
 				if set {
-					icon = byte(wordAt(ent, 4) - 1)
+					icon = byte(ent[2] - 1)
 				}
 			}
 			e.drawTile(int(sx), int(sy), icon)
@@ -49,7 +49,7 @@ func (e *Engine) DrawAreaMap(x, y int) {
 // marker square is the party position relative to the shown window, pinned
 // to the border squares; the icon animates through 6 poses (DS:6DDC).
 func (e *Engine) drawAreaMapParty() {
-	v := int8(int(e.X.Bytes(0x3C76+e.viewMode, 1)[0]) + int(wordAt(e.area, 0x186)))
+	v := int8(int(viewModeShift[e.viewMode]) + int(wordAt(e.area, 0x186)))
 	switch {
 	case v < 2:
 	case v < 0x2A:

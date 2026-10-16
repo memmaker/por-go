@@ -57,13 +57,13 @@ func (e *Engine) footprint(size, part int) (int, int, bool) {
 	if size == 0 {
 		return 0, 0, false
 	}
-	b := e.X.Bytes(0x2844+size*8+part*2, 2)
+	b := footprintTable[size][part]
 	return int(int8(b[0])), int(int8(b[1])), int8(b[0]) >= 0
 }
 
 // groundInfo = DS:2744: 4 bytes per ground type: move cost (0xFF wall),
 // view height, blocking height, tile.
-func (e *Engine) groundInfo(g byte) []byte { return e.X.Bytes(0x2744+int(g)*4, 4) }
+func (e *Engine) groundInfo(g byte) []byte { return groundTable[g][:] }
 
 // tileOf: the original indexes the 50-wide grid flat, so a square just off a
 // row reads its neighbour.
@@ -210,11 +210,11 @@ func (e *Engine) LoadBackpacIcons(name string, first, n int) {
 
 // recolour = 0464:1E5C with DS:0CD2 → to: map the colours of frame 0 (the
 // original takes a frame number, always passed 0, so only that frame changes).
-func (e *Engine) recolour(im *dax.Image, to int) {
+func (e *Engine) recolour(im *dax.Image, tt *[16]byte) {
 	if im == nil || im.Count == 0 {
 		return
 	}
-	from, tt := e.X.Bytes(0xCD2, 16), e.X.Bytes(to, 16)
+	from := iconPalette
 	d := im.Frame(0)
 	for i, p := range d {
 		for k := 0; k < 16; k++ {
@@ -243,14 +243,14 @@ func (e *Engine) LoadIconPic(name string, block, slot int) {
 	case up == "COMSPR" || up == "ICON":
 		ic[0], ic[1] = load(name, block), load(name, block+0x80)
 		if up == "ICON" {
-			e.recolour(ic[0], 0xCF2)
-			e.recolour(ic[1], 0xCF2)
+			e.recolour(ic[0], &iconPaletteCF2)
+			e.recolour(ic[1], &iconPaletteCF2)
 		}
 	default:
 		n := name + e.symDAX[4:] // DS:5376 digit
 		ic[0], ic[1] = load(n, block), load(n, block+0x80)
-		e.recolour(ic[0], 0xCE2)
-		e.recolour(ic[1], 0xCE2)
+		e.recolour(ic[0], &iconPaletteCE2)
+		e.recolour(ic[1], &iconPaletteCE2)
 	}
 }
 
@@ -475,8 +475,7 @@ func (e *Engine) recentre(x, y, r int) bool {
 // combatCentre = ovr32:0996 (x, y, margin, dir): bring the square next to
 // (x,y) in direction dir (8 = itself) into view and draw the cursor there.
 func (e *Engine) combatCentre(x, y, r, dir int) {
-	dd := e.X.Bytes(0x2736, 18)
-	nx, ny := x+int(int8(dd[dir])), y+int(int8(dd[9+dir]))
+	nx, ny := x+dirDX[dir], y+dirDY[dir]
 	if e.recentre(nx, ny, r) {
 		for i := 1; i <= e.ncomb; i++ {
 			c := e.combatant(byte(i))
@@ -533,13 +532,12 @@ func (e *Engine) groundAt(c *Character, dir int) (byte, byte) {
 	gr := byte(0x17)
 	best := byte(1)
 	idx := e.combatIndex(c)
-	dd := e.X.Bytes(0x2736, 18)
 	for part := 0; part <= 3; part++ {
 		dx, dy, ok := e.footprint(int(e.cpos[idx].size), part)
 		if !ok {
 			continue
 		}
-		o, g := e.mapAt(int(e.cpos[idx].x)+dx+int(int8(dd[dir])), int(e.cpos[idx].y)+dy+int(int8(dd[9+dir])))
+		o, g := e.mapAt(int(e.cpos[idx].x)+dx+dirDX[dir], int(e.cpos[idx].y)+dy+dirDY[dir])
 		if int(o) == idx {
 			o = 0
 		}
@@ -696,8 +694,7 @@ func (e *Engine) inArc(x1, y1, x2, y2, dir int) bool {
 	if dir == 0xFF {
 		dir = 8
 	}
-	dd := e.X.Bytes(0x2736, 18)
-	nx, ny := x1+int(int8(dd[dir])), y1+int(int8(dd[9+dir]))
+	nx, ny := x1+dirDX[dir], y1+dirDY[dir]
 	if (x1 == x2 && y1 == y2) || (nx == x2 && ny == y2) {
 		return true
 	}
@@ -790,7 +787,7 @@ func (e *Engine) nearCombatants(c *Character, x, y, r int) {
 // the DS:3CF5 colours. The original works on the selected character.
 func (e *Engine) BuildCharIcon(c *Character, recolour bool) {
 	e.symPrev, e.symDAX = e.symDAX, "8X8D3" // 0802:094A(3), restored by 0802:095D
-	size := string(e.X.Bytes(0x8C5+int(c.IconSize), 1))
+	size := string("?ST"[c.IconSize])
 	slot := int(c.Order)
 	e.LoadIconPic("CHEAD"+size, int(c.IconHead), 0xB)
 	e.LoadIconPic("CBODY"+size, int(c.IconBody), slot)
@@ -817,7 +814,7 @@ func (e *Engine) BuildCharIcon(c *Character, recolour bool) {
 		for i := range to {
 			to[i] = byte(i)
 		}
-		pos := e.X.Bytes(0x3CF5, 7)
+		pos := defaultIconColours
 		for i := 1; i <= 6; i++ {
 			v := c.IconColour[i-1]
 			to[pos[i]] = v & 0xF

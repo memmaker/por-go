@@ -31,12 +31,11 @@ func pascalIs(c *Character, s []byte) bool {
 	return c.PName[0] == s[0] && bytes.Equal(c.PName[1:1+n], s[1:1+n])
 }
 
-// nameInDSTable: is the name one of the 16-byte Pascal strings at ds+16*i,
-// i = 1..n? Returns the number of matches (the originals count each).
-func (e *Engine) nameMatches(c *Character, ds, n int) int {
+// nameMatches: is the name one of the 16-byte Pascal strings in names? Returns the number of matches (the originals count each).
+func (e *Engine) nameMatches(c *Character, names [][16]byte) int {
 	m := 0
-	for i := 1; i <= n; i++ {
-		if pascalIs(c, e.X.Bytes(ds+16*i, 16)) {
+	for i := range names {
+		if pascalIs(c, names[i][:]) {
 			m++
 		}
 	}
@@ -315,7 +314,7 @@ func (e *Engine) o13_064E(c *Character, a *Affect, flag byte) {
 func (e *Engine) o13_0679(c *Character, a *Affect, flag byte) {
 	t := targetOf(c)
 	if t.Kind == 1 && t.Size == 1 {
-		e.rv.hitRoll += int8(e.nameMatches(t, 0x332, 4))
+		e.rv.hitRoll += int8(e.nameMatches(t, hitNames1[:]))
 	}
 }
 
@@ -385,7 +384,7 @@ func (e *Engine) o13_0918(c *Character, a *Affect, flag byte) {
 func (e *Engine) o13_0947(c *Character, a *Affect, flag byte) {
 	t := targetOf(c)
 	if t.Kind == 1 && t.Size == 1 {
-		e.rv.hitRoll += int8(e.nameMatches(t, 0x372, 8))
+		e.rv.hitRoll += int8(e.nameMatches(t, hitNames2[:]))
 	}
 }
 
@@ -504,10 +503,9 @@ func (e *Engine) o13_0CC3(c *Character, a *Affect, flag byte) {
 	}
 	cl := e.clouds[ci]
 	e.BottomMessage("The air clears a little...")
-	ddx, ddy := e.X.Bytes(0x2736, 9), e.X.Bytes(0x273F, 9)
 	square := func(cl *cloud, k int) (x, y byte) {
-		idx := e.X.Bytes(0x290D+k, 1)[0]
-		return byte(int(int8(ddx[idx])) + int(cl.X)), byte(int(int8(ddy[idx])) + int(cl.Y))
+		idx := cloudDirs[k]
+		return byte(dirDX[idx] + int(cl.X)), byte(dirDY[idx] + int(cl.Y))
 	}
 	set := func(x, y, v byte) { // the original does not check the bounds
 		if int(y) < len(e.cmap.ground) && int(x) < len(e.cmap.ground[0]) {
@@ -586,7 +584,7 @@ func (e *Engine) o13_1168(c *Character, a *Affect, flag byte) {
 func (e *Engine) o13_11F9(c *Character, a *Affect, flag byte) {
 	sel := e.selected()
 	if sel.Kind == 1 && sel.Size&0x7F == 2 {
-		e.rv.hitRoll -= int8(4 * e.nameMatches(targetOf(c), 0x3F2, 8))
+		e.rv.hitRoll -= int8(4 * e.nameMatches(targetOf(c), hitNames3[:]))
 	}
 }
 

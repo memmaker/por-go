@@ -84,7 +84,7 @@ func (e *Engine) step(l *line) bool {
 		l.y += l.sy
 		moved = true
 	}
-	l.dir = e.X.Bytes(0x25C0+(my+1)*3+mx+1, 1)[0]
+	l.dir = mouseDir[my+1][mx+1]
 	return moved
 }
 
@@ -106,8 +106,6 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 		return
 	}
 	path = append(path, 8) // the rest of the 0x94 byte buffer
-	ddx := e.X.Bytes(0x2736, 9)
-	ddy := e.X.Bytes(0x273F, 9)
 	dX, dY := x2-x1, y2-y1
 	var done bool
 	var cx, cy int
@@ -137,7 +135,7 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 			}
 			i++
 			d := path[i]
-			mx, my := int(int8(ddx[d])), int(int8(ddy[d]))
+			mx, my := dirDX[d], dirDY[d]
 			px += mx
 			py += my
 			out = px < 0 || px > viewW*3-3 || py < 0 || py > 0x12
@@ -245,7 +243,7 @@ func (e *Engine) rangeTo(c, t *Character) int {
 // selected character; items (DS:6DBF) cast cleric and mage spells at 6.
 func (e *Engine) casterLevel(spell int) int {
 	lvl := 0
-	switch e.X.Bytes(0x31FA+spell*16, 1)[0] {
+	switch spellTable[spell][0] {
 	case 0:
 		lvl = int(e.selected().Levels[clsCleric])
 	case 1:
@@ -253,7 +251,7 @@ func (e *Engine) casterLevel(spell int) int {
 	case 2:
 		lvl = 0xC
 	}
-	if e.usingItem && e.X.Bytes(0x31FA+spell*16, 1)[0] != 2 {
+	if e.usingItem && spellTable[spell][0] != 2 {
 		lvl = 6
 	}
 	return lvl

@@ -9,7 +9,7 @@ func (e *Engine) RecomputeCharacter(c *Character) {
 	c.HitDice = 0
 	for i := 0; i <= 7; i++ {
 		lvl := int(int8(c.Levels[i]))
-		if v := e.X.Bytes(0x3C7C+i*0xB+lvl, 1)[0]; v > c.HitDice {
+		if v := hitDiceTable[i][lvl]; v > c.HitDice {
 			c.HitDice = v
 		}
 		if int(int8(c.MaxLevel)) < lvl {
@@ -25,11 +25,11 @@ func (e *Engine) RecomputeCharacter(c *Character) {
 		case 0: // cleric
 			if lvl > 1 {
 				for j := 1; j <= 3; j++ {
-					c.SpellSlots[j-1] = e.X.Bytes(0x40BC+lvl*3+j, 1)[0]
+					c.SpellSlots[j-1] = clericSlots[lvl][j-1]
 				}
 				e.wisdomSlots(c)
 				for k := 1; k <= 0x38; k++ {
-					rec := e.X.Bytes(0x31FA+k*16, 2)
+					rec := spellTable[k][:2]
 					if rec[0] == 0 && c.spellSlot(0, int(int8(rec[1]))) > 0 {
 						c.SpellBook[k-1] = 1
 					}
@@ -38,7 +38,7 @@ func (e *Engine) RecomputeCharacter(c *Character) {
 		case 5: // magic-user
 			if lvl > 1 {
 				for j := 1; j <= 3; j++ {
-					c.SpellSlots[3+j-1] = e.X.Bytes(0x41D4+lvl*3+j, 1)[0]
+					c.SpellSlots[3+j-1] = muSlots[lvl][j-1]
 				}
 			}
 		}
@@ -71,7 +71,7 @@ func (e *Engine) savingThrows(c *Character) {
 			if lvl <= 0 {
 				continue
 			}
-			if v := e.X.Bytes(0x426E+cl*0x2D+lvl*5+s, 1)[0]; c.Saves[s] > v {
+			if v := saveTable[cl*9+lvl][s]; c.Saves[s] > v {
 				c.Saves[s] = v
 			}
 		}
@@ -84,15 +84,15 @@ func (e *Engine) thiefSkills(c *Character) {
 	race := int(int8(c.Race))
 	lvl := int(int8(c.Levels[clsThief]))
 	for k := 1; k <= 8; k++ {
-		r := int(int8(e.X.Bytes(0x3D3B+race*8+k, 1)[0]))
-		t := int(e.X.Bytes(0x3CF3+lvl*8+k, 1)[0])
+		r := int(thiefRace[race][k-1])
+		t := int(thiefBase[lvl][k-1])
 		if r < 0 && -r > t {
 			c.Thief[k-1] = 0
 			continue
 		}
 		c.Thief[k-1] = byte(t + r)
 		if k < 6 {
-			c.Thief[k-1] += byte(int8(e.X.Bytes(0x3D4E+int(c.Stats[statDex])*5+k, 1)[0]))
+			c.Thief[k-1] += byte(thiefDex[c.Stats[statDex]][k-1])
 		}
 	}
 }
@@ -462,7 +462,7 @@ func strCarry(c *Character) int16 {
 func (e *Engine) hasAffect286B(c *Character) bool {
 	found := false
 	for i := 1; i <= 4; i++ {
-		if e.FindAffect(c, e.X.Bytes(0x286B+i, 1)[0]) != nil {
+		if e.FindAffect(c, shieldAffects[i]) != nil {
 			found = true
 		}
 	}

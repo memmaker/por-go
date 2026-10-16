@@ -30,7 +30,7 @@ func (e *Engine) setTgt(i int, c *Character) {
 }
 
 // spellName = DS:28E9 + 0x29*spell.
-func (e *Engine) spellName(spell int) string { return e.X.PString(0x28E9 + spell*0x29) }
+func (e *Engine) spellName(spell int) string { return spellNames[spell] }
 
 // spellMenu = ovr23:008A (mode, var index): shows the list built by
 // buildSpellList (mode 1 cast, 2 memorize, 3 scribe, 4 learn) and returns
@@ -111,7 +111,7 @@ func (e *Engine) addSpellLine(spell byte) {
 		group = e.spellRec(e.spellIDs[n-1], 1)
 	}
 	if g := e.spellRec(spell&0x7F, 1); g != group {
-		e.spellList = append(e.spellList, &ListNode{Text: cut(e.X.PString(0xA79+int(g)*0x29), 0x28), Flag: 1})
+		e.spellList = append(e.spellList, &ListNode{Text: cut(spellGroups[g], 0x28), Flag: 1})
 	}
 	prefix := "  "
 	if spell > 0x7F {
@@ -525,7 +525,7 @@ func (e *Engine) fxHaste() { e.removeAffectFromSide(0x2A, int(e.selected().Side)
 func (e *Engine) strikeSquare(x, y, dmg, saveType int) bool {
 	blocked := false
 	who, ground := e.mapAt(x, y)
-	if ground > 0 && e.X.Bytes(0x2744+int(ground)*4, 1)[0] == 0xFF {
+	if ground > 0 && groundTable[ground][0] == 0xFF {
 		blocked = true
 	}
 	if who > 0 {
@@ -574,7 +574,7 @@ func (e *Engine) boltPath(reach, dmg, saveType, bounce int) {
 					if who > 0 && who != prevWho {
 						break
 					}
-					if ground == 0 || e.X.Bytes(0x2744+int(ground)*4, 1)[0] > 1 {
+					if ground == 0 || groundTable[ground][0] > 1 {
 						break
 					}
 					if byte(l.steps) >= r {
@@ -646,7 +646,7 @@ func (e *Engine) fxRestore() {
 		if lvl <= 0 || lvl > best {
 			continue
 		}
-		xp := int32(longAt(e.X.Bytes(0x409B+k*0x38+int(byte(lvl+1))*4, 4), 0))
+		xp := xpTable[k][byte(lvl+1)]
 		if xp <= 0 || xp >= bestXP {
 			continue
 		}

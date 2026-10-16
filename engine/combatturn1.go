@@ -5,7 +5,6 @@ package engine
 // attack itself. The second half (from 1BF8) is ported separately.
 
 // ds2 reads the word at DS:ofs of the exe image.
-func (e *Engine) ds2(ofs int) int { return int(wordAt(e.X.Bytes(ofs, 2), 0)) }
 
 // turnSetup = ovr14:0000 (char): fill the combat block for a new round.
 func (e *Engine) o14_0000(c *Character) {
@@ -166,8 +165,8 @@ func (e *Engine) o14_0712(c *Character, dir int) {
 	cb.Moves -= cost
 	idx := e.combatIndex(c)
 	ox, oy := e.cpos[idx].x, e.cpos[idx].y
-	nx := ox + byte(int8(e.X.Bytes(0x2736+dir, 1)[0]))
-	ny := oy + byte(int8(e.X.Bytes(0x273F+dir, 1)[0]))
+	nx := ox + byte(dirDX[dir])
+	ny := oy + byte(dirDY[dir])
 	margin := 1
 	if c.Auto != 0 {
 		margin = 3
@@ -199,7 +198,7 @@ func (e *Engine) o14_08B2(c *Character, dir int) {
 	for i := 1; i <= n; i++ {
 		lst[i] = e.targets[i]
 	}
-	dx, dy := byte(int8(e.X.Bytes(0x2736+dir, 1)[0])), byte(int8(e.X.Bytes(0x273F+dir, 1)[0]))
+	dx, dy := byte(dirDX[dir]), byte(dirDY[dir])
 	e.cpos[idx].x += dx
 	e.cpos[idx].y += dy
 	m := e.nearEnemies(c, 1)
@@ -417,7 +416,7 @@ func (e *Engine) o14_116A(c *Character) {
 	}
 	var t *Character
 	for e.o14_1351(c, &t) && hd > 0 && !stop {
-		x := int(int8(e.X.Bytes(0x447+int(t.Undead)*10+cls, 1)[0]))
+		x := int(turnUndead[t.Undead][cls])
 		ax := x
 		if ax < 0 {
 			ax = -ax

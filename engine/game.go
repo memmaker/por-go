@@ -3,8 +3,6 @@ package engine
 // The adventuring loop: ovr04:31B4/32F8 (game loop and area change),
 // ovr15 (command input, movement, doors) and ovr21 (clock).
 
-import "strings"
-
 // GameLoop = ovr04:32F8: load the current area, run its start events, then
 // take commands until the script quits.
 func (e *Engine) GameLoop() {
@@ -192,7 +190,7 @@ func (e *Engine) CommandInput() byte {
 		}
 		for done := false; !done; {
 			e.ext.inCommand = true
-			k, extra := e.DisplayInput("", e.commandBar(e.X.PString(0x4DF)), 0xD, 0xA, 0xF, true, false)
+			k, extra := e.DisplayInput("", e.commandBar("Cast View Encamp Search Look"), 0xD, 0xA, 0xF, true, false)
 			e.ext.inCommand = false
 			key = k
 			if !extra {
@@ -228,7 +226,7 @@ func (e *Engine) CommandInput() byte {
 // commandBar3D = the 3D view's command bar (DS:04B6) without Area: the
 // minimap (Tab, extras.go) shows all Area showed.
 func (e *Engine) commandBar3D() string {
-	return strings.TrimPrefix(e.X.PString(0x4B6), "Area ")
+	return "Cast View Encamp Search Look"
 }
 
 // command handles a letter from the command bar (the original's Area is
@@ -546,8 +544,8 @@ func (e *Engine) stepAhead() {
 func (e *Engine) mapMove() {
 	x := clamp(int(int8(byte(int(wordAt(e.area, 0x186))+dirDX[e.facing]))), 0, 0xF)
 	y := clamp(int(int8(byte(int(wordAt(e.area, 0x188))+dirDY[e.facing]))), 0, 0x23)
-	col := int(int8(byte(int(e.X.Bytes(0x3C76+e.viewMode, 1)[0]) + x)))
-	t := e.X.Bytes(0x3648+y*0x2C+col, 1)[0]
+	col := int(int8(byte(int(viewModeShift[e.viewMode]) + x)))
+	t := terrainMap[y][col]
 	switch {
 	case t == 0x4E, t >= 0x7E && t <= 0x80, t >= 0x82 && t <= 0x84,
 		t >= 0xA8 && t <= 0xAC, t >= 0xAE && t <= 0xB3, t == 0xBC,

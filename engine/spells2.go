@@ -8,7 +8,7 @@ package engine
 
 // spellTableByte reads a byte of the spell record (16 bytes at DS:31FA+16*spell).
 func (e *Engine) spellTableByte(spell, ofs int) byte {
-	return e.X.Bytes(0x31FA+spell*16+ofs, 1)[0]
+	return spellTable[spell][ofs]
 }
 
 // o23_100F = ovr23:100F: Bless, "is Blessed" on the selected character's side.
@@ -281,13 +281,11 @@ func (e *Engine) o23_1B11() {
 	cl.Num = byte(n)
 	cl.X = byte(e.tgtX)
 	cl.Y = byte(e.tgtY)
-	dx := e.X.Bytes(0x2736, 9)
-	dy := e.X.Bytes(0x273F, 9)
 	var who [5]byte
 	for k := 1; k <= 4; k++ {
-		dir := int(e.X.Bytes(0x290D+k, 1)[0])
-		x := int(int8(e.tgtX)) + int(int8(dx[dir]))
-		y := int(int8(e.tgtY)) + int(int8(dy[dir]))
+		dir := int(cloudDirs[k])
+		x := int(int8(e.tgtX)) + dirDX[dir]
+		y := int(int8(e.tgtY)) + dirDY[dir]
 		w, g := e.mapAt(x, y)
 		who[k] = w
 		if g > 0 && e.groundInfo(g)[0] < 0xFF {
@@ -305,9 +303,9 @@ func (e *Engine) o23_1B11() {
 					if o.Covered[j-1] == 0 {
 						continue
 					}
-					oj := int(e.X.Bytes(0x290D+j, 1)[0])
-					if int(int8(dx[dir]))+int(int8(e.tgtX)) == int(int8(dx[oj]))+int(int8(o.X)) &&
-						int(int8(dy[dir]))+int(int8(e.tgtY)) == int(int8(dy[oj]))+int(int8(o.Y)) &&
+					oj := int(cloudDirs[j])
+					if dirDX[dir]+int(int8(e.tgtX)) == dirDX[oj]+int(int8(o.X)) &&
+						dirDY[dir]+int(int8(e.tgtY)) == dirDY[oj]+int(int8(o.Y)) &&
 						o.Ground[j-1] != 0x1E {
 						g = o.Ground[j-1]
 					}

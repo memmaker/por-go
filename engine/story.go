@@ -147,25 +147,24 @@ func (e *Engine) recolourFrame(from, to []byte, frame int, random bool, im *dax.
 // area map is drawn first and the squares change in nine steps (randomised
 // recolouring of the SQRPACI tiles); a final pass recolours them fully.
 func (e *Engine) EndgameHook(n int) {
-	from := e.X.Bytes(0x91D, 16)
-	tiles := func(to1, to2 int, random bool) {
+	tiles := func(to1, to2 *[16]byte, random bool) {
 		for j := 0; j <= 0xA; j++ {
-			e.recolourSquare(from, e.X.Bytes(to1, 16), e.X.Bytes(0x900+j, 1)[0], random)
+			e.recolourSquare(endFrom[:], to1[:], endTiles1[j], random)
 		}
 		for j := 0; j <= 0x11; j++ {
-			e.recolourSquare(from, e.X.Bytes(to2, 16), e.X.Bytes(0x90B+j, 1)[0], random)
+			e.recolourSquare(endFrom[:], to2[:], endTiles2[j], random)
 		}
 	}
 	if n != 0 {
 		e.DrawAreaMap(0x11, 0xF)
 		e.Flip()
 		for k := 0; k <= 8; k++ {
-			tiles(0x92D, 0x93D, true)
-			e.DrawAreaMap(int(wordAt(e.X.Bytes(0x94D, 18), 2*k)), int(wordAt(e.X.Bytes(0x95F, 18), 2*k)))
+			tiles(&endTo1, &endTo2, true)
+			e.DrawAreaMap(int(endMapX[k]), int(endMapY[k]))
 			e.Flip()
 		}
 	}
-	tiles(0x92D, 0x93D, false)
+	tiles(&endTo1, &endTo2, false)
 	if n != 0 {
 		e.DrawAreaMap(0x17, 0x19)
 		e.Flip()

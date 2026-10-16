@@ -37,10 +37,7 @@ func (e *Engine) ModifyCharacter() {
 	var saved [6]byte
 	copy(saved[:], c.Stats[:])
 	savedStr00, savedHP := c.Str00, c.MaxHP
-	tbl := func(off int) byte { return e.X.Bytes(off, 1)[0] }
-	race, class, sex := int(c.Race), int(c.Class), int(c.Sex)
-	minOff := [6]int{0x3DA3 + sex, 0x3DA9, 0x3DAB, 0x3DAD, 0x3DAF, 0x3DB1}
-	maxOff := [6]int{0x3DA5 + sex, 0x3DAA, 0x3DAC, 0x3DAE, 0x3DB0, 0x3DB2}
+	race, class := int(c.Race), int(c.Class)
 	idx := 6
 	e.modifyDraw(idx, false)
 	idx = 0
@@ -65,7 +62,7 @@ func (e *Engine) ModifyCharacter() {
 		if i == 0 && c.Str00 > 0 {
 			c.Str00--
 			c.Stats[statStr]++
-		} else if lo := tbl(minOff[i] + race*16); c.Stats[i] < lo || c.Stats[i] < tbl(0x3F81+class*6+i) {
+		} else if lo, _ := raceLimits[race].limits(i); c.Stats[i] < lo || c.Stats[i] < classMinStats[class][i] {
 			// Quirk: below the class minimum the race minimum is stored.
 			c.Stats[i] = lo
 		}
@@ -81,8 +78,8 @@ func (e *Engine) ModifyCharacter() {
 	}
 	raise := func(i int) {
 		c.Stats[i]++
-		if hi := tbl(maxOff[i] + race*16); c.Stats[i] > hi {
-			if i == 0 && c.Stats[statStr] > 0x12 && int8(c.Levels[clsFighter]) > 0 && tbl(0x3DA7+race*16+sex) > c.Str00 {
+		if _, hi := raceLimits[race].limits(i); c.Stats[i] > hi {
+			if i == 0 && c.Stats[statStr] > 0x12 && int8(c.Levels[clsFighter]) > 0 && raceLimits[race].Str00Max > c.Str00 {
 				c.Str00++ // exceptional strength for fighters
 			}
 			c.Stats[i] = hi
@@ -159,7 +156,7 @@ func (e *Engine) o17_3F31(c *Character) int {
 		if int8(c.Levels[i]) <= 0 {
 			continue
 		}
-		sum += e.X.Bytes(0x408E+int(c.Stats[statCon]), 1)[0]
+		sum += byte(conHP[c.Stats[statCon]])
 		if c.Stats[statCon] > 0x10 && c.Class == 2 {
 			sum++
 		}
@@ -237,10 +234,10 @@ func (e *Engine) maxHitPoints(c *Character) byte {
 func (e *Engine) o17_4235(c *Character, mask int) int {
 	var total byte
 	for i := 0; i <= 7; i++ {
-		if int8(c.Levels[i]) <= 0 || e.X.Bytes(0x5DE+i, 1)[0]&byte(mask) == 0 {
+		if int8(c.Levels[i]) <= 0 || hpClassMask[i]&byte(mask) == 0 {
 			continue
 		}
-		n, sides := int(e.X.Bytes(0x8B6+i, 1)[0]), int(e.X.Bytes(0x8BE+i, 1)[0])
+		n, sides := int(hitDieCount[i]), int(hitDieSides[i])
 		r := e.Dice(n, sides) // ovr25:0DE3
 		if c.Levels[i] == 1 && r < (sides<<1)/3 {
 			r = (sides << 1) / 3
@@ -264,7 +261,7 @@ func (e *Engine) TrainCharacter() {
 		e.DisplayMessageWait(0xE, "Training costs 1000 gp.")
 		return
 	}
-	classMask := func(i int) byte { return e.X.Bytes(0x5DE+i, 1)[0] }
+	classMask := func(i int) byte { return hpClassMask[i] }
 	var have, can byte
 	var best int32
 	race, str := c.Race, c.Stats[statStr]
@@ -296,12 +293,12 @@ func (e *Engine) TrainCharacter() {
 			continue
 		}
 		exp := int32(c.Exp)
-		need := int32(e.X.Long(0x409B + 0x38*i + 4*int(int8(lv+1))))
+		need := xpTable[i][int8(lv+1)]
 		if need > exp && !e.debug || need <= 0 {
 			continue
 		}
 		can += classMask(i)
-		next := int32(e.X.Long(0x409B + 0x38*i + 4*int(int8(lv+2))))
+		next := xpTable[i][int8(lv+2)]
 		if next <= 0 || exp < next {
 			continue
 		}
@@ -339,7 +336,7 @@ func (e *Engine) TrainCharacter() {
 			if y == 5 {
 				pre = "    a level "
 			}
-			e.DisplayString(6, y, 0xA, pre+itoa(int(int8(c.Levels[i]))+1)+" "+e.X.PString(0xD38+i*0x1B))
+			e.DisplayString(6, y, 0xA, pre+itoa(int(int8(c.Levels[i]))+1)+" "+classNames[i])
 		}
 	}
 	if e.YesNo(0xD, 0xA, 0xF, "Do you wish to train? ") != 'Y' {
@@ -525,7 +522,7 @@ func (e *Engine) iconCopy(src, dst byte, recolour bool) {
 	for i := range to {
 		to[i] = byte(i)
 	}
-	pos := e.X.Bytes(0x3CF5, 7)
+	pos := defaultIconColours
 	for i := 1; i <= 6; i++ {
 		v := c.IconColour[i-1]
 		to[pos[i]] = v & 0xF
@@ -582,7 +579,7 @@ func (e *Engine) o17_382D() {
 	c := e.selected()
 	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0, "")
 	e.combatViewLeave() // ovr32:00E3
-	menu3 := e.X.PString(0x83A)
+	menu3 := iconMenus[3]
 	var state, parent, part int // parent and part are uninitialised until set
 	var sub, key byte
 	var face bool
@@ -611,7 +608,7 @@ func (e *Engine) o17_382D() {
 					sizeStr = "Small" // as in the original
 				}
 			}
-			m := e.X.PString(0x7BF + state*0x29)
+			m := iconMenus[state]
 			if state == 3 {
 				m = menu3
 			}

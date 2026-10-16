@@ -181,7 +181,7 @@ func (e *Engine) stoneToFlesh() {
 func (e *Engine) templeHeal() {
 	list := make([]*ListNode, 10)
 	for i := range list {
-		list[i] = &ListNode{Text: cut(e.X.PString(0xF1+0x29*(i+1)), 0x28)}
+		list[i] = &ListNode{Text: cut(templeServices[i+1], 0x28)}
 	}
 	e.ClearBox(0, 0x18, 0x27, 0x18)
 	redraw := true

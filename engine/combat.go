@@ -272,7 +272,7 @@ func (e *Engine) moveAttack(c *Character) (done bool) {
 	defer e.regionCut(mark)
 	var reach map[[2]int][]int
 	var path []int // extra: the steps to a clicked square, taken one by one
-	{ // extra (nav.go): a click on a square next to the character steps there, on a farther reachable one walks there
+	{              // extra (nav.go): a click on a square next to the character steps there, on a farther reachable one walks there
 		e.addRegion(region{x0: pageCol, y0: 1, x1: pageCol + viewW*3 - 1, y1: 21, click: func(cx, cy int) uint16 {
 			sx, sy, in := e.combatSquare(cx, cy)
 			dx, dy := sx-e.combatX(c), sy-e.combatY(c)
@@ -289,9 +289,8 @@ func (e *Engine) moveAttack(c *Character) (done bool) {
 				}
 				return 0
 			}
-			dxs, dys := e.X.Bytes(0x2736, 8), e.X.Bytes(0x273F, 8)
 			for d := 0; d < 8; d++ {
-				if int(int8(dxs[d])) == dx && int(int8(dys[d])) == dy {
+				if dirDX[d] == dx && dirDY[d] == dy {
 					return stepKeys[d]
 				}
 			}
@@ -396,7 +395,6 @@ func (e *Engine) moveReach(c *Character) map[[2]int][]int {
 	}
 	best := map[[2]int]node{{int(ox), int(oy)}: {left: int(c.Combat.Moves)}}
 	queue := [][2]int{{int(ox), int(oy)}}
-	dd := e.X.Bytes(0x2736, 18)
 	for len(queue) > 0 {
 		at := queue[0]
 		queue = queue[1:]
@@ -411,7 +409,7 @@ func (e *Engine) moveReach(c *Character) map[[2]int][]int {
 			if cost > n.left || who > 0 || g == 0 || int(e.groundInfo(g)[0]) > n.left {
 				continue
 			}
-			to := [2]int{at[0] + int(int8(dd[d])), at[1] + int(int8(dd[9+d]))}
+			to := [2]int{at[0] + dirDX[d], at[1] + dirDY[d]}
 			if b, ok := best[to]; ok && b.left >= n.left-cost {
 				continue
 			}
@@ -606,7 +604,7 @@ func (e *Engine) combatPanel(c *Character) {
 	x += 8
 	switch {
 	case c.Okay == 0:
-		e.DisplayString(x, 0x17, 0xF, cut(e.X.PString(0x1047+0xD*int(c.Status)), 0x27-x))
+		e.DisplayString(x, 0x17, 0xF, cut(statusNames[c.Status], 0x27-x))
 	case e.hasAffect286B(c):
 		e.DisplayString(x, 0x17, 0xF, "(Helpless)")
 	default:

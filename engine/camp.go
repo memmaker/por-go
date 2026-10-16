@@ -17,8 +17,8 @@ type campState struct {
 	interval int        // DS:49FB: steps since the last encounter roll
 }
 
-func (e *Engine) spellLevel(sp byte) byte { return e.X.Bytes(0x31FB+16*int(sp&0x7F), 1)[0] }
-func (e *Engine) spellClass(sp byte) byte { return e.X.Bytes(0x31FA+16*int(sp&0x7F), 1)[0] }
+func (e *Engine) spellLevel(sp byte) byte { return spellTable[sp&0x7F][1] }
+func (e *Engine) spellClass(sp byte) byte { return spellTable[sp&0x7F][0] }
 
 // studyTime = ovr16:0000 (char): minutes of study for the spells waiting
 // to be memorised (+0x80) or scribed; +0x2C gets the base hours (4, or 6
@@ -626,7 +626,7 @@ func (e *Engine) affectList(c *Character) []string {
 		name, known := "", true
 		if listedAffect(t) {
 			for s := 1; s <= 0x38 && name == ""; s++ {
-				if e.X.Bytes(0x3204+16*s, 1)[0] == t {
+				if spellTable[s][10] == t {
 					name = e.spellName(s)
 				}
 			}

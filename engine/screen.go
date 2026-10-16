@@ -47,7 +47,7 @@ func (e *Engine) Redraw() {
 			sky = wordAt(e.area, 0x1FC)
 		}
 		s := e.gs.sky
-		s[0] = e.X.Bytes(0xC26+int(sky), 1)[0]
+		s[0] = skyColour[sky]
 		if e.es.f84E5 != 0 {
 			s[1] = skyFg(e.es.v6F69)
 			s[2] = skyBand(e.es.v6F69)
@@ -61,7 +61,7 @@ func (e *Engine) Redraw() {
 		e.viewDrawn()
 	case mode >= 2 && mode <= 4:
 		// ovr27:0250/0272: byte locals, signed clamps
-		x := clamp(int(int8(int(e.X.Bytes(0x3C76+mode, 1)[0])+int(wordAt(e.area, 0x186))-2)), 0, 0x27)
+		x := clamp(int(int8(int(viewModeShift[mode])+int(wordAt(e.area, 0x186))-2)), 0, 0x27)
 		y := clamp(int(int8(int(wordAt(e.area, 0x188))-2)), 0, 0x1F)
 		e.DrawAreaMap(x, y)
 		e.drawAreaMapParty()
@@ -142,7 +142,7 @@ func (e *Engine) StatusLine() {
 	if wordAt(e.area, 0x1F6) == 0 {
 		s = strconv.Itoa(x) + "," + strconv.Itoa(y) + " "
 	}
-	s += e.X.PString(0x25A8+3*e.viewFacing()) + " "
+	s += facingNames[e.viewFacing()] + " "
 	s += hh + ":" + mm
 	if e.beginFlag == 2 {
 		s += " camping"

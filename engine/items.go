@@ -3,7 +3,7 @@ package engine
 // Items: names, lists and the START helpers around them.
 
 // itemWord = DS:10A7 + 0x15*n.
-func (e *Engine) itemWord(n byte) string { return e.X.PString(0x10A7 + 0x15*int(n)) }
+func (e *Engine) itemWord(n byte) string { return itemWords[n] }
 
 func (it *Item) Name() string {
 	n := int(it.PName[0])

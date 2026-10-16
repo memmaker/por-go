@@ -77,7 +77,7 @@ func (e *Engine) aiTryCast(c *Character) bool {
 // spell at this level: the level fits, and an area spell (DS:3209 set)
 // must not catch anyone of the wrong side.
 func (e *Engine) canCast(c *Character, spell, level int) bool {
-	tbl := e.X.Bytes(0x3207+spell*16, 3)
+	tbl := spellTable[spell][13:16]
 	if int(tbl[0]) < level {
 		return false
 	}
@@ -100,7 +100,7 @@ func (e *Engine) canCast(c *Character, spell, level int) bool {
 	// ovr10:0255 (nested): is anyone near (x,y) not on the selected side
 	wrongSide := func(x, y int) bool {
 		r := false
-		e.buildNear(x, y, int(e.X.Bytes(0x3209+spell*16, 1)[0]), 0xFF, 1)
+		e.buildNear(x, y, int(spellTable[spell][15]), 0xFF, 1)
 		sel := b2i(isParty(e.selected()))
 		for i := 1; i <= len(e.near.list); i++ {
 			if int(e.combatant(e.near.list[i-1].index).Side) != sel {
@@ -194,7 +194,7 @@ func (e *Engine) aiCastKnown(c *Character) bool {
 func (e *Engine) aiCanStep(c *Character, i, dir int) (ok, blocked bool) {
 	ci := c.Combat
 	r := false
-	t := int(e.X.Bytes(0x2AE+int(ci.Pattern)*5+i, 1)[0])
+	t := int(aiStepPattern[ci.Pattern][i])
 	d := (t + dir) % 8
 	who, ground := e.groundAt(c, d)
 	if ground == 0 {
@@ -203,7 +203,7 @@ func (e *Engine) aiCanStep(c *Character, i, dir int) (ok, blocked bool) {
 	if who != 0 {
 		return false, false
 	}
-	gc := e.X.Bytes(0x2744+int(ground)*4, 1)[0]
+	gc := groundTable[ground][0]
 	if gc >= ci.Moves {
 		return false, false
 	}
@@ -268,7 +268,7 @@ func (e *Engine) aiMoveStep(c *Character) {
 		ci.Fleeing = 0
 		done = e.clearCombatInfo(c)
 	} else {
-		d = (int(e.X.Bytes(0x2AE+int(ci.Pattern)*5+i, 1)[0]) + dir) % 8
+		d = (int(aiStepPattern[ci.Pattern][i]) + dir) % 8
 		if i == 6 || int(e.v443C) == (d+4)%8 {
 			e.v443D++
 			ci.Pattern = byte(int(ci.Pattern)%6 + 1)

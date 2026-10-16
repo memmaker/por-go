@@ -149,7 +149,7 @@ func (e *Engine) RandomItem(typ byte) *Item {
 		}
 	}
 	if k != 0 {
-		w := func(i int) uint16 { return wordAt(e.X.Bytes(0x970+2*i, 2), 0) }
+		w := func(i int) uint16 { return itemTable[i] }
 		for j := 0; j <= 2; j++ {
 			it.Words[j] = byte(w(k + j))
 		}

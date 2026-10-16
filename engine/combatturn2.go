@@ -16,19 +16,18 @@ type aimTarget struct {
 }
 
 // spellData returns byte k of the 16-byte spell record at DS:3200.
-func (e *Engine) spellData(spell, k int) byte { return e.X.Bytes(0x3200+(spell&0xFF)*16+k, 1)[0] }
+func (e *Engine) spellData(spell, k int) byte { return spellTable[spell&0xFF][6+k] }
 
 // o14_1BF8 = ovr14:1BF8 (c, var who): the friend to heal around c: the most
 // hurt of the same side on the nine squares round c (c itself only when
 // under half its hit points), or the first body lying there when no one
 // with fewer than 8 hit points is.
 func (e *Engine) o14_1BF8(c *Character, who **Character) bool {
-	dxs, dys := e.X.Bytes(0x2736, 9), e.X.Bytes(0x273F, 9)
 	var best *Character
 	bestHP, body := byte(0xFF), 0
 	for dir := 0; dir <= 8; dir++ {
-		x := byte(e.combatX(c)) + dxs[dir]
-		y := byte(e.combatY(c)) + dys[dir]
+		x := byte(e.combatX(c)) + byte(dirDX[dir])
+		y := byte(e.combatY(c)) + byte(dirDY[dir])
 		idx, ground := e.mapAt(int(x), int(y))
 		if idx > 0 {
 			*who = e.combatant(idx)
@@ -88,7 +87,7 @@ func (e *Engine) chooseSpellTarget(spell, silent, allowGround int, t *aimTarget)
 			}
 			if e.hasAffect286B(tp) {
 				for i := 1; i <= 4; i++ {
-					if e.spellData(spell, 4) == e.X.Bytes(0x286B+i, 1)[0] {
+					if e.spellData(spell, 4) == shieldAffects[i] {
 						ok = false
 					}
 				}
@@ -404,7 +403,6 @@ func (e *Engine) aimConfirm(c, cand *Character, mode int, found *bool, t *aimTar
 // var t): move a cursor over the map with the arrow keys; Enter or T takes
 // the square (and who stands on it), Esc or E gives up.
 func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround int, found *bool, t *aimTarget) {
-	dxs, dys := e.X.Bytes(0x2736, 9), e.X.Bytes(0x273F, 9)
 	*t = aimTarget{}
 	x, y := int8(e.combatX(cand)), int8(e.combatY(cand))
 	key, dir := byte(0x20), 8
@@ -413,8 +411,8 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround int, 
 	defer e.rawArrows("arrows, click=move the cursor|Enter, click it again=target|C=center|Esc=back")()
 	for !(key == 0 || key == 13 || key == 'E' || key == 'T') {
 		e.combatCentre(int(x), int(y), 3, dir)
-		x += int8(dxs[dir])
-		y += int8(dys[dir])
+		x += int8(byte(dirDX[dir]))
+		y += int8(byte(dirDY[dir]))
 		x, y = min(max(x, 0), 0x31), min(max(y, 0), 0x18)
 		who, ground := e.mapAt(int(x), int(y))
 		e.ClearKeyboard()

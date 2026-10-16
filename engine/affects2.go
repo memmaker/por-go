@@ -232,8 +232,7 @@ func (e *Engine) drainLevels(c *Character, n int) {
 			lvl := int8(c.Levels[i])
 			var cur uint32
 			if lvl > 1 {
-				b := e.X.Bytes(0x409B+0x38*i+4*int(lvl), 4)
-				cur = uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
+				cur = uint32(xpTable[i][lvl])
 			}
 			if lvl >= maxLvl && (int32(cur) >= int32(best) || cur == 0xFFFFFFFF) {
 				best, idx, maxLvl = cur, i, lvl

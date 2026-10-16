@@ -311,7 +311,7 @@ func (e *Engine) statusName(n byte) string {
 	if n > 8 {
 		return ""
 	}
-	return e.X.PString(0x1047 + 0xD*int(n))
+	return statusNames[n]
 }
 
 // PartyOverview shows every member's state on one screen until a key is

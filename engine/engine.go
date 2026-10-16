@@ -14,7 +14,6 @@ import (
 
 	"por/dax"
 	"por/ega"
-	"por/exe"
 )
 
 // Config mirrors POOL.CFG: graphics letter, sound letter, game dir, save dir,
@@ -30,7 +29,6 @@ type Config struct {
 type Engine struct {
 	L         *dax.Loader
 	S         *ega.Screen
-	X         *exe.Image // START.EXE load image: data tables are read from it
 	Cfg       Config
 	tempSel   *Character             // selectTemp: selected but not in the party
 	page      [pageStride * 168]byte // DS:4A20 drawing page contents (pageSet)
@@ -185,14 +183,9 @@ func New(dir string, scr *ega.Screen) (*Engine, error) {
 			}
 		}
 	}
-	if !l.Exists("TITLE.DAX") || !l.Exists("8X8D1.DAX") || !l.Exists("START.EXE") {
-		return nil, fmt.Errorf("%s: not a Pool of Radiance directory (TITLE.DAX / 8X8D1.DAX / START.EXE missing)", dir)
+	if !l.Exists("TITLE.DAX") || !l.Exists("8X8D1.DAX") {
+		return nil, fmt.Errorf("%s: not a Pool of Radiance directory (TITLE.DAX / 8X8D1.DAX missing)", dir)
 	}
-	x, err := exe.Load(l.Path("START.EXE"))
-	if err != nil {
-		return nil, fmt.Errorf("START.EXE: %v", err)
-	}
-	e.X = x
 	e.pic.block = -1
 	e.port = portrait{headID: 0xFF, bodyID: 0xFF}
 	e.loadFont()

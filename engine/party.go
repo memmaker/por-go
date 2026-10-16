@@ -88,13 +88,6 @@ func (e *Engine) partyKeypad(k byte) {
 	}
 }
 
-// Menu records from START.EXE DS:0619, 0x2A bytes each: name + enabled flag.
-const (
-	menuRecBase = 0x619
-	menuRecSize = 0x2A
-	menuRecFlag = 0x29
-)
-
 // PartyMenu = ovr17:0161. Returns when the player begins adventuring or
 // loads a game that starts play (beginFlag != 0).
 func (e *Engine) PartyMenu() {
@@ -103,8 +96,7 @@ func (e *Engine) PartyMenu() {
 	names := make([]string, 11)
 	enabled := make([]bool, 11)
 	for i := range names {
-		names[i] = e.X.PString(menuRecBase + i*menuRecSize)
-		enabled[i] = e.X.Bytes(menuRecBase+i*menuRecSize+menuRecFlag, 1)[0] != 0
+		names[i], enabled[i] = partyMenu[i].name, partyMenu[i].enabled
 	}
 	const (
 		mCreate = iota

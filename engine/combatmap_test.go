@@ -1,17 +1,9 @@
 package engine
 
-import (
-	"testing"
-
-	"por/exe"
-)
+import "testing"
 
 func TestLineAndMissile(t *testing.T) {
-	x, err := exe.Load("../../START.EXE")
-	if err != nil {
-		t.Skip(err)
-	}
-	e := &Engine{X: x, cmap: &combatMap{}}
+	e := &Engine{cmap: &combatMap{}}
 	l := newLine(0, 0, 6, -3)
 	var dirs []byte
 	for e.step(l) {

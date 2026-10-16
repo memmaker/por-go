@@ -22,6 +22,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] START 1A29 flyMissile (+ ovr31 line walker 0000/01A0/02CC), 23B7, 2433 nearEnemies, 255B rangeTo, 26C2 casterLevel (engine/combatmap.go; map calls are placeholders until ovr32, DS:65BD combatant table filled by ovr13)
 - [x] START 1892 icon frames, 09E3 combat panel
 - [x] Sound effects 08AE:00DC (PC speaker and Tandy sequencer, engine/sound.go; the songs are Go data generated from START.EXE by cmd/sounddata, so playing them needs no exe)
+- [x] START.EXE data segment tables as Go tables (engine/tables.go); the engine no longer loads the exe. Women get the men's strength limits
 
 ## Adventuring commands
 - [x] ovr16 Encamp menu 1E6F: save, view, magic, rest (ovr21), alter (engine/camp.go; Alter Icon waits on ovr17:382D)

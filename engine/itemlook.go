@@ -112,7 +112,7 @@ func (e *Engine) itemLines(it *Item) []string {
 		var who []string
 		for k, m := range classBits {
 			if b(0xD)&m != 0 {
-				who = append(who, strings.TrimSpace(e.X.PString(0xD38+k*0x1B)))
+				who = append(who, strings.TrimSpace(classNames[k]))
 			}
 		}
 		switch {

@@ -71,7 +71,7 @@ func (e *Engine) combatBlocks() {
 		if i+1 > int(wordAt(e.game, gsPartyCount)) {
 			c.Combat.Extra = 1
 		}
-		c.Combat.Facing = e.X.Bytes(0x2F2+e.facing/2, 1)[0]
+		c.Combat.Facing = facingDir[e.facing/2]
 		if c.Side == 1 {
 			c.Combat.Facing = (c.Combat.Facing + 4) % 8
 		}
@@ -104,7 +104,7 @@ func (e *Engine) cellSide(x, y, dir int) byte {
 
 // cellEdge = ovr11:01AD (x, y, dir): the side seen from both cells.
 func (e *Engine) cellEdge(x, y, dir int) byte {
-	dx, dy := int(int8(e.X.Bytes(0x2736+dir, 1)[0])), int(int8(e.X.Bytes(0x273F+dir, 1)[0]))
+	dx, dy := dirDX[dir], dirDY[dir]
 	return e.cellSide(x, y, dir) | e.cellSide(x+dx, y+dy, (dir+4)%8)
 }
 
@@ -282,7 +282,7 @@ func (e *Engine) wildMap() {
 	case 4:
 		a += 0x1A
 	}
-	e.terrain = e.X.Bytes(0x3648+b*0x2C+a, 1)[0] // DS:465A
+	e.terrain = terrainMap[b][a] // DS:465A
 	e.wildRoad()
 	e.wildWater()
 	e.wildPlants()
@@ -500,8 +500,8 @@ func (e *Engine) placeCombatants() {
 	p.ox[0], p.oy[0] = 0, 0
 	p.dir[0] = byte(e.facing / 2)
 	dist := int(wordAt(e.game, 0x582))
-	p.ox[1] = int8(dist*int(int8(e.X.Bytes(0x2736+e.facing, 1)[0])) + int(p.ox[0]))
-	p.oy[1] = int8(dist*int(int8(e.X.Bytes(0x273F+e.facing, 1)[0])) + int(p.oy[0]))
+	p.ox[1] = int8(dist*dirDX[e.facing] + int(p.ox[0]))
+	p.oy[1] = int8(dist*dirDY[e.facing] + int(p.oy[0]))
 	p.dir[1] = byte((e.facing + 4) % 8 / 2)
 	for s := 0; s <= 1; s++ {
 		p.rows[s] = byte((int(e.rv.side[s]) + 1) >> 1)
@@ -513,7 +513,7 @@ func (e *Engine) placeCombatants() {
 				d = 4
 			}
 			for y := 0; y <= 5; y++ {
-				lr := e.X.Bytes(0x306+d*0xC+y*2, 2)
+				lr := placeRows[d][y]
 				for x := 0; x <= 0xA; x++ {
 					v := byte(0)
 					if int(int8(lr[0])) <= x && int(int8(lr[1])) >= x {
@@ -597,12 +597,11 @@ func (e *Engine) placeOne(idx int) bool {
 	var bx, by, x, y int
 	var dx, dy int
 	ox, oy := int(p.ox[s]), int(p.oy[s])
-	b := func(a int) int { return int(int8(e.X.Bytes(a, 1)[0])) }
 	for {
-		dir := int(e.X.Bytes(0x2E2+int(p.dir[s])*4+team, 1)[0] >> 1)
+		dir := int(placeTeamDirs[p.dir[s]][team] >> 1)
 		turn := func(q int) {
-			d := int(e.X.Bytes(0x2F2+(dir+q)%4, 1)[0])
-			dx, dy = b(0x2736+d), b(0x273F+d)
+			d := int(facingDir[(dir+q)%4])
+			dx, dy = dirDX[d], dirDY[d]
 		}
 		switch state {
 		case 1:
@@ -611,8 +610,8 @@ func (e *Engine) placeOne(idx int) bool {
 			if team > 0 {
 				t = 1
 			}
-			bx = b(0x2F6+t*4+dir) + dx*row
-			by = b(0x2FE+t*4+dir) + dy*row
+			bx = int(placeStartX[t][dir]) + dx*row
+			by = int(placeStartY[t][dir]) + dy*row
 			x, y = bx, by
 			k, state, n = 1, 2, 1
 		case 2:
@@ -643,7 +642,7 @@ func (e *Engine) placeOne(idx int) bool {
 					cx, cy := e.posX+int(p.ox[0]), e.posY+int(p.oy[0])
 					open := false
 					for a := 1; a <= 3; a++ {
-						d := int(e.X.Bytes(0x2D2+int(p.dir[s])*4+a, 1)[0])
+						d := int(placeDirs[p.dir[s]][a])
 						if e.viewMode > 1 || e.cellEdge(cx, cy, d) != 1 {
 							open = true
 						}
@@ -661,11 +660,11 @@ func (e *Engine) placeOne(idx int) bool {
 			for team < 3 && state != 1 {
 				team++
 				cx, cy := e.posX+int(p.ox[s]), e.posY+int(p.oy[s])
-				d := int(e.X.Bytes(0x2D2+int(p.dir[s])*4+team, 1)[0])
+				d := int(placeDirs[p.dir[s]][team])
 				if e.viewMode <= 1 && e.cellEdge(cx, cy, d) == 1 {
 					continue
 				}
-				ox, oy = b(0x2736+d)+int(p.ox[s]), b(0x273F+d)+int(p.oy[s])
+				ox, oy = dirDX[d]+int(p.ox[s]), dirDY[d]+int(p.oy[s])
 				row, state = 0, 1
 			}
 			if state != 1 {

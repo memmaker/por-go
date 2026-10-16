@@ -34,13 +34,8 @@ func (e *Engine) selectTemp(c *Character) func() {
 // points and starting spells; keep it, name it, pick the pictures, save it.
 func (e *Engine) CreateCharacter() {
 	c := &Character{}
-	ds := func(off int) int { return int(e.X.Bytes(off, 1)[0]) }
-	dsWord := func(off int) int {
-		b := e.X.Bytes(off, 2)
-		return int(b[0]) | int(b[1])<<8
-	}
 	for i := 1; i <= 6; i++ {
-		t := ds(0x3CF5 + i)
+		t := defaultIconColours[i]
 		c.IconColour[i-1] = byte((t+8)<<4 + t)
 	}
 	c.BaseAC = 0x32
@@ -77,9 +72,9 @@ func (e *Engine) CreateCharacter() {
 	raceLoop := 0 // the loop variable, left at 7 and used below (quirk)
 	for raceLoop = 1; raceLoop <= 7; raceLoop++ {
 		if raceLoop >= 1 && raceLoop <= 5 {
-			list[raceLoop].Text = "  " + e.X.PString(0xF03+raceLoop*10)
+			list[raceLoop].Text = "  " + raceNames[raceLoop]
 		} else if raceLoop == 7 {
-			list[raceLoop-1].Text = "  " + e.X.PString(0xF03+raceLoop*10)
+			list[raceLoop-1].Text = "  " + raceNames[raceLoop]
 		}
 	}
 	raceLoop = 7 // for-loop exit value
@@ -120,7 +115,7 @@ func (e *Engine) CreateCharacter() {
 	list = newList(3)
 	list[0].Flag, list[0].Text = 1, "Pick Gender"
 	for i := 0; i <= 1; i++ {
-		list[i+1].Text = "  " + e.X.PString(0xFEC+i*7)
+		list[i+1].Text = "  " + genderNames[i]
 	}
 	if idx, ok = pick(list); !ok {
 		return
@@ -129,16 +124,16 @@ func (e *Engine) CreateCharacter() {
 
 	// Class.
 	race := int(int8(c.Race))
-	cnt := ds(0x3E17 + race*12)
+	cnt := int(raceClasses[race][0])
 	list = newList(cnt + 1)
 	list[0].Flag, list[0].Text = 1, "Pick Class"
 	for k := 1; k <= cnt; k++ {
-		list[k].Text = "  " + e.X.PString(0xD38+0x1B*int(int8(byte(ds(0x3E17+race*12+k)))))
+		list[k].Text = "  " + classNames[int8(raceClasses[race][k])]
 	}
 	if idx, ok = pick(list); !ok {
 		return
 	}
-	c.Class = byte(ds(0x3E17 + race*12 + idx))
+	c.Class = raceClasses[race][idx]
 	c.MaxLevel = 1
 	class := int(int8(c.Class))
 	switch {
@@ -170,45 +165,45 @@ func (e *Engine) CreateCharacter() {
 	c.HitDice = 0
 	for k := 0; k <= 7; k++ {
 		if int8(c.Levels[k]) > 0 {
-			if t := byte(ds(0x3C7C + k*11 + int(int8(c.Levels[k])))); t > c.HitDice {
+			if t := hitDiceTable[k][int8(c.Levels[k])]; t > c.HitDice {
 				c.HitDice = t
 			}
-			c.ClassMask += byte(ds(0x5D6 + k))
+			c.ClassMask += classMask[k]
 		}
 	}
 	e.savingThrows(c) // ovr24:0255
 
 	// Alignment.
-	cnt = ds(0x3FE7 + class*10)
+	cnt = int(classAlignments[class][0])
 	list = newList(cnt + 1)
 	list[0].Flag, list[0].Text = 1, "Pick Alignment"
 	for k := 1; k <= cnt; k++ {
-		list[k].Text = "  " + e.X.PString(0xF53+0x11*int(int8(byte(ds(0x3FE7+class*10+k)))))
+		list[k].Text = "  " + alignmentNames[int8(classAlignments[class][k])]
 	}
 	if idx, ok = pick(list); !ok {
 		return
 	}
-	c.Alignment = byte(ds(0x3FE7 + class*10 + idx))
+	c.Alignment = classAlignments[class][idx]
 
 	// Starting age: single classes roll the dice, multi-classes use the
 	// maximum. Class 10 (cleric/ranger) has no case, so its age stays 0.
 	age := 0
-	base := 0x3E5B + race*0x1C
+	ages := &startAge[race]
 	if class <= 7 {
-		b := base + class*4
-		age = dsWord(b) + int(byte(e.Dice(ds(b+2), ds(b+3))))
+		a := ages[class]
+		age = int(a.Base) + int(byte(e.Dice(int(a.Count), int(a.Sides))))
 	} else {
 		o := -1
 		switch class {
 		case 8, 9, 0xB, 0xC:
-			o = base
+			o = clsCleric
 		case 0xD, 0xF, 0x10:
-			o = base + 0x14
+			o = clsMage
 		case 0xE:
-			o = base + 8
+			o = clsFighter
 		}
 		if o >= 0 {
-			age = dsWord(o) + ds(o+2)*ds(o+3)
+			age = int(ages[o].Base) + int(ages[o].Count)*int(ages[o].Sides)
 		}
 	}
 	c.Age = uint16(age)
@@ -254,8 +249,7 @@ func (e *Engine) CreateCharacter() {
 				}
 			}
 			// Age steps DS:3F31 + race*10 (4 words) against the age word.
-			older := func(j int) bool { return dsWord(0x3F31+race*10+2*j) < int(c.Age) }
-			gender := int(int8(c.Sex))
+			older := func(j int) bool { return int(ageSteps[race][j]) < int(c.Age) }
 			switch i {
 			case 0:
 				if *st != 0 && older(0) {
@@ -308,25 +302,22 @@ func (e *Engine) CreateCharacter() {
 					*st--
 				}
 			}
-			// Race limits (DS:3DA3 + race*16; strength is by gender).
-			lo, hi := 0x3DA9+2*(i-1)+race*16, 0x3DAA+2*(i-1)+race*16
-			if i == 0 {
-				lo, hi = 0x3DA3+race*16+gender, 0x3DA5+race*16+gender
+			// Race limits.
+			lo, hi := raceLimits[race].limits(i)
+			if *st < lo {
+				*st = lo
 			}
-			if int(*st) < ds(lo) {
-				*st = byte(ds(lo))
-			}
-			if int(*st) > ds(hi) {
-				*st = byte(ds(hi))
+			if *st > hi {
+				*st = hi
 			}
 			// Class minimum (DS:3F81 + class*6).
-			if m := ds(0x3F81 + class*6 + i); int(*st) < m {
+			if m := int(classMinStats[class][i]); int(*st) < m {
 				*st = byte(m)
 			}
 			if i == 0 {
 				if *st == 0x12 && int8(c.Levels[clsFighter]) > 0 {
 					c.Str00 = byte(e.Random(100) + 1)
-					if m := byte(ds(0x3DA7 + race*16 + gender)); m < c.Str00 {
+					if m := raceLimits[race].Str00Max; m < c.Str00 {
 						c.Str00 = m
 					}
 				}
@@ -351,12 +342,12 @@ func (e *Engine) CreateCharacter() {
 			} else if k == 5 {
 				c.SpellSlots[3] = 1
 			}
-			sum += byte(e.Dice(ds(0x4263+k*2), ds(0x4264+k*2)))
+			sum += byte(e.Dice(int(startHPDice[k][0]), int(startHPDice[k][1])))
 			count++
 			if k == 0 {
 				e.wisdomSlots(c) // ovr24:01AF
 				for s := 1; s <= 0x38; s++ {
-					if rec := e.X.Bytes(0x31FA+s*16, 2); rec[0] == 0 && rec[1] == 1 {
+					if rec := spellTable[s][:2]; rec[0] == 0 && rec[1] == 1 {
 						c.SpellBook[s-1] = 1
 					}
 				}

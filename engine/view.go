@@ -31,15 +31,15 @@ func (e *Engine) CharacterSheet() {
 		e.DisplayString(len(c.Name())+3, 1, 0xA, "(NPC)")
 	}
 	x := 1
-	s := e.X.PString(0xFEC + 7*int(int8(c.Sex)))
+	s := genderNames[c.Sex]
 	e.DisplayString(x, 3, 0xF, s)
 	x += len(s) + 1
-	s = e.X.PString(0xF03 + 0xA*int(int8(c.Race)))
+	s = raceNames[int8(c.Race)]
 	e.DisplayString(x, 3, 0xF, s)
 	x += len(s) + 1
 	e.DisplayString(x, 3, 0xF, "Age "+itoa(int(c.Age)))
-	e.DisplayString(1, 4, 0xF, e.X.PString(0xF53+0x11*int(int8(c.Alignment))))
-	e.DisplayString(1, 5, 0xF, e.X.PString(0xD38+0x1B*int(int8(c.Class))))
+	e.DisplayString(1, 4, 0xF, alignmentNames[int8(c.Alignment)])
+	e.DisplayString(1, 5, 0xF, classNames[int8(c.Class)])
 	for i, l := range []string{"STR ", "INT ", "WIS ", "DEX ", "CON ", "CHA "} {
 		e.DisplayString(1, i+7, 0xA, l)
 		e.showStat(i, false)
@@ -277,7 +277,7 @@ func (e *Engine) SheetPortrait() {
 		return
 	}
 	e.DrawBoxTitled(0x1C, 1, 0x26, 0xB, 0, 0, "")
-	e.LoadPortrait(int(e.X.Bytes(0x286F+int(c.PortHead), 1)[0]), int(e.X.Bytes(0x287D+int(c.PortBody), 1)[0]))
+	e.LoadPortrait(int(portraitHead[c.PortHead]), int(portraitBody[c.PortBody]))
 	e.DrawPortrait(0x1C, 1, true)
 }
 
@@ -606,7 +606,7 @@ func (e *Engine) useItem(it *Item) bool {
 
 // spellRec = DS:31FA + 16*spell.
 func (e *Engine) spellRec(spell byte, k int) byte {
-	return e.X.Bytes(0x31FA+int(spell)*16+k, 1)[0]
+	return spellTable[spell][k]
 }
 
 // sellItem = ovr20:1CEE (item): half the value (a twentieth per piece
