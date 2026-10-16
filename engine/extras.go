@@ -118,6 +118,7 @@ type extras struct {
 	campBar     bool                    // a camp menu bar is waiting: F1-F8 change the member
 	later       []uint16                // keys handed to the game one at a time (Engine.ReadKey)
 	sels        map[string]int          // the highlighted item each menu was left with
+	listWord    map[string]byte         // a list menu's highlighted word, by its hot letter, kept across pages
 	selSet      bool                    // the caller set the highlight (YesNo): keep it
 	skip        bool                    // a key finished the text being printed: no more slow text until input is read
 
