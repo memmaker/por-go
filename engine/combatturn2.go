@@ -345,24 +345,12 @@ func (e *Engine) o14_2998(c, target *Character) bool {
 // aimPrompt = ovr14:2AA0 (c, cand, rng, showRange): shows how far the
 // candidate is and asks Next, Prev, Manual, Target, Center or Exit.
 func (e *Engine) aimPrompt(c, cand *Character, rng, showRange int) byte {
-	dist := e.rangeTo(c, cand)
 	menu := ""
 	if showRange != 0 {
-		e.DisplayString(0, 0x17, 0xA, "Range = "+itoa(dist)+"  ")
+		e.DisplayString(0, 0x17, 0xA, "Range = "+itoa(e.rangeTo(c, cand))+"  ")
 	}
-	if dist <= rng {
-		var tmp *Item
-		switch {
-		case showRange == 0:
-			menu = "Target "
-		case cand == c:
-		case !e.rangedWeapon(c):
-			menu = "Target "
-		case e.ammoFor(c, &tmp):
-			if e.nearEnemies(c, 1) == 0 || e.throwable(c) {
-				menu = "Target "
-			}
-		}
+	if e.canTarget(c, cand, rng, showRange) {
+		menu = "Target "
 	}
 	menu = cut("Next Prev Manual "+menu+"Center Exit", 0x28)
 	e.combatRedrawChar(cand, 3, 1)
@@ -377,6 +365,27 @@ func (e *Engine) aimPrompt(c, cand *Character, rng, showRange int) byte {
 // allowExtra): the key, and the DS:6E31 flag is dropped.
 func (e *Engine) combatInput(prompt, menu string, allowExtra bool) (byte, bool) {
 	return e.DisplayInput(prompt, menu, 0xD, 0xA, 0xF, allowExtra, false)
+}
+
+// canTarget (aimPrompt's test, ovr14:2AA0): is Target offered for cand?
+// In range, and with a missile weapon: ammunition, and no foe adjacent
+// unless the weapon is thrown.
+func (e *Engine) canTarget(c, cand *Character, rng, showRange int) bool {
+	if e.rangeTo(c, cand) > rng {
+		return false
+	}
+	var tmp *Item
+	switch {
+	case showRange == 0:
+		return true
+	case cand == c:
+		return false
+	case !e.rangedWeapon(c):
+		return true
+	case e.ammoFor(c, &tmp):
+		return e.nearEnemies(c, 1) == 0 || e.throwable(c)
+	}
+	return false
 }
 
 // aimConfirm = ovr14:2C3D (c, cand, mode, var found, var t): take cand as
@@ -572,14 +581,16 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 	var list []nearEntry
 	var cur, count, prevX, prevY byte
 	skipAlly := false   // extra: N/P pass over allies (hostile spells), while a foe can be aimed at
+	hitOnly := false    // extra: with a weapon, N/P pass over foes it cannot hit, while one can be
 	rebuild := func() { // ovr14:32E6
 		e.buildNear(e.combatX(c), e.combatY(c), 0x7F, 0xFF, e.combatSize(c))
 		list = append([]nearEntry(nil), e.near.list...)
 		count = byte(len(list))
-		skipAlly = false
+		skipAlly, hitOnly = false, false
 		for _, n := range list {
 			if f := e.combatant(n.index); e.ext.enemiesOnly && f != nil && f.Side != c.Side && e.o14_1085(c, f) {
 				skipAlly = true
+				hitOnly = hitOnly || showRange != 0 && e.canTarget(c, f, int(rng), showRange)
 			}
 		}
 	}
@@ -618,7 +629,8 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 	by = 1
 	key := byte(' ')
 	for !*found && !(key == 0 || key == 'E') {
-		if !e.o14_1085(c, cand) || skipAlly && cand.Side == c.Side {
+		if !e.o14_1085(c, cand) || skipAlly && cand.Side == c.Side ||
+			hitOnly && !e.canTarget(c, cand, int(rng), showRange) {
 			cand = step(by, false)
 			continue
 		}
