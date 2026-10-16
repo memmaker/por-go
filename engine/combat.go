@@ -138,7 +138,7 @@ func (e *Engine) playerTurn(c *Character) {
 			e.o14_3558(c, 0xFF, 1, 0, &ok, &aim)
 			e.ext.enemiesOnly = false
 			done = ok
-		case 'U':
+		case 'I':
 			done = e.ItemsMenu() // ovr20:0EF8 (var done)
 			e.o14_0D23(c)
 			if !done {
@@ -210,8 +210,8 @@ func (e *Engine) combatMenu(c *Character) byte {
 		m += "Move "
 	}
 	m += "View Aim "
-	if c.ItemCount > 0 {
-		m += "Use "
+	if e.combatItems(c) {
+		m += "Items " // extra: Use renamed, and only with something to use or throw
 	}
 	spells := false
 	for i := 0; i <= 0x14; i++ {
@@ -232,7 +232,7 @@ func (e *Engine) combatMenu(c *Character) byte {
 			key = 0
 		}
 		switch key { // set cs:0646
-		case 0x10, 0x13, ' ', '-', '2', 'A', 'C', 'D', 'L', 'M', 'Q', 'T', 'U', 'V':
+		case 0x10, 0x13, ' ', '-', '2', 'A', 'C', 'D', 'L', 'I', 'M', 'Q', 'T', 'V':
 			return key
 		}
 	}
@@ -638,6 +638,18 @@ func (e *Engine) quickOne(c *Character) {
 	if t := c.Combat.Target; t != nil && t.Side == c.Side {
 		c.Combat.Target = nil
 	}
+}
+
+// combatItems (extra): c carries an item its items menu could Use (when
+// it may use items this round) or Throw.
+func (e *Engine) combatItems(c *Character) bool {
+	for _, it := range c.Items {
+		if it.Readied == 0 && e.throwableItem(it) ||
+			c.Combat.CanUse != 0 && (e.isScroll(it) || it.Spells[1] > 0 && it.Spells[2] < 0x80) {
+			return true
+		}
+	}
+	return false
 }
 
 // combatPanel = 00BA:09E3 (char): the combatant's name, hit points, AC and
