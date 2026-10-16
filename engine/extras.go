@@ -88,6 +88,7 @@ type extras struct {
 	choosing  bool                // SelectCharacter is waiting: highlight the roster entry
 	seen      map[int]*[256]uint8 // per area: 1 seen, 2 visited
 	quick     *quickPick          // CreateCharacter answers its own menus (quickstart)
+	minStats  [6]int              // "Minimal stats": per-stat floor, STR as st*100+str00
 
 	// nav.go: keys and mouse
 	ahead    []uint16       // translated keys not yet read

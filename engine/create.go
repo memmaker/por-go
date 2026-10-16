@@ -1,5 +1,10 @@
 package engine
 
+import (
+	"strconv"
+	"strings"
+)
+
 // Character creation and dropping, ported from ovr17.
 
 // charMgmtState holds ovr17 state (filled in by the ovr17 port).
@@ -210,6 +215,7 @@ func (e *Engine) CreateCharacter() {
 
 	undo := e.selectTemp(c)
 	e.CharacterSheet() // ovr20:004A
+	tries := 0
 	for {
 		c.Str00 = 0
 		for i := 0; i <= 5; i++ {
@@ -377,8 +383,21 @@ func (e *Engine) CreateCharacter() {
 			}
 			continue
 		}
-		if e.YesNo(0xD, 0xA, 0xF, "Keep this character? ") == 'Y' {
+		if tries > 0 {
+			if tries--; tries > 0 && !e.meetsMinStats(c) {
+				continue
+			}
+			tries = 0
+		}
+		e.menuSel = 2
+		e.ext.selSet = true
+		k, _ := e.DisplayInput("Keep this character? ", "Yes No Minimal", 0xD, 0xA, 0xF, false, false)
+		if k == 'Y' {
 			break
+		}
+		if k == 'M' { // extra: reroll up to 1000 times until the minimums are met
+			e.askMinStats()
+			tries = 1000
 		}
 	}
 	e.CharacterSheet()
@@ -422,4 +441,81 @@ func (e *Engine) DropCharacter() {
 		return
 	}
 	e.BottomMessage(c.Name() + " breathes a sigh of relief.")
+}
+
+// strScore folds 18/xx into one number: 18/01 = 1801, 18/00 = 1900.
+func strScore(st, x byte) int {
+	if st == 18 && x > 0 {
+		return 1800 + int(x)
+	}
+	return int(st) * 100
+}
+
+func (e *Engine) meetsMinStats(c *Character) bool {
+	for i, m := range e.ext.minStats {
+		v := int(c.Stats[i])
+		if i == 0 {
+			v = strScore(c.Stats[0], c.Str00)
+		}
+		if v < m {
+			return false
+		}
+	}
+	return true
+}
+
+// askMinStats (extra): one prompt per stat; blank keeps the last value.
+func (e *Engine) askMinStats() {
+	for i, name := range []string{"STR", "INT", "WIS", "DEX", "CON", "CHA"} {
+		for {
+			cur := itoa(e.ext.minStats[i])
+			if i == 0 {
+				cur = fmtStr(e.ext.minStats[0])
+			}
+			s := strings.TrimSpace(e.InputString("Minimum "+name+" ("+cur+"): ", 0xD, 6))
+			if s == "" {
+				break
+			}
+			if v, ok := parseMinStat(s, i == 0); ok {
+				e.ext.minStats[i] = v
+				break
+			}
+		}
+	}
+}
+
+func fmtStr(v int) string {
+	if v <= 1800 {
+		return itoa(v / 100)
+	}
+	x := v - 1800
+	if x == 100 {
+		return "18/00"
+	}
+	if x < 10 {
+		return "18/0" + itoa(x)
+	}
+	return "18/" + itoa(x)
+}
+
+func parseMinStat(s string, str bool) (int, bool) {
+	a, b, slash := strings.Cut(s, "/")
+	n, err := strconv.Atoi(a)
+	if err != nil || n < 0 || n > 25 {
+		return 0, false
+	}
+	if !slash {
+		if str {
+			return n * 100, true
+		}
+		return n, true
+	}
+	x, err := strconv.Atoi(b)
+	if !str || n != 18 || err != nil || x < 0 || x > 99 {
+		return 0, false
+	}
+	if x == 0 {
+		x = 100
+	}
+	return strScore(18, byte(x)), true
 }
