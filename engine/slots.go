@@ -68,6 +68,8 @@ func (e *Engine) unwindReset() {
 	x.typing, x.modal, x.floor, x.viewing, x.items, x.toItems, x.toSheet = false, 0, 0, false, false, false, false
 	x.switchTo, x.buying, x.campBar, x.selSet, x.skip, x.paging = false, false, false, false, false, false
 	x.fullMap, x.walk, x.back, x.aoe, x.picker, x.enemiesOnly, x.aimMarks = false, nil, false, 0, false, false, nil
+	x.hiddenKeys, x.throwing, x.menuFloor, x.panel = "", nil, 0, nil
+	e.partySel = 0 // a defer on the way out may have put back the old party's index
 	e.pendingScan, e.draining = 0, false
 	e.loadedGame = e.beginFlag != 0 // DS:49F8, as the party menu's Load
 }
@@ -81,7 +83,7 @@ func (e *Engine) slots() []slot {
 	var out []slot
 	for _, en := range ents {
 		st, err := os.Stat(filepath.Join(e.slotRoot(), en.Name(), "SAVGAMA.DAT"))
-		if en.IsDir() && err == nil {
+		if en.IsDir() && err == nil && !strings.HasPrefix(en.Name(), ".") { // .NAME.saving: unfinished
 			out = append(out, slot{en.Name(), st.ModTime()})
 		}
 	}
@@ -184,12 +186,20 @@ func (e *Engine) loadFrom(name string) (ok bool) {
 }
 
 func (e *Engine) saveTo(name string) {
-	os.RemoveAll(filepath.Join(e.slotRoot(), name)) // no stale CHRDAT files of a bigger party
-	e.inSlot(name, func() { e.saveSlot('A') })
-	if f, err := os.Create(filepath.Join(e.slotRoot(), name, seenFile)); err == nil {
+	// written beside the old save, which is replaced only once the new one is
+	// complete (a fresh folder: no stale CHRDAT files of a bigger party)
+	tmp := "." + name + ".saving"
+	os.RemoveAll(filepath.Join(e.slotRoot(), tmp))
+	e.inSlot(tmp, func() { e.saveSlot('A') })
+	if f, err := os.Create(filepath.Join(e.slotRoot(), tmp, seenFile)); err == nil {
 		gob.NewEncoder(f).Encode(e.ext.seen)
 		f.Close()
 	}
+	if _, err := os.Stat(filepath.Join(e.slotRoot(), tmp, "SAVGAMA.DAT")); err != nil {
+		return
+	}
+	os.RemoveAll(filepath.Join(e.slotRoot(), name))
+	os.Rename(filepath.Join(e.slotRoot(), tmp), filepath.Join(e.slotRoot(), name))
 }
 
 const slotRows = 0x11

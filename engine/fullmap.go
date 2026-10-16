@@ -111,7 +111,7 @@ func (e *Engine) loadNotes() {
 			continue
 		}
 		var text string
-		if n, _ := fmt.Sscanf(line, "%d %d %d", &x, &y, &kind); n == 3 && cur != nil && onMap(x, y) && kind < len(poiColour) {
+		if n, _ := fmt.Sscanf(line, "%d %d %d", &x, &y, &kind); n == 3 && cur != nil && onMap(x, y) && kind >= 0 && kind < len(poiColour) {
 			if f := strings.SplitN(line, " ", 4); len(f) == 4 {
 				text = f[3]
 			}

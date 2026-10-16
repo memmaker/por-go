@@ -573,7 +573,7 @@ func (e *Engine) tradeItem(it *Item) {
 	to := e.view.start
 	e.DrawMainScreen()
 	to = e.SelectCharacter("Give to Whom?", true, to)
-	if to == nil {
+	if to == nil || to == e.selected() { // extra: to oneself would join and then drop the stack
 		return
 	}
 	e.view.start = to
