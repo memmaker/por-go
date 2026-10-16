@@ -104,6 +104,7 @@ type extras struct {
 	raw         string                  // the screen reads the arrows itself; its hint line
 	typing      bool                    // InputString is waiting
 	modal       int                     // help or overview shown: any key closes
+	aimMarks    map[[2]int][]int        // Aim: the squares of the foes Next/Prev stop on, framed as Move frames its reach
 	enemiesOnly bool                    // aiming a weapon or hostile spell: Next/Prev skip allies (combatturn2.go)
 	learned     map[*Character][21]byte // the spells each caster held before using some (camp.go noteSpells)
 	picker      bool                    // the list has no menu words: a click picks (listmenu.go)

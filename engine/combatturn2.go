@@ -503,6 +503,7 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround int, 
 				return keyNone
 			}})
 		}
+		e.markReach(e.ext.aimMarks, true) // the cursor's last square drew over its frame
 		prompt, undo := e.aoeMarks(int(x), int(y), "(Use Cursor keys) ")
 		key, _ = e.combatInput(prompt, menu, true)
 		undo()
@@ -582,9 +583,8 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 	var cur, count, prevX, prevY byte
 	skipAlly := false   // extra: N/P pass over allies (hostile spells), while a foe can be aimed at
 	hitOnly := false    // extra: with a weapon, N/P pass over foes it cannot hit, while one can be
-	var marks map[[2]int][]int // extra: the squares of the foes N/P stop on, framed as Move frames its reach
 	rebuild := func() { // ovr14:32E6
-		e.markReach(marks, false)
+		e.markReach(e.ext.aimMarks, false)
 		e.buildNear(e.combatX(c), e.combatY(c), 0x7F, 0xFF, e.combatSize(c))
 		list = append([]nearEntry(nil), e.near.list...)
 		count = byte(len(list))
@@ -595,15 +595,15 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 				hitOnly = hitOnly || showRange != 0 && e.canTarget(c, f, int(rng), showRange)
 			}
 		}
-		marks = map[[2]int][]int{}
+		e.ext.aimMarks = map[[2]int][]int{}
 		for _, n := range list {
 			if f := e.combatant(n.index); skipAlly && f != nil && f.Side != c.Side && e.o14_1085(c, f) &&
 				(!hitOnly || e.canTarget(c, f, int(rng), showRange)) {
-				marks[[2]int{e.combatX(f), e.combatY(f)}] = nil
+				e.ext.aimMarks[[2]int{e.combatX(f), e.combatY(f)}] = nil
 			}
 		}
 	}
-	defer func() { e.markReach(marks, false) }()
+	defer func() { e.markReach(e.ext.aimMarks, false); e.ext.aimMarks = nil }()
 	step := func(by byte, show bool) *Character { // ovr14:3389
 		ent := func(i byte) nearEntry {
 			if int(i) < 1 || int(i) > len(list) {
@@ -644,7 +644,7 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 			cand = step(by, false)
 			continue
 		}
-		e.markReach(marks, true)
+		e.markReach(e.ext.aimMarks, true)
 		key = e.aimPrompt(c, cand, int(rng), showRange)
 		switch key {
 		case 'N':

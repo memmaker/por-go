@@ -67,7 +67,7 @@ func (e *Engine) unwindReset() {
 	x.quick, x.ahead, x.later, x.regions, x.jump, x.raw = nil, nil, nil, nil, nil, ""
 	x.typing, x.modal, x.floor, x.viewing, x.items, x.toItems, x.toSheet = false, 0, 0, false, false, false, false
 	x.switchTo, x.buying, x.campBar, x.selSet, x.skip, x.paging = false, false, false, false, false, false
-	x.fullMap, x.walk, x.back, x.aoe, x.picker, x.enemiesOnly = false, nil, false, 0, false, false
+	x.fullMap, x.walk, x.back, x.aoe, x.picker, x.enemiesOnly, x.aimMarks = false, nil, false, 0, false, false, nil
 	e.pendingScan, e.draining = 0, false
 	e.loadedGame = e.beginFlag != 0 // DS:49F8, as the party menu's Load
 }
