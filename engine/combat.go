@@ -494,6 +494,7 @@ func (e *Engine) throwItem(c *Character) (done bool) {
 		if w.Readied != 0 { // cursed
 			return false
 		}
+		e.ApplyItems(c) // free the weapon's hands: readyItem counts c.Hands
 	}
 	e.readyItem(it)
 	e.ApplyItems(c)
