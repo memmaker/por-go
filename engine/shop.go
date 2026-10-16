@@ -116,7 +116,7 @@ func (e *Engine) Shop() {
 	}
 	for leave := false; !leave; {
 		e.shopMoney()
-		key, _ := e.DisplayInput("", "Browse Appraise Id Exit", 0xD, 0xA, 0xF, true, false) // extra: Buy renamed Browse, no View
+		key, _ := e.DisplayInput("", "Browse Appraise Identify Exit", 0xD, 0xA, 0xF, true, false) // extra: Buy renamed Browse, no View, Id spelled out
 		appraised := false
 		switch key {
 		case 'B':
