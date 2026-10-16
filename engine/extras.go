@@ -280,10 +280,7 @@ func (e *Engine) viewKey(n int) uint16 {
 	}
 	switch {
 	case e.ext.viewing || e.ext.items:
-		if n == e.partySel {
-			if e.ext.viewing {
-				return e.sheetKey()
-			}
+		if n == e.partySel { // already theirs: P switches pages
 			return 0
 		}
 		e.partySel, e.ext.toItems = n, e.ext.items // the same page for member n
