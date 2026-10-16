@@ -78,7 +78,13 @@ func (e *Engine) slots() []slot {
 	for _, en := range ents {
 		st, err := os.Stat(filepath.Join(e.slotRoot(), en.Name(), "SAVGAMA.DAT"))
 		if en.IsDir() && err == nil {
-			out = append(out, slot{en.Name(), st.ModTime()})
+			at := st.ModTime() // slots adopted or saved before timeFile
+			if b, err := os.ReadFile(filepath.Join(e.slotRoot(), en.Name(), timeFile)); err == nil {
+				if t, err := time.Parse(time.RFC3339, strings.TrimSpace(string(b))); err == nil {
+					at = t.Local()
+				}
+			}
+			out = append(out, slot{en.Name(), at})
 		}
 	}
 	slices.SortFunc(out, func(a, b slot) int { return b.at.Compare(a.at) })
@@ -164,6 +170,10 @@ func (e *Engine) LoadSlotNamed(name string) bool {
 // seenFile holds a slot's explored squares (extra: the original keeps none).
 const seenFile = "SEEN.GOB"
 
+// timeFile holds when the slot was saved: under goplay the browser's file
+// system gives no true modification times.
+const timeFile = "SAVED.TXT"
+
 // loadFrom loads the slot and its explored squares (none for a slot saved
 // before they were kept).
 func (e *Engine) loadFrom(name string) (ok bool) {
@@ -182,6 +192,7 @@ func (e *Engine) loadFrom(name string) (ok bool) {
 func (e *Engine) saveTo(name string) {
 	os.RemoveAll(filepath.Join(e.slotRoot(), name)) // no stale CHRDAT files of a bigger party
 	e.inSlot(name, func() { e.saveSlot('A') })
+	os.WriteFile(filepath.Join(e.slotRoot(), name, timeFile), []byte(time.Now().Format(time.RFC3339)), 0o644)
 	if f, err := os.Create(filepath.Join(e.slotRoot(), name, seenFile)); err == nil {
 		gob.NewEncoder(f).Encode(e.ext.seen)
 		f.Close()

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 	"unsafe"
 )
 
@@ -52,6 +53,9 @@ func TestSaveToKeepsArea(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(e.slotRoot(), "X", "SAVGAMA.DAT")); err != nil {
 		t.Error("no save written")
+	}
+	if l := e.slots(); len(l) != 1 || time.Since(l[0].at) > time.Minute {
+		t.Errorf("slots = %v, want X at the save's time", l)
 	}
 }
 
