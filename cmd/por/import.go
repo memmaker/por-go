@@ -50,7 +50,7 @@ func importGame(src, dst string) error {
 				return err
 			}
 		}
-		if e.IsDir() && strings.EqualFold(e.Name(), "FONTS") { // fonts for Ctrl-L (engine/fonts.go)
+		if e.IsDir() && strings.EqualFold(e.Name(), "FONTS") { // fonts for Ctrl-F (engine/fonts.go)
 			if err := copyFiles(filepath.Join(dir, e.Name()), filepath.Join(dst, "FONTS"), func(n string) bool {
 				return strings.EqualFold(filepath.Ext(n), ".f8")
 			}); err != nil {

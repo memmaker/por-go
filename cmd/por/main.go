@@ -110,11 +110,15 @@ func (g *game) keys() {
 	for _, k := range inpututil.AppendJustPressedKeys(nil) {
 		if code, ok := biosKey(k); ok {
 			g.push(code)
-		} else if k == ebiten.KeyL && ebiten.IsKeyPressed(ebiten.KeyControl) && ebiten.IsKeyPressed(ebiten.KeyShift) {
-			g.push(engine.KeyFontPrev) // Ctrl-L next font, Ctrl-Shift-L the one before
+		} else if k == ebiten.KeyF && ebiten.IsKeyPressed(ebiten.KeyControl) && ebiten.IsKeyPressed(ebiten.KeyShift) {
+			g.push(engine.KeyFontPrev) // Ctrl-F next font, Ctrl-Shift-F the one before
 		} else if k >= ebiten.KeyA && k <= ebiten.KeyZ && ebiten.IsKeyPressed(ebiten.KeyControl) {
 			g.push(uint16(k-ebiten.KeyA) + 1) // Ctrl-letter: ASCII 1..26 (Ctrl-S sound toggle, Ctrl-C quit)
 		}
+	}
+	// a Ctrl combination types no letter of its own (Ctrl+Alt is AltGr: it does)
+	if ebiten.IsKeyPressed(ebiten.KeyControl) && !ebiten.IsKeyPressed(ebiten.KeyAlt) {
+		return
 	}
 	for _, r := range ebiten.AppendInputChars(nil) {
 		if r < 128 {

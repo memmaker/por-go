@@ -106,7 +106,7 @@ func main() {
 		// menu, then type KEYS, one shot per key: ^ v < > arrows, | Enter,
 		// @ # $ gamepad A/Y/X, [ ] ( ) d-pad up/down/left/right, !N F1..F6, and the
 		// mouse: %cX,Y; click at text cell X,Y, %hX,Y; point there, %u %d
-		// wheel up/down, %r right button, _ waits; %e is Esc, %l Ctrl-L. SLOT "-" stays in the
+		// wheel up/down, %r right button, _ waits; %e is Esc, %l Ctrl-F. SLOT "-" stays in the
 		// party menu. Each shot's hint line goes to game_NN.txt.
 		slot, keys := "A", ""
 		if len(os.Args) > 4 {
@@ -160,7 +160,7 @@ func main() {
 				case 'e':
 					code = 27
 				case 'l':
-					code = 0x0C // Ctrl-L: next font
+					code = 0x06 // Ctrl-F: next font
 				}
 			}
 			switch k {

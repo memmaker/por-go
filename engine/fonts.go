@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Text fonts (extra): Ctrl-L cycles from the game's
+// Text fonts (extra): Ctrl-F cycles from the game's
 // own font through the 8x8 fonts of The Ultimate Oldschool PC Font Pack
 // (fonts/, CC BY-SA 4.0, see fonts/LICENSE.txt), Ctrl-Shift-L goes back.
 // A PC font draws text in its real case (the game's font has capitals
@@ -36,7 +36,7 @@ var pcFonts = func() []pcFont {
 	return fs
 }()
 
-// KeyFontPrev is Ctrl-Shift-L from the window (Ctrl-L arrives as ASCII 12).
+// KeyFontPrev is Ctrl-Shift-F from the window (Ctrl-F arrives as ASCII 6).
 const KeyFontPrev = 0xFD00
 
 // textCell is what drawChar last put into a cell, so a font change can
@@ -126,7 +126,7 @@ func (e *Engine) FontName() string {
 }
 
 // Note is a short message for the window to show over the picture (the
-// font name after Ctrl-L) and when it was set.
+// font name after Ctrl-F) and when it was set.
 func (e *Engine) Note() (string, time.Time) { return e.ext.note, e.ext.noteAt }
 
 // glyph is the 8x8 pattern drawChar draws for ch, or false when there is

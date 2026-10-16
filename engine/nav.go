@@ -118,8 +118,8 @@ func (e *Engine) translate(k uint16) uint16 {
 		return k
 	}
 	switch {
-	case k == 0x0C || k == KeyFontPrev: // Ctrl-L, Ctrl-Shift-L
-		if k == 0x0C {
+	case k == 0x06 || k == KeyFontPrev: // Ctrl-F, Ctrl-Shift-F
+		if k == 0x06 {
 			e.cycleFont(1)
 		} else {
 			e.cycleFont(-1)

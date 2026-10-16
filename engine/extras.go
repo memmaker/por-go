@@ -20,7 +20,7 @@ import (
 //	?      keyboard help, at any prompt
 //	F1-F6  the inventory of party member 1-6 (command bar, camp, View);
 //	       P switches between it and the View page
-//	Ctrl-L next text font (Ctrl-Shift-L the one before; fonts.go)
+//	Ctrl-F next text font (Ctrl-Shift-F the one before; fonts.go)
 //	Q    quickstart on the empty party menu: a ready-made party of six
 //	F7   named save slots: save and load at any time (slots.go)
 //
@@ -420,7 +420,7 @@ var helpLines = [][2]string{
 	{"Right button", "back"},
 	{"", ""},
 	{"F7", "save / load game"},
-	{"Ctrl L", "font (+Shift: back)"},
+	{"Ctrl F", "font (+Shift: back)"},
 	{"?", "this help, any time"},
 }
 
