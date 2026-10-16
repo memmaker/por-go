@@ -685,7 +685,6 @@ func (e *Engine) sellItem(it *Item) {
 // identifyItem = ovr20:1F52 (item, redraw): 200 gp shows the hidden words.
 func (e *Engine) identifyItem(c *Character, it *Item) (redraw bool) {
 	e.ItemName(c, it, 0, 0, false, false)
-	e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "For 200 gold pieces I'll identify your "+it.Name())
 	if e.YesNo(0xD, 0xA, 0xF, "Is It a Deal? ") == 'Y' && e.pay(200) {
 		if it.Hidden == 0 {
 			e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "I can't tell anything new about your "+it.Name())

@@ -42,7 +42,7 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 		*index %= len(list)
 	}
 	e.ext.buying = true
-	key := e.ListMenu("  Items: ", "Buy Look Inv", 0xD, 0xA, 0xF, 2, 4, 0x26, 0x16, list, true, &redraw, index, &sel)
+	key := e.ListMenu("Items: ", "Buy Look Inv", 0xD, 0xA, 0xF, 2, 4, 0x26, 0x16, list, true, &redraw, index, &sel)
 	e.ext.buying = false
 	*item = nil
 	for i, n := range list {
@@ -185,7 +185,9 @@ func (e *Engine) identifyMenu() bool {
 		if index == 0 || index >= len(list) || list[index].Flag != 0 {
 			index = 1
 		}
-		e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "Identify")
+		e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "Identify for 200g")
+		gold := itoa(int(e.purse.gold)) + "g" // as in the buy screen
+		e.DisplayString(0x26-len(gold), 0x17, 0xE, gold)
 		redraw := true
 		var sel *ListNode
 		key := e.ListMenu("", "Id", 0xB, 0xA, 0xF, 2, 3, 0x26, 0x16, list, true, &redraw, &index, &sel)
