@@ -99,7 +99,7 @@ func (e *Engine) itemStats(typ byte) string {
 			v -= 50 // body armour counts up from AC 10 = 50
 		}
 		if v > 0 {
-			s += "<" + itoa(v) + "> "
+			s += "[" + itoa(v) + "] "
 		}
 	}
 	return s
