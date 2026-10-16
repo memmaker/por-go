@@ -73,6 +73,11 @@ func (t *traceState) readKey(e *Engine) uint16 {
 	k := t.keys[0]
 	t.keys = t.keys[1:]
 	t.ready, t.idle = false, 0
+	if k >= KeyMouse { // (extra) a scripted click goes through nav.go as in a window
+		if k = e.translate(k); k == 0 {
+			k = keyNone
+		}
+	}
 	e.Trace("INT16", "ReadKey", int(k))
 	return k
 }

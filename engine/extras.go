@@ -104,6 +104,7 @@ type extras struct {
 	raw      string         // the screen reads the arrows itself; its hint line
 	typing   bool           // InputString is waiting
 	modal    int            // help or overview shown: any key closes
+	picker   bool           // the list has no menu words: a click picks (listmenu.go)
 	floor    int            // regions below belong to the screen under the modal one
 	viewing  bool           // the View page's own menu is waiting
 	items    bool           // the inventory's item list is waiting

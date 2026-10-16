@@ -97,9 +97,25 @@ func (e *Engine) ModifyCharacter() {
 			hpToDraw()
 		}
 	}
-	defer e.rawArrows("↑↓=score|← →=lower, raise|K, click=keep|Esc=cancel")()
+	defer e.rawArrows("↑↓, click=score|← →, Raise Lower=change|K, click=keep|Esc=cancel")()
 	for {
-		key, extra := e.DisplayInput("Modify character: ", "Keep Exit", 0xD, 0xA, 0xF, true, false)
+		// extra (nav.go): a click on a score or the hit points selects it;
+		// Raise and Lower on the menu bar change it
+		mark := e.regionMark()
+		pick := func(i int) {
+			e.modifyDraw(idx, false)
+			idx = i
+		}
+		e.addRegion(region{x0: 0, y0: 7, x1: 0xB, y1: 12, click: func(_, cy int) uint16 { pick(cy - 7); return keyNone }})
+		e.addRegion(region{x0: 0, y0: 0x12, x1: 0xB, y1: 0x12, click: func(int, int) uint16 { pick(6); return keyNone }})
+		key, extra := e.DisplayInput("Modify character: ", "Keep Raise Lower Exit", 0xD, 0xA, 0xF, true, false)
+		e.regionCut(mark)
+		switch {
+		case !extra && key == 'R':
+			key, extra = 0x4D, true
+		case !extra && key == 'L':
+			key, extra = 0x4B, true
+		}
 		e.modifyDraw(idx, false)
 		if !extra && (key == 'E' || key == 0) {
 			copy(c.Stats[:], saved[:])

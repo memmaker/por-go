@@ -224,8 +224,8 @@ func (e *Engine) mouseKey(button, cx, cy int) uint16 {
 		}
 		return e.rosterClick(cx, cy)
 	}
-	if e.ext.menu == 0 && !e.ext.typing {
-		return 13 // "press a key"
+	if e.ext.menu == 0 {
+		return 13 // "press a key"; ends a typed line too
 	}
 	return 0
 }
@@ -322,7 +322,7 @@ func (e *Engine) hintText() string {
 	case x.modal > 0:
 		return "any key, click=close"
 	case x.typing:
-		return "type=text|Backspace=erase|Enter=done"
+		return "type=text|Backspace=erase|Enter, click=done"
 	case x.raw != "":
 		return x.raw
 	case x.menu == 0:
@@ -338,6 +338,9 @@ func (e *Engine) hintText() string {
 		return h + "|F1-F6=member items|P=party|?=help"
 	case x.list:
 		h := "↑↓ wheel, click=line|Enter, click again=choose|PgUp PgDn=page|← →=highlight"
+		if x.picker {
+			h = "↑↓ wheel, hover=line|Enter, click=choose|PgUp PgDn=page"
+		}
 		if x.items {
 			h += "|P=character|F1-F6=member"
 		}

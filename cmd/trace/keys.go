@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"por/engine"
 )
 
 // ParseKeys = decomp/emu/keys.py parse_keys: BIOS words (scan<<8 | ascii).
@@ -42,6 +44,12 @@ func ParseKeys(toks []string) ([]uint16, error) {
 		switch {
 		case named[lt] != 0:
 			out = append(out, named[lt])
+		case strings.HasPrefix(lt, "click:"): // click:X:Y, a left click on text cell (X, Y)
+			var x, y int
+			if _, err := fmt.Sscanf(lt, "click:%d:%d", &x, &y); err != nil {
+				return nil, err
+			}
+			out = append(out, engine.MouseKey(engine.MouseLeft, x, y))
 		case strings.HasPrefix(lt, "0x"):
 			v, err := strconv.ParseUint(lt[2:], 16, 16)
 			if err != nil {

@@ -219,21 +219,45 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 	}
 	*index++
 	e.lmMoveCursor(c, false)
-	{ // extra (nav.go): a click moves the cursor to the line, a second one is Enter
+	{ // extra (nav.go): a click moves the cursor to the line, a second one is
+		// Enter; a pure picker (no menu words) picks on the first click, and
+		// the line under the pointer is highlighted
 		mark := e.regionMark()
 		defer e.regionCut(mark)
-		e.addRegion(region{x0: x1, y0: y1, x1: x2, y1: y2, click: func(_, cy int) uint16 {
+		at := func(cy int) int {
 			i := e.listTop + cy - y1
 			if p := c.nth(i); p == nil || p.skipped() {
-				return 0
+				return -1
 			}
-			if i == *index {
-				return 13
-			}
+			return i
+		}
+		move := func(i int) {
 			e.lmDrawRow(c, *index, false)
 			*index = i
+			e.lmDrawRow(c, *index, true)
+		}
+		r := region{x0: x1, y0: y1, x1: x2, y1: y2, click: func(_, cy int) uint16 {
+			i := at(cy)
+			if i < 0 {
+				return 0
+			}
+			if i == *index || menu == "" {
+				*index = i
+				return 13
+			}
+			move(i)
 			return keyNone
-		}})
+		}}
+		if menu == "" {
+			r.hover = func() {
+				if cx, cy, ok := e.S.Mouse(); ok && cx >= x1 && cx <= x2 {
+					if i := at(cy); i >= 0 && i != *index {
+						move(i)
+					}
+				}
+			}
+		}
+		e.addRegion(r)
 	}
 	if *redraw {
 		e.lmDrawRows(c, e.listTop)
@@ -254,9 +278,9 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 		if showExit {
 			m += " Exit"
 		}
-		e.ext.list = true
+		e.ext.list, e.ext.picker = true, menu == ""
 		key, extra := e.DisplayInput(title, m, promptColour, normal, hi, true, false)
-		e.ext.list = false
+		e.ext.list, e.ext.picker = false, false
 		e.lmDrawRow(c, *index, false)
 		if extra {
 			switch key {
