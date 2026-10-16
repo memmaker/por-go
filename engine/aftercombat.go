@@ -291,11 +291,16 @@ func (e *Engine) showResult(exp int32) {
 		}
 		e.DisplayTextBlock(1, 9, 0x26, 0x16, 0xA, true, "The party takes "+strings.Join(got, ", ")+".")
 	}
-	y := 0xC // extra: who came out of the fight hurt, dead or worse
+	y := 0xC // extra: who came out of the fight dead or worse, or with spell effects on them
 	for _, c := range e.party {
-		if st := e.statusName(c); c.Status != 0 && c.Status != 3 && st != "" && y <= 0x15 {
+		var what []string
+		if st := e.statusName(c); c.Status != 0 && c.Status != 3 && st != "" {
+			what = append(what, st)
+		}
+		what = append(what, e.affectList(c)...) // the camp's Display list
+		if len(what) > 0 && y <= 0x15 {
 			e.DisplayString(1, y, 0xB, cut(c.Name(), 15))
-			e.DisplayString(0x12, y, 0xC, st)
+			e.DisplayString(0x12, y, 0xC, cut(strings.Join(what, ", "), 0x26-0x12))
 			y++
 		}
 	}
