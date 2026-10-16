@@ -246,8 +246,8 @@ func (e *Engine) Appraise() (any bool) {
 			}
 			return cut(itoa(n)+many, 0x28)
 		}
-		gems := count(p.gems, " Gem", " Gems")
-		jewels := count(p.jewelry, " piece of Jewelry", " pieces of Jewelry")
+		gems := count(int(p.gems), " Gem", " Gems")
+		jewels := count(int(p.jewelry), " piece of Jewelry", " pieces of Jewelry")
 		e.ClearBox(1, 1, 0x26, 0x16)
 		e.displayName(c, 1, 1, false) // 00BA:1816
 		e.DisplayString(1, 7, 0xF, "You have a fine collection of:")
@@ -340,5 +340,5 @@ func (e *Engine) sellOrKeep(c *Character, v uint16, word byte) {
 		}
 		return
 	}
-	e.purse.gold += int(v)
+	e.purse.gold += uint32(v)
 }

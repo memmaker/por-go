@@ -84,7 +84,7 @@ func (e *Engine) shopBuy() {
 		if key != 'B' && key != 13 || it == nil {
 			return
 		}
-		price := int(it.Price)
+		price := uint32(it.Price)
 		if price > e.purse.gold {
 			e.BottomMessage("Not enough Money.")
 		} else if !e.buyItem(it) {

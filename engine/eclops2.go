@@ -145,8 +145,8 @@ func (e *Engine) opRob() {
 		robbed = e.party
 	}
 	share := float64(pct) / 100 * float64(len(robbed)) / float64(max(len(e.party), 1))
-	for _, n := range []*int{&e.purse.gold, &e.purse.copper, &e.purse.gems, &e.purse.jewelry} {
-		*n -= int(float64(*n) * share)
+	for _, n := range []*uint32{&e.purse.gold, &e.purse.copper, &e.purse.gems, &e.purse.jewelry} {
+		*n -= uint32(float64(*n) * share)
 	}
 	for _, c := range robbed {
 		e.ItemSave(c, pct)
@@ -533,7 +533,6 @@ func (e *Engine) opWho() {
 	e.FetchArgs(1)
 	e.ClearBox(1, 0x11, 0x26, 0x16)
 	start := e.selected()
-	e.run.gambling = e.es.strAt(1) == "WHO WILL GAMBLE?"
 	if e.es.strAt(1) == "WHO WILL PAY?" { // extra: one party purse, so the first non-NPC pays (inn, ECL3 A1B4)
 		for i, c := range e.party {
 			if c.Control < 0x80 {

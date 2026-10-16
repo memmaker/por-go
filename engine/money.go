@@ -8,7 +8,7 @@ import "encoding/binary"
 
 // purse is the party's money: gold pieces, copper (under 200, a gold piece),
 // and gems and jewelry to appraise.
-type purse struct{ gold, copper, gems, jewelry int }
+type purse struct{ gold, copper, gems, jewelry uint32 }
 
 func (p *purse) add(q purse) {
 	p.gold += q.gold
@@ -18,37 +18,37 @@ func (p *purse) add(q purse) {
 }
 
 // addCopper adds n copper, changing every 200 into a gold piece.
-func (p *purse) addCopper(n int) {
+func (p *purse) addCopper(n uint32) {
 	p.copper += n
 	p.gold += p.copper / 200
 	p.copper %= 200
 }
 
 // moneyText is gold and copper as "12 gold" / "12 gold and 50 copper".
-func moneyText(gold, copper int) string {
+func moneyText(gold, copper uint32) string {
 	switch {
 	case copper == 0:
-		return itoa(gold) + " gold"
+		return itoa(int(gold)) + " gold"
 	case gold == 0:
-		return itoa(copper) + " copper"
+		return itoa(int(copper)) + " copper"
 	}
-	return itoa(gold) + " gold and " + itoa(copper) + " copper"
+	return itoa(int(gold)) + " gold and " + itoa(int(copper)) + " copper"
 }
 
 func (p purse) empty() bool { return p == purse{} }
 
 // coinCopper is the worth of copper, silver, electrum, gold and platinum
 // in copper pieces (DS:0D24); 200 copper make a gold piece (DS:0D30).
-var coinCopper = [5]int{1, 10, 100, 200, 1000}
+var coinCopper = [5]uint32{1, 10, 100, 200, 1000}
 
 // coinsToPurse counts coins of the seven kinds (the last two gems and
 // jewelry) as gold and copper.
 func coinsToPurse(c [7]uint16) purse {
-	var t int
+	var t uint32
 	for i, v := range coinCopper {
-		t += int(c[i]) * v
+		t += uint32(c[i]) * v
 	}
-	return purse{gold: t / 200, copper: t % 200, gems: int(c[5]), jewelry: int(c[6])}
+	return purse{gold: t / 200, copper: t % 200, gems: uint32(c[5]), jewelry: uint32(c[6])}
 }
 
 // takeRecordCoins moves the coins in a character record (starting gold,
@@ -63,7 +63,7 @@ func (e *Engine) takeRecordCoins(c *Character) {
 }
 
 // pay takes gold from the purse; false (and a message) when there is not enough.
-func (e *Engine) pay(gold int) bool {
+func (e *Engine) pay(gold uint32) bool {
 	if gold > e.purse.gold {
 		e.BottomMessage("Not enough money.")
 		return false
@@ -81,10 +81,6 @@ func (e *Engine) purseCoin(i int) uint16 {
 	case 3:
 		return uint16(e.purse.gold % 5)
 	case 4:
-		if e.run.gambling {
-			// ponytail: the script keeps this in a word, so over 65535 gold a win wraps; clamp lower if parties get that rich
-			return uint16(min(e.purse.gold, 0xFFFF)) // the wager is in gold
-		}
 		return uint16(min(e.purse.gold/5, 0xFFFF))
 	}
 	return 0
@@ -92,10 +88,6 @@ func (e *Engine) purseCoin(i int) uint16 {
 
 // setPurseCoin is a script setting one of those coin words.
 func (e *Engine) setPurseCoin(i int, v uint16) {
-	if i == 4 && e.run.gambling { // gold beyond what a word holds stays
-		e.purse.gold += int(v) - min(e.purse.gold, 0xFFFF)
-		return
-	}
 	var c [7]uint16
 	for k := 0; k <= 4; k++ {
 		c[k] = e.purseCoin(k)
@@ -107,8 +99,8 @@ func (e *Engine) setPurseCoin(i int, v uint16) {
 
 // appendPurse / readPurse keep the purse after the original save game data.
 func appendPurse(b []byte, p purse) []byte {
-	for _, v := range []int{p.gold, p.gems, p.jewelry, p.copper} {
-		b = binary.LittleEndian.AppendUint32(b, uint32(v))
+	for _, v := range []uint32{p.gold, p.gems, p.jewelry, p.copper} {
+		b = binary.LittleEndian.AppendUint32(b, v)
 	}
 	return b
 }
@@ -117,7 +109,7 @@ func readPurse(b []byte) purse {
 	if len(b) < 12 {
 		return purse{}
 	}
-	v := func(i int) int { return int(binary.LittleEndian.Uint32(b[4*i:])) }
+	v := func(i int) uint32 { return binary.LittleEndian.Uint32(b[4*i:]) }
 	p := purse{gold: v(0), gems: v(1), jewelry: v(2)}
 	if len(b) >= 16 { // copper came later: older saves end after jewelry
 		p.copper = v(3)
@@ -131,13 +123,13 @@ func (e *Engine) showMoney() {
 	y := 7
 	for _, l := range []struct {
 		name string
-		n    int
+		n    uint32
 	}{{"Gold", e.purse.gold}, {"Copper", e.purse.copper}, {"Gems", e.purse.gems}, {"Jewelry", e.purse.jewelry}} {
 		if l.n == 0 {
 			continue
 		}
 		e.DisplayString(0x14-len(l.name), y, 0xA, l.name)
-		e.DisplayString(0x15, y, 0xA, itoa(l.n))
+		e.DisplayString(0x15, y, 0xA, itoa(int(l.n)))
 		y++
 	}
 }

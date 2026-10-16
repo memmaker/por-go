@@ -13,7 +13,6 @@ import (
 // eclRun holds the ovr04 globals that are not part of the ovr08 interpreter.
 type eclRun struct {
 	restoreSel  bool       // DS:4430: put DS:4436 back as the selected character
-	gambling    bool       // extra: the tavern game (ECL3 A4F2) counts the purse in gold
 	savedSel    *Character // DS:4436 (a pointer: survives the list changing)
 	scriptLoad  byte       // DS:4431
 	needFrame   byte       // DS:4432: main screen not drawn yet
@@ -66,6 +65,10 @@ func (e *Engine) RunECL(addr int) {
 	for !e.es.stop && !e.run.quit {
 		e.es.prevOp = e.es.op
 		e.es.op = e.eclByte(e.eclPC)
+		if f := e.nativeScript(); f != nil {
+			f(e)
+			continue
+		}
 		e.walkOp(e.es.op)
 		if int(e.es.op) < len(eclOps) && eclOps[e.es.op] != nil {
 			eclOps[e.es.op](e)
@@ -93,7 +96,6 @@ func (e *Engine) opExit() {
 	}
 	e.es.f84C8 = [2]byte{}
 	e.es.f84E0, e.es.f84E2 = 0, 0
-	e.run.gambling = false
 	e.es.stop = true
 	e.eclPC++
 	e.es.retStack = nil
@@ -128,9 +130,6 @@ func (e *Engine) opCompare() {
 		if e.isDay() {
 			a = 0
 		}
-	}
-	if e.run.gambling && e.es.argType[2] == 2 && b == 1000 {
-		b = 5000 // extra: the house limit, 1000 platinum, in gold
 	}
 	e.CompareWords(a, b)
 }
@@ -313,35 +312,36 @@ func (e *Engine) opInputString() {
 	e.WriteStringVar(dst, s)
 }
 
-// opPrint = ovr04:0A09 (PRINT 0x11, PRINTCLEAR 0x12).
 // platinumPrices (extra) reprices the scripts' platinum in gold: the purse
 // holds gold and copper, and a script's platinum is 5 of its gold.
 var platinumPrices = strings.NewReplacer(
 	"1 PLATINUM PIECE", "5 GOLD PIECES", // inn, harbor master (ECL3)
-	"ENOUGH PLATINUM", "ENOUGH GOLD",
-	// the tavern game, played in gold (run.gambling): 1000 platinum is 5000 gold
-	" PP.", " GP.",
-	"HOW MANY PLATINUM PIECES WILL YOU WAGER? (HOUSE LIMIT IS 1000)", "HOW MANY GOLD PIECES WILL YOU WAGER? (HOUSE LIMIT IS 5000)")
+	"ENOUGH PLATINUM", "ENOUGH GOLD")
 
+// opPrint = ovr04:0A09 (PRINT 0x11, PRINTCLEAR 0x12).
 func (e *Engine) opPrint() {
 	e.FetchArgs(1)
-	e.run.f84E4 = 0
-	e.slowText = true
 	if e.es.argType[1] < 0x80 {
 		e.es.str[1] = strconv.Itoa(int(e.ArgValue(1))) // 00BA:1073
 	}
-	e.es.str[1] = platinumPrices.Replace(e.es.str[1])
-	if w := e.ext.walk; w != nil && strings.TrimSpace(e.es.str[1]) != "" {
+	e.scriptText(e.es.op == 0x12, e.es.str[1])
+}
+
+// scriptText is opPrint's text: clear starts the text window over.
+func (e *Engine) scriptText(clear bool, s string) {
+	e.run.f84E4 = 0
+	e.slowText = true
+	s = platinumPrices.Replace(s)
+	e.es.str[1] = s
+	if w := e.ext.walk; w != nil && strings.TrimSpace(s) != "" {
 		w.event = true // (extra, walk.go) blank text only clears the window
 	}
-	if e.es.op == 0x11 {
-		e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, false, e.es.str[1])
-	} else {
+	if clear {
 		e.msgRow, e.msgCol = 0x11, 1
-		e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, true, e.es.str[1])
 	}
+	e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, clear, s)
 	e.slowText = false
-	e.journalPrinted(e.es.str[1], e.es.op == 0x12)
+	e.journalPrinted(s, clear)
 }
 
 // opReturn = ovr04:0A9F.

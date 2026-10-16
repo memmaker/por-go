@@ -236,8 +236,8 @@ func (e *Engine) hiredShare() {
 	if shares == 0 || e.loot.empty() {
 		return
 	}
-	for _, n := range []*int{&e.loot.gold, &e.loot.copper, &e.loot.gems, &e.loot.jewelry} {
-		*n -= *n / parts * shares
+	for _, n := range []*uint32{&e.loot.gold, &e.loot.copper, &e.loot.gems, &e.loot.jewelry} {
+		*n -= *n / uint32(parts) * uint32(shares)
 	}
 	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "")
 	k := 0
@@ -282,11 +282,11 @@ func (e *Engine) showResult(exp int32) {
 			got = append(got, moneyText(l.gold, l.copper))
 		}
 		for _, p := range []struct {
-			n    int
+			n    uint32
 			name string
 		}{{l.gems, " gems"}, {l.jewelry, " jewelry"}} {
 			if p.n > 0 {
-				got = append(got, itoa(p.n)+p.name)
+				got = append(got, itoa(int(p.n))+p.name)
 			}
 		}
 		e.DisplayTextBlock(1, 9, 0x26, 0x16, 0xA, true, "The party takes "+strings.Join(got, ", ")+".")

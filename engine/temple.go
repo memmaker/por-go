@@ -19,7 +19,7 @@ func (e *Engine) templePay(cure string, price uint16) byte {
 		cut(cure+" will only cost "+itoa(int(price))+" gold pieces.", 0xFF))
 	k := e.YesNo(0xD, 0xF, 0xA, "pay for cure ")
 	if k == 'Y' {
-		if !e.pay(int(price)) {
+		if !e.pay(uint32(price)) {
 			k = 'N'
 		}
 	}

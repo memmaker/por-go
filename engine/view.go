@@ -673,10 +673,10 @@ func (e *Engine) spellRec(spell byte, k int) byte {
 // of a stack), paid into the party's purse. extra: the halves are kept as
 // copper where the original dropped them.
 func (e *Engine) sellItem(it *Item) {
-	v := int(it.Price) * 100 // copper
+	v := uint32(it.Price) * 100 // copper
 	if it.Count > 1 {
 		// (the arrows/quarrels branch of the original can never be taken)
-		v = int(it.Count) * v / 0x14
+		v = uint32(it.Count) * v / 0x14
 	}
 	e.ItemName(e.viewChar(), it, 0, 0, false, false)
 	e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true,
