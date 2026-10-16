@@ -130,9 +130,8 @@ func (e *Engine) PartyMenu() {
 					enabled[mTrain] = true // never cleared here, only without a party
 				}
 				enabled[mView], enabled[mRemove] = true, true
-				enabled[mLoad], enabled[mForget] = false, false // (extra) the list fills the box
-				// (extra) mSave stays off: F9 saves
-				enabled[mBegin] = true
+				enabled[mLoad], enabled[mForget] = false, false      // (extra) the list fills the box
+				enabled[mSave], enabled[mBegin] = e.lettered(), true // (extra) F9 saves (slots.go)
 			} else {
 				for _, m := range []int{mDrop, mModify, mTrain, mView, mRemove, mSave, mBegin} {
 					enabled[m] = false
@@ -253,10 +252,19 @@ func (e *Engine) PartyMenu() {
 			}
 		case 'L':
 			if enabled[mLoad] {
-				if e.SlotMenu(true) && e.beginFlag != 0 { // (extra) the F9 screen, loading only
+				if e.lettered() {
+					e.LoadGame()
+				} else {
+					e.SlotMenu(true) // (extra) the F9 screen, loading only
+				}
+				if e.beginFlag != 0 {
 					e.loadedGame = true // DS:49F8
 					return
 				}
+			}
+		case 'S':
+			if enabled[mSave] && len(e.party) > 0 {
+				e.SaveGame()
 			}
 		case 'B':
 			if enabled[mBegin] && len(e.party) > 0 {
@@ -267,6 +275,9 @@ func (e *Engine) PartyMenu() {
 		case 'E':
 			if enabled[mExit] {
 				if e.YesNo(0xE, 0xA, 0xF, "Quit to DOS ") == 'Y' {
+					for e.lettered() && !e.saved && len(e.party) > 0 {
+						e.SaveGame()
+					}
 					e.Exit()
 				}
 			}

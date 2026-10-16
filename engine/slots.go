@@ -84,10 +84,16 @@ func (e *Engine) slots() []slot {
 	return out
 }
 
-// adoptLettered moves each savgam<L>.dat in the save directory, with its
-// CHRDAT<L>* files, into the slot "GAME <L>" as SAVGAMA.DAT. The party file
-// names inside the save stay as they are; loadSlot finds them in the folder.
+// adoptLettered copies each savgam<L>.dat in the save directory, with its
+// CHRDAT<L>* files, into the slot "GAME <L>" as SAVGAMA.DAT, once (the
+// marker saves/.lettered): the originals stay for the emulator harness, and
+// a deleted slot stays deleted. The party file names inside the save stay as
+// they are; loadSlot finds them in the folder.
 func (e *Engine) adoptLettered() {
+	mark := filepath.Join(e.slotRoot(), ".lettered")
+	if _, err := os.Stat(mark); err == nil || e.Cfg.SaveDir == "" {
+		return
+	}
 	ents, _ := os.ReadDir(e.Cfg.SaveDir)
 	for _, en := range ents {
 		up := strings.ToUpper(en.Name())
@@ -96,18 +102,33 @@ func (e *Engine) adoptLettered() {
 		}
 		dir := filepath.Join(e.slotRoot(), "GAME "+up[6:7])
 		if _, err := os.Stat(dir); err == nil {
-			continue // ponytail: a slot of that name already exists; the old save stays put
+			continue // a slot of that name exists already
 		}
-		if os.MkdirAll(dir, 0o755) != nil || os.Rename(filepath.Join(e.Cfg.SaveDir, en.Name()), filepath.Join(dir, "SAVGAMA.DAT")) != nil {
-			continue
-		}
+		os.MkdirAll(dir, 0o755)
+		copyFile(filepath.Join(e.Cfg.SaveDir, en.Name()), filepath.Join(dir, "SAVGAMA.DAT"))
 		for _, f := range ents {
 			if strings.HasPrefix(strings.ToUpper(f.Name()), "CHRDAT"+up[6:7]) {
-				os.Rename(filepath.Join(e.Cfg.SaveDir, f.Name()), filepath.Join(dir, f.Name()))
+				copyFile(filepath.Join(e.Cfg.SaveDir, f.Name()), filepath.Join(dir, f.Name()))
 			}
 		}
 	}
+	os.MkdirAll(e.slotRoot(), 0o755)
+	os.WriteFile(mark, nil, 0o644)
 }
+
+// copyFile copies src to dst with src's time (the slot list sorts by it).
+func copyFile(src, dst string) {
+	b, err := os.ReadFile(src)
+	st, err2 := os.Stat(src)
+	if err != nil || err2 != nil || os.WriteFile(dst, b, 0o644) != nil {
+		return
+	}
+	os.Chtimes(dst, st.ModTime(), st.ModTime())
+}
+
+// lettered: the original's Save and Load (savgam<L>.dat) instead of the
+// slot screen, for traced runs only.
+func (e *Engine) lettered() bool { return e.Trace != nil }
 
 // slotName keeps what a folder name may hold.
 func slotName(s string) string {
@@ -126,6 +147,11 @@ func (e *Engine) inSlot(name string, f func()) {
 	e.Cfg.SaveDir = filepath.Join(e.slotRoot(), name)
 	defer func() { e.Cfg.SaveDir = dir }()
 	f()
+}
+
+// SlotIndex is the slot's line on the slot screen, or -1 (cmd/snap).
+func (e *Engine) SlotIndex(name string) int {
+	return slices.IndexFunc(e.slots(), func(s slot) bool { return s.name == name })
 }
 
 // LoadSlotNamed loads the slot without the screen (cmd/snap).

@@ -102,7 +102,8 @@ func main() {
 		time.Sleep(300 * time.Millisecond)
 		dump(scr, out+"/party_exit.png")
 	case "game":
-		// snap DATA OUT game SLOT KEYS: load a saved game through the party
+		// snap DATA OUT game SLOT KEYS: load a saved game (a slot name; a letter
+		// L is the slot GAME L) through the party
 		// menu, then type KEYS, one shot per key: ^ v < > arrows, | Enter,
 		// @ # $ gamepad A/Y/X, [ ] ( ) d-pad up/down/left/right, !N F1..F8, and the
 		// mouse: %cX,Y; click at text cell X,Y, %hX,Y; point there, %u %d
@@ -119,10 +120,21 @@ func main() {
 		if len(os.Args) > 6 {
 			e.DevAction = e.DevScene(os.Args[6])
 		}
+		if len(slot) == 1 && slot != "-" {
+			slot = "GAME " + slot // a lettered save, copied into its slot
+		}
 		go e.Play()
 		if slot != "-" {
+			i := e.SlotIndex(slot)
+			if i < 0 {
+				log.Fatalf("no saved game %q", slot)
+			}
 			scr.PushKey('L')
-			scr.PushKey(uint16(slot[0]))
+			time.Sleep(500 * time.Millisecond) // the slot screen up first
+			for ; i > 0; i-- {
+				scr.PushKey(0x5000)
+			}
+			scr.PushKey(13)
 		}
 		time.Sleep(1500 * time.Millisecond)
 		dump(scr, out+"/game_00.png")
