@@ -60,7 +60,7 @@ type region struct {
 	hover          func()                  // optional: the pointer came onto it
 }
 
-// modalOn opens a modal screen (help, overview, the F7 slots): any key or
+// modalOn opens a modal screen (help, overview, the F9 slots): any key or
 // click closes it, but regions it adds itself (its own menus) take clicks.
 func (e *Engine) modalOn() func() {
 	floor := e.ext.floor
@@ -128,10 +128,10 @@ func (e *Engine) translate(k uint16) uint16 {
 	case k == '?' && !e.ext.typing:
 		e.Help()
 		return 0
-	case k == KeyF7 && e.ext.guarded && e.tr == nil:
+	case k == KeyF9 && e.ext.guarded && e.tr == nil:
 		e.SlotMenu()
 		return 0
-	case k >= KeyF1 && k <= KeyF1+5<<8 && k&0xFF == 0:
+	case k >= KeyF1 && k <= KeyF1+7<<8 && k&0xFF == 0:
 		return e.viewKey(int(k-KeyF1) >> 8)
 	case (k == 'p' || k == 'P') && (e.ext.viewing || e.ext.items):
 		return e.sheetKey()
@@ -335,17 +335,17 @@ func (e *Engine) hintText() string {
 		if e.minimapAllowed() {
 			h += "|Tab=minimap|M, click minimap=map"
 		}
-		return h + "|F1-F6=member items|P=party|?=help"
+		return h + "|F1-F8=member items|P=party|?=help"
 	case x.list:
 		h := "↑↓ wheel, click=line|Enter, click again=choose|PgUp PgDn=page|← →=highlight"
 		if x.picker {
 			h = "↑↓ wheel, hover=line|Enter, click=choose|PgUp PgDn=page"
 		}
 		if x.items {
-			h += "|P=character|F1-F6=member"
+			h += "|P=character|F1-F8=member"
 		}
 		if x.buying {
-			h += "|F1-F6=buyer"
+			h += "|F1-F8=buyer"
 		}
 		if x.nav.exit {
 			h += "|Esc=back"
@@ -366,10 +366,10 @@ func (e *Engine) hintText() string {
 		h += "|Esc=back"
 	}
 	if x.viewing {
-		h += "|P=items|F1-F6=member"
+		h += "|P=items|F1-F8=member"
 	}
 	if x.campBar {
-		h += "|F1-F6=member"
+		h += "|F1-F8=member"
 	}
 	return h + "|?=help"
 }

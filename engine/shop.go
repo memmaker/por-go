@@ -25,7 +25,7 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 	}
 	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "Shop")
 	e.DisplayString(2, 2, 0xE, e.moneyLine())
-	if c := e.selected(); len(e.party) > 0 { // extra: who is buying (F1-F6 change it)
+	if c := e.selected(); len(e.party) > 0 { // extra: who is buying (F1-F8 change it)
 		e.displayName(c, 0x26-len(c.Name()), 2, false)
 	}
 	redraw := true
@@ -75,7 +75,7 @@ func (e *Engine) shopBuy() {
 		var it *Item
 		key := e.shopList(&index, &it)
 		if key == keyRelist>>8 {
-			continue // F1-F6 picked another buyer
+			continue // F1-F8 picked another buyer
 		}
 		if key == 'L' { // extra: what the item does
 			e.lookItem(it)

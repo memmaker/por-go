@@ -9,8 +9,8 @@
 //
 // Mouse: pointing at a menu item highlights it, a click picks it (and list
 // lines, party members, combat squares); the wheel moves the highlight and
-// the right button is Escape. "?" lists the keys; F1-F6 open the inventory
-// of party member 1-6.
+// the right button is Escape. "?" lists the keys; F1-F8 open the inventory
+// of party member 1-8.
 //
 // DIR must hold the DOS game files (TITLE.DAX, 8X8D1.DAX, GAME data ...);
 // it defaults to $GOPLAY_DATA, else the parent of the executable's module
@@ -308,10 +308,10 @@ func biosKey(k ebiten.Key) (uint16, bool) {
 		return 8, true
 	case ebiten.KeyTab:
 		return 9, true
-	case ebiten.KeyF1, ebiten.KeyF2, ebiten.KeyF3, ebiten.KeyF4, ebiten.KeyF5, ebiten.KeyF6:
+	case ebiten.KeyF1, ebiten.KeyF2, ebiten.KeyF3, ebiten.KeyF4, ebiten.KeyF5, ebiten.KeyF6, ebiten.KeyF7, ebiten.KeyF8:
 		return engine.KeyF1 + uint16(k-ebiten.KeyF1)<<8, true
-	case ebiten.KeyF7:
-		return engine.KeyF7, true
+	case ebiten.KeyF9:
+		return engine.KeyF9, true
 	case ebiten.KeyArrowUp, ebiten.KeyKP8:
 		return 0x4800, true
 	case ebiten.KeyArrowDown, ebiten.KeyKP2:

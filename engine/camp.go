@@ -721,7 +721,7 @@ func (e *Engine) magicMenu(interrupted *bool) {
 	}
 }
 
-// campInput (extra) waits on a camp menu bar. The keypad and F1-F6 pick
+// campInput (extra) waits on a camp menu bar. The keypad and F1-F8 pick
 // the member the menu is for; again is set when the menu is to be rebuilt.
 func (e *Engine) campInput(prompt, menu string) (key byte, again bool) {
 	e.ext.campBar = true

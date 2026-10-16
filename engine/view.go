@@ -177,7 +177,7 @@ func (e *Engine) ViewCharacter() bool {
 	key := byte(' ')
 	quit := false
 	e.view.start = e.selected()
-	direct := e.ext.toItems // F1-F6: start on the inventory (extras.go)
+	direct := e.ext.toItems // F1-F8: start on the inventory (extras.go)
 	e.ext.toItems = false
 	if direct && len(e.selected().Items) > 0 {
 		var leave bool
@@ -213,7 +213,7 @@ func (e *Engine) ViewCharacter() bool {
 			menu += "Cure "
 		}
 		menu = cut(menu+"Exit", 0x28)
-		e.ext.viewing = true // F1..F6 switch members (extras.go)
+		e.ext.viewing = true // F1..F8 switch members (extras.go)
 		k, extra := e.DisplayInput("View:", menu, 0xD, 0xA, 0xF, false, false)
 		e.ext.viewing = false
 		key = k
@@ -296,8 +296,8 @@ func (e *Engine) paladinCure(c *Character) {
 }
 
 // inventory runs ItemsMenu for ViewCharacter (extra:
-// leave reports that the View page should close too: F1-F6 switched to
-// another member, or Esc in an inventory F1-F6 opened, unless P came back
+// leave reports that the View page should close too: F1-F8 switched to
+// another member, or Esc in an inventory F1-F8 opened, unless P came back
 // to the View page).
 func (e *Engine) inventory(direct bool) (quit, leave bool) {
 	e.ext.toSheet, e.ext.switchTo = false, false
@@ -396,7 +396,7 @@ func (e *Engine) ItemsMenu() bool {
 			redraw, full, e.itemsRedraw = true, false, false
 		}
 		var sel *ListNode
-		e.ext.items = true // P and F1-F6 (extras.go)
+		e.ext.items = true // P and F1-F8 (extras.go)
 		key = e.ListMenu("", menu, 0xD, 0xA, 0xF, 1, 5, 0x26, 0x16, list, true, &redraw, &index, &sel)
 		e.ext.items = false
 		it = nil

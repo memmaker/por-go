@@ -296,7 +296,7 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 				if hasNext {
 					e.lmPageScroll(c, true)
 				}
-			case keyRelist >> 8: // (extra) the caller rebuilds the list (another member: F1-F6)
+			case keyRelist >> 8: // (extra) the caller rebuilds the list (another member: F1-F8)
 				*selected = nil
 				return keyRelist >> 8
 			}

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Named save slots (extra), F7 at any prompt once a game is under way.
+// Named save slots (extra), F9 at any prompt once a game is under way.
 // A slot is a folder <SaveDir>/saves/<name> holding the game's own save A
 // (savgamA.dat and its CHRDATA* files), so the format is the original's.
 // Loading unwinds whatever is running (a menu, a script, a battle) back to
@@ -106,7 +106,7 @@ func (e *Engine) saveTo(name string) {
 
 const slotRows = 0x11
 
-// SlotMenu is the F7 screen: the saves, newest first, and what to do.
+// SlotMenu is the F9 screen: the saves, newest first, and what to do.
 func (e *Engine) SlotMenu() {
 	defer e.modalOn()()
 	restore := e.saveScreen()
@@ -165,7 +165,7 @@ func (e *Engine) SlotMenu() {
 			cur = list[sel].name
 		}
 		switch {
-		case k == 27 || k == KeyF7:
+		case k == 27 || k == KeyF9:
 			return
 		case k == 0x4800:
 			sel--

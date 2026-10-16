@@ -18,11 +18,11 @@ import (
 //	Down a step backwards (the original turns round)
 //	P    party overview: hit points, armour class and status of everyone
 //	?      keyboard help, at any prompt
-//	F1-F6  the inventory of party member 1-6 (command bar, camp, View);
+//	F1-F8  the inventory of party member 1-8 (command bar, camp, View);
 //	       P switches between it and the View page
 //	Ctrl-F next text font (Ctrl-Shift-F the one before; fonts.go)
 //	Q    quickstart on the empty party menu: a ready-made party of six
-//	F7   named save slots: save and load at any time (slots.go)
+//	F9   named save slots: save and load at any time (slots.go)
 //
 // One set of navigation keys for every menu, the mouse and the hint line
 // below the picture are in nav.go.
@@ -40,8 +40,8 @@ const (
 	KeyPadDown     = 0xE400
 	KeyPadLeft     = 0xE500
 	KeyPadRight    = 0xE600
-	KeyF1          = 0x3B00 // F1; F2..F6 follow at +0x100 (BIOS scan codes the original never reads)
-	KeyF7          = 0x4100 // save / load (slots.go)
+	KeyF1          = 0x3B00 // F1; F2..F8 follow at +0x100 (BIOS scan codes the original never reads)
+	KeyF9          = 0x4300 // save / load (slots.go)
 )
 
 // padArrow is the BIOS arrow key for each d-pad direction.
@@ -110,11 +110,11 @@ type extras struct {
 	floor       int                     // regions below belong to the screen under the modal one
 	viewing     bool                    // the View page's own menu is waiting
 	items       bool                    // the inventory's item list is waiting
-	toItems     bool                    // the next View opens on the inventory (F1-F6)
+	toItems     bool                    // the next View opens on the inventory (F1-F8)
 	toSheet     bool                    // P left the inventory for the View page
-	switchTo    bool                    // F1-F6 left the inventory for another member
-	buying      bool                    // the shop's Buy list is waiting: F1-F6 change the buyer
-	campBar     bool                    // a camp menu bar is waiting: F1-F6 change the member
+	switchTo    bool                    // F1-F8 left the inventory for another member
+	buying      bool                    // the shop's Buy list is waiting: F1-F8 change the buyer
+	campBar     bool                    // a camp menu bar is waiting: F1-F8 change the member
 	later       []uint16                // keys handed to the game one at a time (Engine.ReadKey)
 	sels        map[string]int          // the highlighted item each menu was left with
 	selSet      bool                    // the caller set the highlight (YesNo): keep it
@@ -265,7 +265,7 @@ func (e *Engine) extraKey(k byte) bool {
 	return false
 }
 
-// viewKey: F1..F6 (n = 0..5) on the command bar or in a menu with View
+// viewKey: F1..F8 (n = 0..7) on the command bar or in a menu with View
 // select member n and open their inventory (View, starting on Items). On
 // the View page or in the inventory they switch to member n (Exit, then
 // View again). Not in combat, where View is the fighter's.
@@ -285,13 +285,13 @@ func (e *Engine) viewKey(n int) uint16 {
 		e.ext.switchTo = e.ext.items
 		e.ext.later = append(e.ext.later, 'V')
 		return 'E'
-	case e.ext.campBar: // camp: F1-F6 pick the member the menu is for
+	case e.ext.campBar: // camp: F1-F8 pick the member the menu is for
 		if n == e.partySel {
 			return 0
 		}
 		e.partySel = n
 		return keyRelist
-	case e.ext.buying: // the shop's Buy list: F1-F6 pick the buyer
+	case e.ext.buying: // the shop's Buy list: F1-F8 pick the buyer
 		if n == e.partySel {
 			return 0
 		}
@@ -406,7 +406,7 @@ var helpLines = [][2]string{
 	{"Adventuring", ""},
 	{"Arrows", "walk, turn; Down=back"},
 	{"Home End", "prev. / next member"},
-	{"F1 - F6", "items of member 1 - 6; in camp: pick member"},
+	{"F1 - F8", "items of member 1 - 8; in camp: pick member"},
 	{"P", "items  <->  character"},
 	{"W", "sweep ahead: search as you walk"},
 	{"S", "search here: this square, once"},
@@ -421,7 +421,7 @@ var helpLines = [][2]string{
 	{"Wheel", "move the highlight"},
 	{"Right button", "back"},
 	{"", ""},
-	{"F7", "save / load game"},
+	{"F9", "save / load game"},
 	{"Ctrl F", "font (+Shift: back)"},
 	{"?", "this help, any time"},
 }

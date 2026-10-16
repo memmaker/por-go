@@ -104,7 +104,7 @@ func main() {
 	case "game":
 		// snap DATA OUT game SLOT KEYS: load a saved game through the party
 		// menu, then type KEYS, one shot per key: ^ v < > arrows, | Enter,
-		// @ # $ gamepad A/Y/X, [ ] ( ) d-pad up/down/left/right, !N F1..F6, and the
+		// @ # $ gamepad A/Y/X, [ ] ( ) d-pad up/down/left/right, !N F1..F8, and the
 		// mouse: %cX,Y; click at text cell X,Y, %hX,Y; point there, %u %d
 		// wheel up/down, %r right button, _ waits; %e is Esc, %l Ctrl-F. SLOT "-" stays in the
 		// party menu. Each shot's hint line goes to game_NN.txt.
@@ -196,7 +196,7 @@ func main() {
 				code = engine.KeyPadOverview
 			case '!':
 				j++
-				code = engine.KeyF1 + uint16(rs[j]-'1')<<8 // !N: F1..F6
+				code = engine.KeyF1 + uint16(rs[j]-'1')<<8 // !N: F1..F8
 			}
 			if code != 0 {
 				scr.PushKey(code)
