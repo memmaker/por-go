@@ -18,7 +18,10 @@ func (e *Engine) GameLoop() {
 	if k := e.gs.areaKind; (k == 0x19 || k == 0x1A || k == 0x1B) && e.area.In3D == 0 {
 		e.beginFlag = 3
 	}
-	if !e.loadedGame {
+	// extra: a save whose area script is blank (its header's first operand
+	// is not an address) gets the area's script from the game files, which
+	// the original would run as zeros into a jump off the script
+	if !e.loadedGame || e.eclByte(eclBase+1) != 1 {
 		e.LoadArea(int(e.gs.areaKind))
 	}
 	e.InitAreaScript()
