@@ -368,7 +368,7 @@ func (e *Engine) ItemsMenu() bool {
 			menu += " Use"
 		}
 		if !hired && e.beginFlag != 5 {
-			menu += " Trade"
+			menu += " Give" // extra: Trade renamed
 		}
 		menu += " Drop"
 		if c.ItemCount < 0x10 {
@@ -420,8 +420,11 @@ func (e *Engine) ItemsMenu() bool {
 						full = true
 					}
 				}
-			case 'T':
-				if e.canLoseItem(it) {
+			case 'G':
+				if it.Readied != 0 { // extra: Give unreadies it first (curses still hold)
+					e.readyItem(it)
+				}
+				if it.Readied == 0 && e.canLoseItem(it) {
 					e.tradeItem(it)
 				} else {
 					key = ' '
@@ -538,7 +541,7 @@ func (e *Engine) itemAffect(it *Item, c *Character, flag byte) {
 func (e *Engine) tradeItem(it *Item) {
 	to := e.view.start
 	e.DrawMainScreen()
-	to = e.SelectCharacter("Trade with Whom?", true, to)
+	to = e.SelectCharacter("Give to Whom?", true, to)
 	if to == nil {
 		return
 	}
