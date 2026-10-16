@@ -188,18 +188,13 @@ func (e *Engine) aiCastKnown(c *Character) bool {
 	return false
 }
 
-// aiStep = DS:02AE[pattern*5+i], i 1..6: i 5 reads the next pattern's
-// first byte, pattern 6 then DS:02D1 (4), and i 6 (only reached when no
-// step was found, the value unused) DS:02D2.
+// aiStep: step i (1..5) of a step pattern. i 6 means no step was found;
+// the original reads past the table there (DS:02D2) and the value is unused.
 func aiStep(pattern byte, i int) byte {
-	n := int(pattern)*5 + i
-	switch {
-	case n < 35:
-		return aiStepPattern[n/5][n%5]
-	case n == 35:
-		return 4
+	if i < 1 || i > 5 {
+		return 0
 	}
-	return placeDirs[0][0]
+	return aiStepPatterns[pattern][i-1]
 }
 
 // aiCanStep = ovr10:0675 (char, i, dir, var blocked): can the combatant

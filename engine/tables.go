@@ -3,15 +3,22 @@
 
 package engine
 
-// AI step patterns: direction offsets tried in turn, by pattern (DS:02AE).
-var aiStepPattern = [7][5]byte{
-	{0x00, 0x00, 0x00, 0x00, 0x00},
-	{0x00, 0x08, 0x07, 0x06, 0x01},
-	{0x02, 0x08, 0x01, 0x02, 0x07},
-	{0x06, 0x07, 0x01, 0x08, 0x06},
-	{0x02, 0x01, 0x07, 0x08, 0x02},
-	{0x06, 0x08, 0x07, 0x06, 0x05},
-	{0x04, 0x08, 0x01, 0x02, 0x03},
+// aiStepPattern: the five direction offsets (from the target's direction)
+// a moving combatant tries in turn, steps 1..5.
+type aiStepPattern [5]byte
+
+// AI step patterns by pattern number (DS:02AE). The original indexes
+// DS:02AE[pattern*5+step] with step 1..5, so each pattern's steps start one
+// byte into its 5-byte row and end on the next row's first byte (pattern
+// 6's last step is DS:02D1); laid out here as they are read.
+var aiStepPatterns = [7]aiStepPattern{
+	{0, 0, 0, 0, 0},
+	{8, 7, 6, 1, 2},
+	{8, 1, 2, 7, 6},
+	{7, 1, 8, 6, 2},
+	{1, 7, 8, 2, 6},
+	{8, 7, 6, 5, 4},
+	{8, 1, 2, 3, 4},
 }
 
 // combat placement directions, by party direction and side (DS:02D2).
