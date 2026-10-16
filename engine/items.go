@@ -134,5 +134,6 @@ func (e *Engine) BottomMessage(s string) {
 	e.ClearCells(0, 24, 0x27, 24)
 	e.DisplayString(0, 24, 0xA, s)
 	e.MsgDelay()
+	e.MsgDelay() // port: shown twice as long as the original, too quick to read
 	e.ClearCells(0, 24, 0x27, 24)
 }
