@@ -1,6 +1,9 @@
 package engine
 
 import (
+	"os"
+	"slices"
+
 	"por/dax"
 	"por/ega"
 )
@@ -450,6 +453,44 @@ func (e *Engine) AddCharacter() {
 		names[i] = n.Text
 	}
 	e.WriteCharList(names) // ovr18:01B8
+}
+
+// ForgetCharacter (extra): pick a saved character and delete its files and
+// its line in charlist.txt. Party members keep their copy in the party.
+func (e *Engine) ForgetCharacter() {
+	e.ClearCells(1, 1, 0x26, 0x16)
+	names := e.BuildCharList()
+	list := make([]*ListNode, len(names))
+	for i, n := range names {
+		list[i] = &ListNode{Text: n}
+	}
+	index, redraw := 0, true
+	var sel *ListNode
+	for len(list) > 0 {
+		key := e.ListMenu("Forget a character: ", "Forget Exit", 0xD, 0xA, 0xF, 1, 2, 0x26, 0x16, list, false, &redraw, &index, &sel)
+		if key == 'E' || key == 0 || key == 0x1B {
+			break
+		}
+		if (key != 0xD && key != 'F') || sel == nil {
+			continue
+		}
+		redraw = true
+		if e.YesNo(0xE, 0xA, 0xF, cut("Forget "+sel.Text+" forever? ", 0x28)) != 'Y' {
+			continue
+		}
+		base := makeFileName(removeSubstr(sel.Text, "."))
+		for _, ext := range []string{".cha", ".itm", ".spc"} {
+			os.Remove(e.savePath(base + ext))
+		}
+		list = slices.DeleteFunc(list, func(n *ListNode) bool { return n == sel })
+		sel, index = nil, min(index, max(len(list)-1, 0))
+		names = names[:0]
+		for _, n := range list {
+			names = append(names, n.Text)
+		}
+		e.WriteCharList(names)
+	}
+	e.ClearCells(1, 1, 0x26, 0x16)
 }
 
 // o17_33E7 = ovr17:33E7: choose the portrait: Head (1..14) and Body

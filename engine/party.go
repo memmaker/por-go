@@ -93,10 +93,13 @@ func (e *Engine) partyKeypad(k byte) {
 func (e *Engine) PartyMenu() {
 	e.Music(3)         // Amiga 0x2D35C
 	e.symDAX = "8X8D3" // DS:5376 = 3
-	names := make([]string, 11)
-	enabled := make([]bool, 11)
-	for i := range names {
-		names[i], enabled[i] = partyMenu[i].name, partyMenu[i].enabled
+	var names []string
+	var enabled []bool
+	for i, m := range partyMenu {
+		names, enabled = append(names, m.name), append(enabled, m.enabled)
+		if i == 5 { // extra: deletes a saved character, listed after Add
+			names, enabled = append(names, "Forget Saved Character"), append(enabled, true)
+		}
 	}
 	const (
 		mCreate = iota
@@ -105,6 +108,7 @@ func (e *Engine) PartyMenu() {
 		mTrain
 		mView
 		mAdd
+		mForget
 		mRemove
 		mLoad
 		mSave
@@ -124,13 +128,13 @@ func (e *Engine) PartyMenu() {
 					enabled[mTrain] = true // never cleared here, only without a party
 				}
 				enabled[mView], enabled[mRemove] = true, true
-				enabled[mLoad] = false
+				enabled[mLoad], enabled[mForget] = false, false // (extra) the list fills the box
 				enabled[mSave], enabled[mBegin] = true, true
 			} else {
 				for _, m := range []int{mDrop, mModify, mTrain, mView, mRemove, mSave, mBegin} {
 					enabled[m] = false
 				}
-				enabled[mLoad] = true
+				enabled[mLoad], enabled[mForget] = true, true
 			}
 			redraw = false
 		}
@@ -234,6 +238,10 @@ func (e *Engine) PartyMenu() {
 		case 'A':
 			if enabled[mAdd] {
 				e.AddCharacter()
+			}
+		case 'F':
+			if enabled[mForget] {
+				e.ForgetCharacter()
 			}
 		case 'R':
 			if enabled[mRemove] && len(e.party) > 0 {

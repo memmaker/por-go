@@ -105,6 +105,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] Area of effect preview: aiming a spell that hits everyone round a square (Sleep, Stinking Cloud, Fireball, Bless, ...) marks the combatants it would hit, by the cast's own test, and the cursor prompt counts foes and allies (engine/aoe.go); Lightning Bolt's line has no preview yet
 - [x] Clearer search commands: Search becomes "Sweep ahead" (W, status line "sweeping") and Look becomes "Search here" (S); both take 3 minutes instead of 10; a menu hotkey inside a word lights in place ("Sweep" with the w lit), and an item runs on over the lowercase words after it (engine/menu.go menuGlyph, itemSpan)
 - [x] Named save slots on F7 at any prompt (engine/slots.go): save new / overwrite / load / delete, newest first; each slot is a folder under SAVE/saves in the original format; a load unwinds whatever is running back into the game loop; no saving during combat
+- [x] Forget Saved Character (F) on the party menu, offered without a party (the list would overflow the box with one): pick a saved character, confirm, its .cha/.itm/.spc files and charlist.txt line are deleted (engine/train.go ForgetCharacter)
 
 ## Idiomatic Go
 - [x] Character record as a typed struct (engine/char.go charRecord): named fields in the DOS layout, read and written with encoding/binary (saves and MON*CHA blocks still load byte for byte), no Raw byte array or offset constants; checked with cmd/trace against the previous build on all scenarios plus 164 fuzz scripts (identical)
