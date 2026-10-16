@@ -442,7 +442,11 @@ func (e *Engine) CreateCharacter() {
 					if i == 0 {
 						max = fmtStr(best[0])
 					}
-					e.MessageRow24b(0xE, cut(name+" "+fmtMin(i, e.ext.minStats[i])+" impossible here, max "+max, 0x28))
+					msg := name + " " + fmtMin(i, e.ext.minStats[i]) + " impossible here, max " + max
+					if i == 0 && best[0] == 1800 {
+						msg = "STR 18/xx is for fighters only, max 18"
+					}
+					e.MessageRow24b(0xE, cut(msg, 0x28))
 					tries = 0
 				}
 			}
