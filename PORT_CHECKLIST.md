@@ -107,6 +107,7 @@ original. Ticked items are ported and checked in a headless run
 - [x] Named save slots on F7 at any prompt (engine/slots.go): save new / overwrite / load / delete, newest first; each slot is a folder under SAVE/saves in the original format; a load unwinds whatever is running back into the game loop; no saving during combat
 - [x] Forget Saved Character (F) on the party menu, offered without a party (the list would overflow the box with one): pick a saved character, confirm, its .cha/.itm/.spc files and charlist.txt line are deleted (engine/train.go ForgetCharacter)
 - [x] Character names keep the case as typed at creation (engine/input.go inputLine); every other prompt still upcases like the original
+- [x] Minimal stats at creation: a minimum the race, class and age cannot reach is named with the best possible value ("DEX 18 impossible here, max 17") and the long reroll does not start; otherwise it rerolls until the minimums are met, showing the stats and a count every 100 rolls, until any key or click stops it (engine/create.go)
 
 ## Idiomatic Go
 - [x] Character record as a typed struct (engine/char.go charRecord): named fields in the DOS layout, read and written with encoding/binary (saves and MON*CHA blocks still load byte for byte), no Raw byte array or offset constants; checked with cmd/trace against the previous build on all scenarios plus 164 fuzz scripts (identical)

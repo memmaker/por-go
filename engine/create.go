@@ -213,9 +213,95 @@ func (e *Engine) CreateCharacter() {
 	}
 	c.Age = uint16(age)
 
+	// adjust: age, race limits and class minimums on a rolled stat.
+	adjust := func(i int, v byte) byte {
+		// Age steps DS:3F31 + race*10 (4 words) against the age word.
+		older := func(j int) bool { return int(ageSteps[race][j]) < int(c.Age) }
+		switch i {
+		case 0:
+			if v != 0 && older(0) {
+				v++
+			}
+			if v != 0 && older(1) {
+				v--
+			}
+			if v != 0 && older(2) {
+				v -= 2
+			}
+			if v != 0 && older(3) {
+				v--
+			}
+		case 1:
+			if older(1) {
+				v++
+			}
+			if older(3) {
+				v++
+			}
+		case 2:
+			if !older(0) {
+				v--
+			}
+			if older(1) {
+				v++
+			}
+			if older(2) {
+				v++
+			}
+			if older(3) {
+				v++
+			}
+		case 3:
+			if older(2) {
+				v -= 2
+			}
+			if older(3) {
+				v--
+			}
+		case 4:
+			if older(1) {
+				v--
+			}
+			if older(2) {
+				v--
+			}
+			if older(3) {
+				v--
+			}
+		}
+		// Race limits.
+		lo, hi := raceLimits[race].limits(i)
+		if v < lo {
+			v = lo
+		}
+		if v > hi {
+			v = hi
+		}
+		// Class minimum (DS:3F81 + class*6).
+		if m := int(classMinStats[class][i]); int(v) < m {
+			v = byte(m)
+		}
+		return v
+	}
+	// best (extra: Minimal stats): the most each stat can reach, from a
+	// roll of 18, in the units of minStats (STR as strScore).
+	var best [6]int
+	for i := range best {
+		v := adjust(i, 18)
+		if i == 2 && v < 0xD && class >= 8 && class <= 0xC {
+			v = 0xD
+		}
+		best[i] = int(v)
+		if i == 0 {
+			best[0] = strScore(v, 0)
+			if v == 0x12 && int8(c.Levels[clsFighter]) > 0 {
+				best[0] = strScore(v, min(100, raceLimits[race].Str00Max))
+			}
+		}
+	}
 	undo := e.selectTemp(c)
 	e.CharacterSheet() // ovr20:004A
-	tries := 0
+	tries := 0         // Minimal stats: rolls so far, 0 when not rolling
 	for {
 		c.Str00 = 0
 		for i := 0; i <= 5; i++ {
@@ -254,72 +340,7 @@ func (e *Engine) CreateCharacter() {
 					*st = roll
 				}
 			}
-			// Age steps DS:3F31 + race*10 (4 words) against the age word.
-			older := func(j int) bool { return int(ageSteps[race][j]) < int(c.Age) }
-			switch i {
-			case 0:
-				if *st != 0 && older(0) {
-					*st++
-				}
-				if *st != 0 && older(1) {
-					*st--
-				}
-				if *st != 0 && older(2) {
-					*st -= 2
-				}
-				if *st != 0 && older(3) {
-					*st--
-				}
-			case 1:
-				if older(1) {
-					*st++
-				}
-				if older(3) {
-					*st++
-				}
-			case 2:
-				if !older(0) {
-					*st--
-				}
-				if older(1) {
-					*st++
-				}
-				if older(2) {
-					*st++
-				}
-				if older(3) {
-					*st++
-				}
-			case 3:
-				if older(2) {
-					*st -= 2
-				}
-				if older(3) {
-					*st--
-				}
-			case 4:
-				if older(1) {
-					*st--
-				}
-				if older(2) {
-					*st--
-				}
-				if older(3) {
-					*st--
-				}
-			}
-			// Race limits.
-			lo, hi := raceLimits[race].limits(i)
-			if *st < lo {
-				*st = lo
-			}
-			if *st > hi {
-				*st = hi
-			}
-			// Class minimum (DS:3F81 + class*6).
-			if m := int(classMinStats[class][i]); int(*st) < m {
-				*st = byte(m)
-			}
+			*st = adjust(i, *st)
 			if i == 0 {
 				if *st == 0x12 && int8(c.Levels[clsFighter]) > 0 {
 					c.Str00 = byte(e.Random(100) + 1)
@@ -331,7 +352,7 @@ func (e *Engine) CreateCharacter() {
 			if i == 2 && *st < 0xD && class >= 8 && class <= 0xC { // set [8..12] at cs:0525
 				*st = 0xD
 			}
-			if tries == 0 {
+			if tries == 0 || tries%100 == 0 {
 				e.showStat(i, false) // ovr20:0901
 			}
 		}
@@ -378,11 +399,23 @@ func (e *Engine) CreateCharacter() {
 		}
 		c.HP = c.MaxHP
 		c.HPRoll = byte(int(c.HPRoll) / int(count))
-		if tries > 0 { // Minimal stats: draw only the settled roll
-			if tries--; tries > 0 && !e.meetsMinStats(c) {
+		if tries > 0 { // Minimal stats: roll on until met or a key stops it
+			stop := e.meetsMinStats(c)
+			if !stop && tries%100 == 0 {
+				e.ClearRow24()
+				e.DisplayString(0, 24, 0xE, "Rolling "+itoa(tries)+"... any key stops")
+				e.Delay(16) // let the window draw and see keys
+				if e.keyWaiting() {
+					e.ReadKeyByte()
+					stop = true
+				}
+			}
+			if !stop {
+				tries++
 				continue
 			}
 			tries = 0
+			e.ClearRow24()
 			for i := 0; i <= 5; i++ {
 				e.showStat(i, false)
 			}
@@ -400,9 +433,22 @@ func (e *Engine) CreateCharacter() {
 		if k == 'Y' {
 			break
 		}
-		if k == 'M' { // extra: reroll up to 1000 times until the minimums are met
+		if k == 'M' { // extra: reroll until the minimums are met or a key stops it
 			e.askMinStats()
-			tries = 1000
+			tries = 1
+			for i, name := range []string{"STR", "INT", "WIS", "DEX", "CON", "CHA"} {
+				if e.ext.minStats[i] > best[i] {
+					max := itoa(best[i])
+					if i == 0 {
+						max = fmtStr(best[0])
+					}
+					e.MessageRow24b(0xE, cut(name+" "+fmtMin(i, e.ext.minStats[i])+" impossible here, max "+max, 0x28))
+					tries = 0
+				}
+			}
+			if tries == 0 {
+				e.ClearRow24()
+			}
 		}
 	}
 	e.CharacterSheet()
@@ -489,8 +535,15 @@ func (e *Engine) askMinStats() {
 	}
 }
 
+func fmtMin(i, v int) string {
+	if i == 0 {
+		return fmtStr(v)
+	}
+	return itoa(v)
+}
+
 func fmtStr(v int) string {
-	if v <= 1800 {
+	if v <= 1800 || v > 1900 {
 		return itoa(v / 100)
 	}
 	x := v - 1800
