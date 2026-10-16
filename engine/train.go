@@ -82,7 +82,7 @@ func (e *Engine) ModifyCharacter() {
 	raise := func(i int) {
 		c.Stats[i]++
 		if _, hi := raceLimits[race].limits(i); c.Stats[i] > hi {
-			if i == 0 && c.Stats[statStr] > 0x12 && int8(c.Levels[clsFighter]) > 0 && raceLimits[race].Str00Max > c.Str00 {
+			if i == 0 && c.Stats[statStr] > 0x12 && fighterKind(c) && raceLimits[race].Str00Max > c.Str00 {
 				c.Str00++ // exceptional strength for fighters
 			}
 			c.Stats[i] = hi
@@ -175,13 +175,17 @@ func (e *Engine) o17_3F31(c *Character) int {
 		if int8(c.Levels[i]) <= 0 {
 			continue
 		}
-		sum += byte(conHP[c.Stats[statCon]])
-		if c.Stats[statCon] > 0x10 && c.Class == 2 {
-			sum++
+		adj := conHP[c.Stats[statCon]]
+		if c.Stats[statCon] > 0x10 && c.Class >= 2 && c.Class <= 4 {
+			adj++
 		}
-		if c.Stats[statCon] > 0x11 && c.Class == 2 {
-			sum++
+		if c.Stats[statCon] > 0x11 && c.Class >= 2 && c.Class <= 4 {
+			adj++
 		}
+		if i == clsRanger && c.Levels[i] == 1 {
+			adj *= 2 // the ranger's two first level dice (CotAB ovr018)
+		}
+		sum += byte(adj)
 	}
 	return int(int8(sum))
 }
@@ -257,6 +261,9 @@ func (e *Engine) o17_4235(c *Character, mask int) int {
 			continue
 		}
 		n, sides := int(hitDieCount[i]), int(hitDieSides[i])
+		if i == clsRanger && c.Levels[i] > 1 {
+			n = 1 // two dice at first level only (CotAB hp_calc)
+		}
 		r := e.Dice(n, sides) // ovr25:0DE3
 		if c.Levels[i] == 1 && r < (sides<<1)/3 {
 			r = (sides << 1) / 3
@@ -284,7 +291,7 @@ func levelBlocked(race, str byte, i int, lv byte) bool {
 	case 4:
 		if i == 0 && lv == 5 {
 			skip = true
-		} else if i == 2 {
+		} else if i == 2 || i == clsRanger { // the half-elf ranger as the fighter (CotAB)
 			skip = lv == 8 || lv == 7 && str == 0x11 || lv == 6 && str < 0x11
 		}
 	case 5:
@@ -472,7 +479,11 @@ func (e *Engine) AddCharacter() {
 						}
 					}
 					npc := c.Control >= 0x80
-					if dup == nil && (!npc && count < 6 || npc && wordAt(e.game, gsPartyCount) < 8) {
+					refused := dup == nil && e.joinRefused(c)
+					if refused {
+						sel.Text = sel.Text[2:] // unmarked again, as in CotAB
+					}
+					if dup == nil && !refused && (!npc && count < 6 || npc && wordAt(e.game, gsPartyCount) < 8) {
 						e.AddToParty(c)
 						e.BuildCharIcon(c, true)
 						if !npc {
@@ -490,6 +501,31 @@ func (e *Engine) AddCharacter() {
 		names[i] = n.Text
 	}
 	e.WriteCharList(names) // ovr18:01B8
+}
+
+// joinRefused (CotAB ovr018): paladins do not join the evil, the evil do not
+// join a paladin, and a party takes at most three rangers.
+func (e *Engine) joinRefused(c *Character) bool {
+	evil := func(c *Character) bool { return (c.Alignment+1)%3 == 0 }
+	msg, rangers := "", 0
+	for _, m := range e.party {
+		switch {
+		case int8(c.Levels[clsPaladin]) > 0 && evil(m):
+			msg = "paladins do not join with evil scum"
+		case evil(c) && int8(m.Levels[clsPaladin]) > 0:
+			msg = m.Name() + " will tolerate no evil!"
+		}
+		if int8(m.Levels[clsRanger]) > 0 {
+			rangers++
+		}
+	}
+	if msg == "" && int8(c.Levels[clsRanger]) > 0 && rangers > 2 {
+		msg = "too many rangers in party"
+	}
+	if msg != "" {
+		e.DisplayMessageWait(0xE, msg)
+	}
+	return msg != ""
 }
 
 // ForgetCharacter (extra): pick a saved character and delete its files and

@@ -346,12 +346,12 @@ func (e *Engine) o23_1F41() {
 	if int8(t.Levels[clsCleric]) > 0 || int8(t.Levels[clsThief]) > 0 {
 		add = byte(e.Dice(1, 6))
 	}
-	if int8(t.Levels[clsFighter]) > 0 {
+	if fighterKind(t) {
 		add = byte(e.Dice(1, 8))
 	}
 	str := t.Stats[statStr] + add
 	if str > 0x12 {
-		if int8(t.Levels[clsFighter]) > 0 {
+		if fighterKind(t) {
 			ext = byte(int(str-0x12)*10 + int(t.Str00))
 			if ext > 0x64 {
 				ext = 0x64

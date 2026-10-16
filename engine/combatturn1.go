@@ -61,6 +61,9 @@ func (e *Engine) o14_0191(a, b *Character, slot int) {
 		e.rv.damage = byte(int(e.rv.damage) * (int(uint16(int16(int8(a.Levels[clsThief]))))>>2 + 2))
 	}
 	e.rv.dmgType = 0
+	if r := int8(a.Levels[clsRanger]); r > 0 && b.Kind == 2 {
+		e.rv.damage += byte(r) // CotAB ranger_vs_giant: + ranger level against giants (kind 2)
+	}
 	e.affectGroup(a, 4)
 	e.affectGroup(b, 5)
 }

@@ -103,6 +103,12 @@ const (
 	statCha
 )
 
+// fighterKind: fighter, paladin or ranger levels; CotAB gives all three
+// exceptional strength and the fighter's constitution hit points.
+func fighterKind(c *Character) bool {
+	return int8(c.Levels[clsFighter]) > 0 || int8(c.Levels[clsPaladin]) > 0 || int8(c.Levels[clsRanger]) > 0
+}
+
 // Levels indexes (the class order of the DS:0D38 names).
 const (
 	clsCleric = iota

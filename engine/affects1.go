@@ -196,7 +196,7 @@ func (e *Engine) o13_0233(c *Character, a *Affect, flag byte) {
 			continue
 		}
 		switch {
-		case i == 2:
+		case i >= 2 && i <= 4: // fighter, paladin, ranger
 			div += byte(int(v) * (int(c.Stats[statCon]) - 0xF))
 		case c.Stats[statCon] > 0xF:
 			div += byte(v * 2)
@@ -208,7 +208,7 @@ func (e *Engine) o13_0233(c *Character, a *Affect, flag byte) {
 		div = 1
 	}
 	gain /= div
-	if c.Stats[statCon] < 0x11 || int8(c.Levels[clsFighter]) > 0 {
+	if c.Stats[statCon] < 0x11 || fighterKind(c) {
 		c.MaxHP += gain
 		c.HP += gain
 	}

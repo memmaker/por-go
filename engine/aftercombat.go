@@ -97,6 +97,10 @@ func (e *Engine) giveExp(exp int32) {
 			prime = statInt
 		case 6:
 			prime = statDex
+		case 3, 4: // CotAB: paladin str+wis, ranger str+int+wis over 15
+			if c.Stats[statStr] > 15 && c.Stats[statWis] > 15 && (c.Class == 3 || c.Stats[statInt] > 15) {
+				g += g / 10
+			}
 		case 8, 10, 11, 12, 13, 14, 16:
 			g = exp / 2
 		case 9, 15:

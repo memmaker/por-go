@@ -650,6 +650,8 @@ var affectNames = map[byte]string{
 	0x47: "Invisible",
 	0x48: "Camouflaged",
 	0x59: "Displaced",
+	0x8C: "Laid on Hands today",     // affLaidOnHands
+	0x8D: "Cured Disease this week", // affCuredDisease
 }
 
 // affectList = the names ovr16:0FBC lists for c: its spell effects.

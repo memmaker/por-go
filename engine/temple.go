@@ -142,7 +142,7 @@ func (e *Engine) raiseDead() {
 	if levels > 0 {
 		excess = byte(int(excess) / int(levels))
 	}
-	if c.Stats[statCon] < 0x11 || int8(c.Levels[clsFighter]) > 0 {
+	if c.Stats[statCon] < 0x11 || fighterKind(c) {
 		c.MaxHP -= excess
 	}
 }

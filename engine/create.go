@@ -163,6 +163,9 @@ func (e *Engine) CreateCharacter() {
 	case class == 16:
 		c.Levels[clsMage], c.Levels[clsThief] = 1, 1
 	}
+	if class == 3 {
+		e.AddAffect(c, 0x08, 0, 0xFF, 0) // CotAB: a paladin's lasting protection from evil
+	}
 	if int8(c.Levels[clsThief]) > 0 {
 		e.thiefSkills(c) // ovr24:0329
 	}
@@ -191,7 +194,7 @@ func (e *Engine) CreateCharacter() {
 	c.Alignment = classAlignments[class][idx]
 
 	// Starting age: single classes roll the dice, multi-classes use the
-	// maximum. Class 10 (cleric/ranger) has no case, so its age stays 0.
+	// maximum.
 	age := 0
 	ages := &startAge[race]
 	if class <= 7 {
@@ -200,7 +203,7 @@ func (e *Engine) CreateCharacter() {
 	} else {
 		o := -1
 		switch class {
-		case 8, 9, 0xB, 0xC:
+		case 8, 9, 0xA, 0xB, 0xC: // 0xA (cleric/ranger) as in CotAB
 			o = clsCleric
 		case 0xD, 0xF, 0x10:
 			o = clsMage
@@ -294,7 +297,7 @@ func (e *Engine) CreateCharacter() {
 		best[i] = int(v)
 		if i == 0 {
 			best[0] = strScore(v, 0)
-			if v == 0x12 && int8(c.Levels[clsFighter]) > 0 {
+			if v == 0x12 && fighterKind(c) {
 				best[0] = strScore(v, min(100, raceLimits[race].Str00Max))
 			}
 		}
@@ -342,7 +345,7 @@ func (e *Engine) CreateCharacter() {
 			}
 			*st = adjust(i, *st)
 			if i == 0 {
-				if *st == 0x12 && int8(c.Levels[clsFighter]) > 0 {
+				if *st == 0x12 && fighterKind(c) {
 					c.Str00 = byte(e.Random(100) + 1)
 					if m := raceLimits[race].Str00Max; m < c.Str00 {
 						c.Str00 = m

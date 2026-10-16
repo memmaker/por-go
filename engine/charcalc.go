@@ -22,6 +22,10 @@ func (e *Engine) RecomputeCharacter(c *Character) {
 			} else {
 				c.BaseAttack[0] = 2
 			}
+		case 3, 4: // paladin 7, ranger 8: three attacks per two rounds (CotAB ovr026)
+			if lvl > 6 && i == 3 || lvl > 7 {
+				c.BaseAttack[0] = 3
+			}
 		case 0: // cleric
 			if lvl > 1 {
 				for j := 1; j <= 3; j++ {
@@ -71,11 +75,22 @@ func (e *Engine) savingThrows(c *Character) {
 			if lvl <= 0 {
 				continue
 			}
-			if v := saveTable[cl*9+lvl][s]; c.Saves[s] > v {
+			v := saveTable[cl*9+lvl][s]
+			if cl == clsPaladin {
+				v = paladinSaves[lvl][s]
+			}
+			if c.Saves[s] > v {
 				c.Saves[s] = v
 			}
 		}
 	}
+}
+
+// paladinSaves: CotAB's paladin rows (SaveThrowValues), levels 0..8; PoR's
+// table only repeats the fighter's.
+var paladinSaves = [9][5]byte{
+	{20, 20, 20, 20, 20}, {12, 13, 14, 15, 15}, {12, 13, 14, 15, 15}, {11, 12, 13, 14, 14}, {11, 12, 13, 14, 14},
+	{9, 9, 11, 11, 12}, {9, 9, 11, 11, 12}, {8, 9, 10, 10, 11}, {9, 9, 10, 10, 11},
 }
 
 // thiefSkills = ovr24:0329: level table DS:3CF3 plus race DS:3D3B, plus
@@ -206,8 +221,8 @@ func (e *Engine) ApplyItems(c *Character) {
 		c.AC[0] += byte(ac[i])
 	}
 	c.AC[1] = byte(int(ac[4]) + int(ac[2]) + int(ac[3]) - 2)
-	if int8(c.Levels[clsFighter]) > 0 && int8(c.Race) > 0 {
-		c.FightLevel = c.Levels[clsFighter]
+	if fighterKind(c) && int8(c.Race) > 0 {
+		c.FightLevel = max(c.Levels[clsFighter], c.Levels[clsPaladin], c.Levels[clsRanger])
 	} else {
 		c.FightLevel = 1
 	}

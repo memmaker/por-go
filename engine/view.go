@@ -206,6 +206,12 @@ func (e *Engine) ViewCharacter() bool {
 		if !e.effectsFit(c) {
 			menu += "Magic " // extra: all of the spell effects
 		}
+		if e.paladinCan(c, affLaidOnHands) {
+			menu += "Heal "
+		}
+		if e.paladinCan(c, affCuredDisease) {
+			menu += "Cure "
+		}
 		menu = cut(menu+"Exit", 0x28)
 		e.ext.viewing = true // F1..F6 switch members (extras.go)
 		k, extra := e.DisplayInput("View:", menu, 0xD, 0xA, 0xF, false, false)
@@ -223,8 +229,12 @@ func (e *Engine) ViewCharacter() bool {
 			e.SpellList(0, 0, &idx, &spells)
 		case 'M':
 			e.displayAffects("Magic", []*Character{c})
+		case 'H':
+			e.paladinHeal(c)
+		case 'C':
+			e.paladinCure(c)
 		}
-		if !quit && (key == 'I' || key == 'S' || key == 'M') {
+		if !quit && (key == 'I' || key == 'S' || key == 'M' || key == 'H' || key == 'C') {
 			e.CharacterSheet()
 		}
 	}
@@ -233,6 +243,56 @@ func (e *Engine) ViewCharacter() bool {
 	}
 	e.DrawMainScreen()
 	return quit
+}
+
+// Paladin powers from CotAB (ovr020). Two port-only affect types time them:
+// one heal a day, one cure disease a week (one is all a paladin of PoR's
+// level 8 cap gets).
+const (
+	affLaidOnHands  = 0x8C // CotAB paladinDailyHealCast
+	affCuredDisease = 0x8D // CotAB paladinDailyCureRefresh
+)
+
+// paladinCan = CotAB CanCastHeal/CanCastCureDiseases: out of combat, okay,
+// and the power not used yet.
+func (e *Engine) paladinCan(c *Character, used byte) bool {
+	return int8(c.Levels[clsPaladin]) > 0 && e.beginFlag != 5 && c.Status == 0 && e.FindAffect(c, used) == nil
+}
+
+// paladinHeal = CotAB PaladinHeal: lay on hands for 2 hp per level.
+func (e *Engine) paladinHeal(c *Character) {
+	t := e.SelectCharacter("Heal whom? ", true, c)
+	if t == nil {
+		return
+	}
+	if e.Heal(t, 2*int(c.Levels[clsPaladin]), true) {
+		e.DisplayMessageWait(0xA, t.Name()+" feels better")
+	} else {
+		e.DisplayMessageWait(0xA, t.Name()+" is unaffected")
+	}
+	e.AddAffect(c, affLaidOnHands, 1440, 0, 0)
+}
+
+// paladinCure = CotAB PaladinCureDisease: the temple's diseases go.
+func (e *Engine) paladinCure(c *Character) {
+	t := e.SelectCharacter("Cure whom? ", true, c)
+	if t == nil {
+		return
+	}
+	ill := false
+	for _, d := range diseases {
+		ill = ill || e.FindAffect(t, d) != nil
+	}
+	if !ill && e.YesNo(0xD, 0xA, 0xF, t.Name()+" is not diseased, cure anyway: ") != 'Y' {
+		return
+	}
+	e.rv.cure = 1
+	for _, d := range diseases {
+		e.RemoveAffect(t, d, nil)
+	}
+	e.rv.cure = 0
+	e.AddAffect(c, affCuredDisease, 0x2760, 0, 0)
+	e.DisplayMessageWait(0xA, t.Name()+" is cured")
 }
 
 // inventory runs ItemsMenu for ViewCharacter (extra:
