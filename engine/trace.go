@@ -133,8 +133,11 @@ func (e *Engine) SetPaletteColor(colour, index int) {
 // TraceState is the heap records in the layout of the emulator's dump
 // (emu.REGIONS): hex of game, area, aux, ecl and each party member.
 func (e *Engine) TraceState() map[string]string {
+	area := e.area // the original's record: the walls as last saved or loaded, and the animation flag
+	area.WallsA, area.WallsB = e.fileWallsA, e.fileWallsB
+	area.WallsB[2] = e.viewAnim
 	m := map[string]string{
-		"game": hex.EncodeToString(wordsBytes(e.game.words()[:])), "area": hex.EncodeToString(wordsBytes(e.area.words()[:])),
+		"game": hex.EncodeToString(wordsBytes(e.game.words()[:])), "area": hex.EncodeToString(wordsBytes(area.words()[:])),
 		"aux": hex.EncodeToString(wordsBytes(e.aux[:])), "ecl": hex.EncodeToString(e.ecl),
 	}
 	i := 0

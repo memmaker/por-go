@@ -163,12 +163,7 @@ func (e *Engine) LoadSlotNamed(name string) (ok bool) {
 
 func (e *Engine) saveTo(name string) {
 	os.RemoveAll(filepath.Join(e.slotRoot(), name)) // no stale CHRDAT files of a bigger party
-	// saveSlot packs the wall slots into area+0x3F4..0x3FF for the file; the
-	// last word is also the view animation flag (animateWhileWaiting), which
-	// would cycle a stale sprite at the view's corner until the next move
-	keepA, keepB := e.area.WallsA, e.area.WallsB
 	e.inSlot(name, func() { e.saveSlot('A') })
-	e.area.WallsA, e.area.WallsB = keepA, keepB
 }
 
 const slotRows = 0x11

@@ -50,15 +50,12 @@ type areaVars struct {
 	Mark4       uint16 // +0x3A4 nonzero: area map mark 4 shown
 	V4AD3       [0x27]uint16
 	// +0x3F4 the wall slots' walldef numbers and +0x3FA their WALLDEF
-	// blocks, packed by saveSlot (ovr30:0E08 reloads them). WallsB[2] is
-	// also the view animation flag: see viewAnim.
+	// blocks in the save file only: saveSlot overlays e.mapPairA/B here
+	// and loadSlot reads them back and zeroes them. In the original the
+	// last word was also the view animation flag (Engine.viewAnim).
 	WallsA, WallsB [3]uint16
 	V4B00          [0x200]uint16
 }
-
-// viewAnim = area+0x3FE: nonzero cycles the view picture on every poll
-// (ovr26:03BD); it shares the word with the last wall slot's block.
-func (a *areaVars) viewAnim() *uint16 { return &a.WallsB[2] }
 
 // gameVars = the game record (es:[DS:49D6]), kept for the whole game.
 type gameVars struct {

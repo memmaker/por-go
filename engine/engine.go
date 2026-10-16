@@ -72,7 +72,15 @@ type Engine struct {
 	pos3, pos4         byte   // DS:6AB0, 6AB1
 	flag49F5, flag49F6 byte
 	mapPairA, mapPairB [3]int // DS:6AAE+4i / 6AB0+4i
-	loadingMonster     bool   // DS:557C
+	// viewAnim = area+0x3FE: nonzero cycles the view picture on every poll
+	// (ovr26:03BD), cleared by displayInput (ovr26:06D8). No script sets it;
+	// in the original only save/load wrote it, packing the last wall slot
+	// there (the lettered LoadGame/SaveGame of traced runs still do: oldWalls).
+	viewAnim uint16
+	// fileWallsA/B = area+0x3F4..0x3FD as last saved or loaded: the original
+	// keeps them in the area record, so the trace's area dump shows them.
+	fileWallsA, fileWallsB [3]uint16
+	loadingMonster         bool // DS:557C
 
 	cm             charMgmtState       // ovr17 create/modify/train state
 	es             eclState            // ovr08/ovr04 interpreter state

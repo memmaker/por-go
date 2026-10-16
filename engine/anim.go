@@ -182,7 +182,7 @@ func (e *Engine) ShowEncounter(sprite, pic, dist int, flags *[2]byte) {
 // the caller asked for animation or area+0x3FE is set.
 func (e *Engine) animateWhileWaiting() {
 	a := &e.pic
-	force := *e.area.viewAnim() != 0
+	force := e.viewAnim != 0
 	if !force && !e.animInput || a.cur == 0 || a.cur > len(a.frames) || e.ext.fullMap {
 		return
 	}

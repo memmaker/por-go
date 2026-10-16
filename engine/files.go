@@ -413,7 +413,14 @@ func (e *Engine) LoadGame() {
 		}
 	}
 	e.loadSlot(key)
+	e.oldWalls()
 }
+
+// oldWalls is the original's overlap, kept for the lettered saves of traced
+// runs: the last wall slot's word at area+0x3FE is also the view animation
+// flag, so after a save or load the view picture cycles on every poll until
+// a menu returns (an empty slot packs 0xFFFF).
+func (e *Engine) oldWalls() { e.viewAnim = e.fileWallsB[2] }
 
 // loadSlot is LoadGame after the prompt: savgam<key>.dat and its party.
 func (e *Engine) loadSlot(key byte) bool {
@@ -428,6 +435,9 @@ func (e *Engine) loadSlot(key byte) bool {
 	rd := func(n int) []byte { s := b[p : p+n]; p += n; return s }
 	e.symDAX = "8X8D" + string('0'+rd(1)[0])
 	setWords(e.area.words()[:], rd(0x800))
+	wallsA, wallsB := e.area.WallsA, e.area.WallsB
+	e.area.WallsA, e.area.WallsB = [3]uint16{}, [3]uint16{}
+	e.fileWallsA, e.fileWallsB = wallsA, wallsB
 	setWords(e.game.words()[:], rd(0x800))
 	setWords(e.aux[:], rd(0x400))
 	copy(e.ecl, rd(0x1E00))
@@ -473,8 +483,8 @@ func (e *Engine) loadSlot(key byte) bool {
 		e.LoadIconPic("ICON", 0, 0xB) // ovr33:01C8
 	} else {
 		for i := 1; i <= 3; i++ {
-			e.mapPairA[i-1] = int(int16(e.area.WallsA[i-1]))
-			e.mapPairB[i-1] = int(int16(e.area.WallsB[i-1]))
+			e.mapPairA[i-1] = int(int16(wallsA[i-1]))
+			e.mapPairB[i-1] = int(int16(wallsB[i-1]))
 			if e.mapPairA[i-1] >= 0 {
 				e.LoadWalldef(e.mapPairA[i-1]&0xFF, e.mapPairB[i-1]&0xFF) // ovr30:0E08
 			}
@@ -501,21 +511,24 @@ func (e *Engine) SaveGame() {
 		return
 	}
 	e.saveSlot(key)
+	e.oldWalls()
 }
 
 // saveSlot is SaveGame after the prompt.
 func (e *Engine) saveSlot(key byte) {
 	e.ClearRow24()
 	e.DisplayString(0, 24, 0xA, "Saving...Please Wait")
-	for i := 1; i <= 3; i++ {
-		e.area.WallsA[i-1] = uint16(e.mapPairA[i-1])
-		e.area.WallsB[i-1] = uint16(e.mapPairB[i-1])
-	}
 	e.area.MsgDelay = uint16(e.msgDelay)
 	e.area.ViewFlags = uint16(e.flag49F6)*2 + uint16(e.flag49F5)
 	e.game.SymbolSet = uint16(e.symDAX[4] - '0')
 	b := []byte{e.symDAX[4] - '0'}
-	b = append(b, wordsBytes(e.area.words()[:])...)
+	area := e.area
+	for i := range 3 {
+		area.WallsA[i] = uint16(e.mapPairA[i])
+		area.WallsB[i] = uint16(e.mapPairB[i])
+	}
+	e.fileWallsA, e.fileWallsB = area.WallsA, area.WallsB
+	b = append(b, wordsBytes(area.words()[:])...)
 	b = append(b, wordsBytes(e.game.words()[:])...)
 	b = append(b, wordsBytes(e.aux[:])...)
 	b = append(b, e.ecl...)
