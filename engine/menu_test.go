@@ -23,7 +23,7 @@ func TestItemStats(t *testing.T) {
 	copy(e.items[16+9:], []byte{2, 4, 1}) // type 1: 2d4+1
 	e.items[32+6] = 0x80 + 1              // type 2: shield 1
 	e.items[48+6] = 0x80 + 57             // type 3: plate mail 7
-	for typ, want := range []string{"", "(2d4+1) ", "<1> ", "<7> "} {
+	for typ, want := range []string{"", "(2d4+1) ", "[1] ", "[7] "} {
 		if s := e.itemStats(byte(typ)); s != want {
 			t.Errorf("type %d: %q, want %q", typ, s, want)
 		}
