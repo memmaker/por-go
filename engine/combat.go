@@ -222,7 +222,8 @@ func (e *Engine) combatMenu(c *Character) byte {
 	if spells && ci.CanCast != 0 && e.area.NoMagic == 0 {
 		m += "Cast "
 	}
-	if int8(c.Levels[clsCleric]) > 0 && ci.TurnUsed == 0 {
+	var undead *Character
+	if int8(c.Levels[clsCleric]) > 0 && ci.TurnUsed == 0 && e.o14_1351(c, &undead) { // extra: only with undead to turn
 		m += "Turn "
 	}
 	m += "Quick Done" // extra: L still opens the Log
