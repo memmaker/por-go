@@ -44,6 +44,15 @@ type game struct {
 	img *ebiten.Image
 	buf []byte
 
+	// the frame last converted into buf: an unchanged one is not converted
+	// or uploaded again
+	last    [ega.W * ega.H]uint8
+	lastPal [16]uint8
+	lastSat float64
+	lut     [256]color.RGBA // colour of each index under lastPal
+	drawn   bool
+	noted   bool // buf holds a note
+
 	overlays []ega.Overlay                 // the engine's, copied each frame
 	scans    map[image.Image]*ebiten.Image // their GPU copies
 
@@ -224,17 +233,33 @@ func (g *game) gamepad(id ebiten.GamepadID) {
 
 func (g *game) Draw(dst *ebiten.Image) {
 	g.scr.Lock()
-	for i, c := range g.scr.Visible() {
-		rgb := g.scr.RGBA(c)
-		g.buf[i*4], g.buf[i*4+1], g.buf[i*4+2], g.buf[i*4+3] = rgb.R, rgb.G, rgb.B, 255
-	}
+	vis := g.scr.Visible()
 	note, at := g.eng.Note()
-	if time.Since(at) < 2*time.Second {
-		g.drawNote(note)
+	showNote := time.Since(at) < 2*time.Second
+	palChanged := g.scr.Pal != g.lastPal || ega.AmigaSaturation != g.lastSat
+	upload := !g.drawn || palChanged || showNote || g.noted || *vis != g.last
+	if upload {
+		if !g.drawn || palChanged {
+			g.lastPal, g.lastSat = g.scr.Pal, ega.AmigaSaturation
+			for i := range g.lut {
+				g.lut[i] = g.scr.RGBA(uint8(i))
+			}
+		}
+		g.last = *vis
+		for i, c := range vis {
+			rgb := g.lut[c]
+			g.buf[i*4], g.buf[i*4+1], g.buf[i*4+2], g.buf[i*4+3] = rgb.R, rgb.G, rgb.B, 255
+		}
+		if showNote {
+			g.drawNote(note)
+		}
+		g.drawn, g.noted = true, showNote
 	}
 	g.overlays = append(g.overlays[:0], g.scr.Overlays...)
 	g.scr.Unlock()
-	g.img.WritePixels(g.buf)
+	if upload {
+		g.img.WritePixels(g.buf)
+	}
 	dst.Fill(color.Black)
 
 	// The picture: as large as fits, 4:3 like a CRT.
