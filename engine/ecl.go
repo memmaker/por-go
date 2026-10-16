@@ -60,12 +60,12 @@ func addrKind(a int) int {
 	return 4
 }
 
-func (e *Engine) areaVar(a int) uint16         { return wordAt(e.area, 2*(a-0x4900)) }
-func (e *Engine) setAreaVar(a int, v uint16)   { putWord(e.area, 2*(a-0x4900), v) }
-func (e *Engine) globalVar(a int) uint16       { return wordAt(e.game, 2*(a-0x6B00)) }
-func (e *Engine) setGlobalVar(a int, v uint16) { putWord(e.game, 2*(a-0x6B00), v) }
-func (e *Engine) blk3Var(a int) uint16         { return wordAt(e.aux, 2*(a-0x9700)) }
-func (e *Engine) setBlk3Var(a int, v uint16)   { putWord(e.aux, 2*(a-0x9700), v) }
+func (e *Engine) areaVar(a int) uint16         { return e.area.words()[a-0x4900] }
+func (e *Engine) setAreaVar(a int, v uint16)   { e.area.words()[a-0x4900] = v }
+func (e *Engine) globalVar(a int) uint16       { return e.game.words()[a-0x6B00] }
+func (e *Engine) setGlobalVar(a int, v uint16) { e.game.words()[a-0x6B00] = v }
+func (e *Engine) blk3Var(a int) uint16         { return e.aux[a-0x9700] }
+func (e *Engine) setBlk3Var(a int, v uint16)   { e.aux[a-0x9700] = v }
 
 func (e *Engine) selected() *Character {
 	if len(e.party) == 0 {
@@ -467,15 +467,15 @@ func (e *Engine) InitAreaScript() {
 	s.f70C6 = 0
 	s.retStack = nil
 	s.flags = [6]bool{}
-	putWord(e.game, 0x5C2, 0xFF)
-	putWord(e.game, 0x5A4, 0)
-	putWord(e.game, 0x5A6, 0)
-	putWord(e.area, 0x1CA, 0)
+	e.game.Portrait = 0xFF
+	e.game.RestEvery = 0
+	e.game.RestChance = 0
+	e.area.NoMagic = 0
 	for i := 0; i < 5; i++ {
 		e.FetchArgs(1)
 		s.events[i] = e.ArgAddr(1)
 	}
-	putWord(e.area, 0x1CC, 1)
+	e.area.In3D = 1
 	if !e.loadedGame {
 		for i := 1; i <= 0x20; i++ {
 			e.setAreaVar(0x49FF+i, 0)
@@ -505,8 +505,8 @@ func (e *Engine) LoadArea(areaID int) {
 
 // FreeSteps = ovr08:0482.
 func (e *Engine) FreeSteps(x, y, dir int) int {
-	if wordAt(e.area, 0x1CC) == 0 {
-		putWord(e.game, 0x582, 2)
+	if e.area.In3D == 0 {
+		e.game.MonsterDist = 2
 		return 2
 	}
 	n := 0

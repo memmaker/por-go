@@ -34,7 +34,7 @@ func (e *Engine) combatParty() []*Character {
 // worth counts too; the sum is split over the members that earn it.
 func (e *Engine) computeExp() int32 {
 	sel := e.selected()
-	if e.duel() && wordAt(e.game, 0x5CC) != 0 {
+	if e.duel() && e.game.Duel != 0 {
 		return int32(int16(int8(sel.MaxLevel)) * 100)
 	}
 	var total int32
@@ -51,7 +51,7 @@ func (e *Engine) computeExp() int32 {
 		e.loot.add(coinsToPurse(coins))
 		// the byte product is a 16-bit mul, sign-extended
 		total += int32(c.ExpValue) + int32(int16(uint16(c.HPRoll)*uint16(c.ExpPerHP)))
-		if wordAt(e.game, 0x5C6) == 1 {
+		if e.game.NoLoot == 1 {
 			continue
 		}
 		for _, it := range c.Items {
@@ -73,7 +73,7 @@ func (e *Engine) computeExp() int32 {
 		}
 	}
 	// ponytail: the original divides by zero when d is 0
-	if d := int32(uint16(wordAt(e.game, gsPartyCount) - uint16(e.ac.idle))); d > 0 {
+	if d := int32(uint16(e.game.PartyCount - uint16(e.ac.idle))); d > 0 {
 		total /= d
 	}
 	return total
@@ -131,7 +131,7 @@ func (e *Engine) combatResult() {
 	if !e.duel() {
 		for _, c := range e.combatParty() {
 			st := c.Status
-			if (st == 3 || st == 1 || st == 0 || wordAt(e.game, 0x5CC) == 1) &&
+			if (st == 3 || st == 1 || st == 0 || e.game.Duel == 1) &&
 				c.Side == 0 && c.Control < 0x80 {
 				e.run.quit = false
 			}
@@ -160,7 +160,7 @@ func (e *Engine) combatResult() {
 					}
 				}
 			} else {
-				putWord(e.game, 0x58E, 0x81)
+				e.game.CombatEnd = 0x81
 				for i := 0; i < len(e.combatParty()); {
 					c := e.party[i]
 					if c.Status == 3 {
@@ -177,7 +177,7 @@ func (e *Engine) combatResult() {
 				e.partySel = 0
 				e.RemoveSelected(false, true)
 			}
-			putWord(e.game, gsPartyCount, 0)
+			e.game.PartyCount = 0
 		}
 		return
 	}
@@ -202,13 +202,13 @@ func (e *Engine) combatResult() {
 // (game +0x590 counts the ones that were beaten); the members drop their
 // combat blocks.
 func (e *Engine) cleanupCombatants() {
-	putWord(e.game, 0x590, 0)
+	e.game.Beaten = 0
 	for i := 0; i < len(e.party); {
 		c := e.party[i]
 		monster := c.Combat != nil && c.Combat.Extra == 1
 		if monster || c.Side == 1 {
 			if c.Okay != 1 {
-				putWord(e.game, 0x590, wordAt(e.game, 0x590)+1)
+				e.game.Beaten = e.game.Beaten + 1
 			}
 			e.partySel = i
 			e.RemoveSelected(monster, true)
@@ -382,7 +382,7 @@ func (e *Engine) lootMenu() {
 
 // AfterCombat = ovr06:1527.
 func (e *Engine) AfterCombat() {
-	putWord(e.game, 0x58E, 0)
+	e.game.CombatEnd = 0
 	e.ac.monsters = false
 	e.beginFlag = 6
 	e.combatResult()
@@ -395,7 +395,7 @@ func (e *Engine) AfterCombat() {
 		e.lootMenu()
 		e.run.treasure = nil
 	} else {
-		putWord(e.game, 0x58E, 0x80)
+		e.game.CombatEnd = 0x80
 		e.Music(5) // Amiga 0x4602E
 		e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "The END!")
 		e.msgCol, e.msgRow = 2, 6
@@ -403,9 +403,8 @@ func (e *Engine) AfterCombat() {
 		e.MessageRow24b(0xD, "Press any key to continue")
 	}
 	e.slowText = true
-	for _, w := range []int{0x6E0, 0x6E2, 0x6E4, 0x5C6, 0x5CC} {
-		putWord(e.game, w, 0)
-	}
+	g := &e.game
+	g.MonsterHit, g.PartyHit, g.PartyMove, g.NoLoot, g.Duel = 0, 0, 0, 0, 0
 }
 
 func longAt(b []byte, o int) uint32 { return uint32(wordAt(b, o)) | uint32(wordAt(b, o+2))<<16 }

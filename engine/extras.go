@@ -149,7 +149,7 @@ const (
 
 // areaKey identifies the current map: script area plus GEO block.
 func (e *Engine) areaKey() int {
-	return int(e.gs.areaKind)<<16 | int(wordAt(e.area, 0x18A))
+	return int(e.gs.areaKind)<<16 | int(e.area.Geo)
 }
 
 // markSeen records the party's cell as visited and the cells in view
@@ -189,7 +189,7 @@ func (e *Engine) markSeen() {
 // minimapAllowed follows the game's own rule for its Area command.
 // In camp the panel keeps the party.
 func (e *Engine) minimapAllowed() bool {
-	return e.viewMode == 1 && wordAt(e.area, 0x1F6) == 0 && e.beginFlag != 2
+	return e.viewMode == 1 && e.area.NoCoords == 0 && e.beginFlag != 2
 }
 
 // Minimap geometry: 16x16 cells of 7 pixels inside the roster panel

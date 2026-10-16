@@ -14,8 +14,8 @@ func (e *Engine) GameLoop() {
 	r.needFrame = 1
 	e.beginFlag = 4
 	r.areaChanged = false
-	e.gs.areaKind = byte(wordAt(e.area, 0x1E4))
-	if k := e.gs.areaKind; (k == 0x19 || k == 0x1A || k == 0x1B) && wordAt(e.area, 0x1CC) == 0 {
+	e.gs.areaKind = byte(e.area.AreaKind)
+	if k := e.gs.areaKind; (k == 0x19 || k == 0x1A || k == 0x1B) && e.area.In3D == 0 {
 		e.beginFlag = 3
 	}
 	if !e.loadedGame {
@@ -30,24 +30,24 @@ func (e *Engine) GameLoop() {
 		}
 		e.Redraw()
 	}
-	putWord(e.area, 0x1E4, uint16(e.gs.areaKind))
+	e.area.AreaKind = uint16(e.gs.areaKind)
 	key := e.CommandInput()
 	r.savedSel = e.selected()
 	for {
-		putWord(e.area, 0x1E4, uint16(e.gs.areaKind))
+		e.area.AreaKind = uint16(e.gs.areaKind)
 		// Look / encamp: repeat while the last command was one of them.
-		for (wordAt(e.game, 0x594) > 1 || upper(key) == 'E') && !r.quit {
+		for (e.game.Search > 1 || upper(key) == 'E') && !r.quit {
 			if upper(key) == 'E' {
 				e.Encamp()
 			} else {
-				r.searchSave = byte(wordAt(e.game, 0x594) & 1)
-				putWord(e.game, 0x594, 1)
+				r.searchSave = byte(e.game.Search & 1)
+				e.game.Search = 1
 				e.Redraw()
 				e.RunECL(e.es.events[1])
 				if r.areaChanged {
 					e.AreaChange()
 				}
-				putWord(e.game, 0x594, uint16(r.searchSave))
+				e.game.Search = uint16(r.searchSave)
 			}
 			if !r.quit {
 				key = e.CommandInput()
@@ -61,11 +61,11 @@ func (e *Engine) GameLoop() {
 			e.unback() // a backward step the scripts sent elsewhere
 			e.AreaChange()
 		} else if !r.quit {
-			putWord(e.area, 0x1E0, uint16(int16(int8(e.posX))))
-			putWord(e.area, 0x1E2, uint16(int16(int8(e.posY))))
+			e.area.PrevX = uint16(int16(int8(e.posX)))
+			e.area.PrevY = uint16(int16(int8(e.posY)))
 			e.Move()
 			e.Redraw()
-			if int(wordAt(e.area, 0x1E0)) != e.posX || int(wordAt(e.area, 0x1E2)) != e.posY {
+			if int(e.area.PrevX) != e.posX || int(e.area.PrevY) != e.posY {
 				e.PlaySound(sndStep)
 			}
 			e.es.f84E0, e.es.f84E1 = 0, 1
@@ -89,19 +89,19 @@ func (e *Engine) AreaChange() {
 	r := &e.run
 	for {
 		e.es.cell = e.MapCell(e.posX, e.posY)
-		putWord(e.game, 0x5AA, 0)
+		e.game.LeftMap = 0
 		sel := e.selected() // DS:5D92 kept at bp-4 (ovr04:31D5)
 		e.prevViewMode = e.viewMode
 		e.viewMode = 1
 		e.RunECL(e.es.events[4])
 		e.beginFlag = 4
-		if wordAt(e.area, 0x1CC) == 0 {
+		if e.area.In3D == 0 {
 			switch e.gs.areaKind {
 			case 0x19:
 				e.viewMode, e.beginFlag = 2, 3
 			case 0x1A:
 				e.viewMode, e.beginFlag = 3, 3
-				if wordAt(e.area, 0x366) == 0xFE && wordAt(e.area, 0x344) == 0 {
+				if e.area.Boss == 0xFE && e.area.RiverOpen == 0 {
 					e.EndgameHook(1)
 				}
 			case 0x1B:
@@ -143,7 +143,7 @@ func (e *Engine) Encamp() {
 // CommandInput = ovr15:0989: the adventuring command bar. Returns the
 // command that ends input: 'E' encamp, 'S' search here, or a movement key.
 func (e *Engine) CommandInput() byte {
-	putWord(e.game, 0x592, 0)
+	e.game.HoldMove = 0
 	e.unback() // a backward step the scripts ended
 	var key byte
 	switch {
@@ -243,9 +243,9 @@ func (e *Engine) command(k byte, view3D bool) bool {
 	case 'E':
 		return true
 	case 'W': // Sweep ahead (the original's Search): the slow, searching pace on or off
-		putWord(e.game, 0x594, wordAt(e.game, 0x594)^1)
+		e.game.Search = e.game.Search ^ 1
 	case 'S': // Search here (the original's Look): search this square once
-		putWord(e.game, 0x594, wordAt(e.game, 0x594)|2)
+		e.game.Search = e.game.Search | 2
 		e.AdvanceClock(3, 1) // extra: 3 minutes (the original took 10)
 		e.eclPC = e.es.events[1]
 		return true
@@ -268,7 +268,7 @@ func (e *Engine) turn(d int, sound bool) {
 // side would leave the map.
 func (e *Engine) checkEdge() {
 	x, y := e.posX, e.posY
-	putWord(e.game, 0x5AA, 0)
+	e.game.LeftMap = 0
 	if e.DoorAt(x, y, e.facing) == 0 {
 		return
 	}
@@ -276,19 +276,19 @@ func (e *Engine) checkEdge() {
 	y += dirDY[e.facing]
 	if x > 15 {
 		e.posX = 15
-		putWord(e.game, 0x5AA, 1)
+		e.game.LeftMap = 1
 	}
 	if x < 0 {
 		e.posX = 0
-		putWord(e.game, 0x5AA, 1)
+		e.game.LeftMap = 1
 	}
 	if y > 15 {
 		e.posY = 15
-		putWord(e.game, 0x5AA, 1)
+		e.game.LeftMap = 1
 	}
 	if y < 0 {
 		e.posY = 0
-		putWord(e.game, 0x5AA, 1)
+		e.game.LeftMap = 1
 	}
 }
 
@@ -317,8 +317,8 @@ func (e *Engine) Move() {
 	defer e.unback()
 	switch {
 	case e.viewMode == 1:
-		if wordAt(e.game, 0x592) >= 0xFF {
-			putWord(e.game, 0x592, 0)
+		if e.game.HoldMove >= 0xFF {
+			e.game.HoldMove = 0
 			break
 		}
 		moved := false
@@ -338,11 +338,11 @@ func (e *Engine) Move() {
 		e.unback()
 		e.StatusLine()
 	case e.viewMode >= 2 && e.viewMode <= 4:
-		if wordAt(e.game, 0x592) < 0xFF {
+		if e.game.HoldMove < 0xFF {
 			e.mapMove()
 			e.StatusLine()
 		} else {
-			putWord(e.game, 0x592, 0)
+			e.game.HoldMove = 0
 		}
 	}
 	e.FreeAnimPic()
@@ -528,13 +528,13 @@ func (e *Engine) knock() bool {
 
 // stepAhead = ovr15:073B: walk one cell (wrapping), look, and let time pass.
 func (e *Engine) stepAhead() {
-	e.PlaySound(sndStep)
+	// the step sound plays once the loop sees the square change (ovr04:3395)
 	e.posX = wrap(e.posX + dirDX[e.facing])
 	e.posY = wrap(e.posY + dirDY[e.facing])
 	e.es.wallAhead = e.WallAt(e.posX, e.posY, e.facing)
 	e.run.doorTry = [3]byte{1, 1, 1}
 	e.es.cell = e.MapCell(e.posX, e.posY)
-	if wordAt(e.game, 0x594)&1 != 0 {
+	if e.game.Search&1 != 0 {
 		e.AdvanceClock(3, 1) // extra: 3 minutes a sweeping step (the original took 10)
 	} else {
 		e.AdvanceClock(1, 1)
@@ -544,8 +544,8 @@ func (e *Engine) stepAhead() {
 // mapMove = ovr15:0818: one step on the area map, unless the target square
 // is impassable (DS:3648 map, 0x2C bytes a row).
 func (e *Engine) mapMove() {
-	x := clamp(int(int8(byte(int(wordAt(e.area, 0x186))+dirDX[e.facing]))), 0, 0xF)
-	y := clamp(int(int8(byte(int(wordAt(e.area, 0x188))+dirDY[e.facing]))), 0, 0x23)
+	x := clamp(int(int8(byte(int(e.area.MapX)+dirDX[e.facing]))), 0, 0xF)
+	y := clamp(int(int8(byte(int(e.area.MapY)+dirDY[e.facing]))), 0, 0x23)
 	col := int(int8(byte(int(viewModeShift[e.viewMode]) + x)))
 	t := terrainMap[y][col]
 	switch {
@@ -554,13 +554,13 @@ func (e *Engine) mapMove() {
 		t >= 0xDD && t <= 0xDE, t >= 0xE1 && t <= 0xE9, t == 0xF5:
 		return
 	case t >= 0x66 && t <= 0x6C, t == 0x72:
-		if wordAt(e.area, 0x344) == 0 {
+		if e.area.RiverOpen == 0 {
 			e.DisplayMessageWait(0xE, "The river's stench drives you back.")
 			return
 		}
 	}
-	putWord(e.area, 0x186, uint16(int16(x)))
-	putWord(e.area, 0x188, uint16(int16(y)))
+	e.area.MapX = uint16(int16(x))
+	e.area.MapY = uint16(int16(y))
 	e.AdvanceClock(0xC, 3)
 }
 
@@ -591,14 +591,14 @@ func (e *Engine) normalizeClock(t *[7]int) {
 func (e *Engine) AdvanceClock(count, unit int) {
 	var t [7]int
 	for i := range t {
-		t[i] = int(wordAt(e.area, 0x18C+2*i))
+		t[i] = int(e.area.Clock[i])
 	}
 	for i := 1; i <= count; i++ {
 		t[unit] = int(uint16(t[unit] + 1))
 		e.normalizeClock(&t)
 	}
 	for i := range t {
-		putWord(e.area, 0x18C+2*i, uint16(t[i]))
+		e.area.Clock[i] = uint16(t[i])
 	}
 	e.tickEffects(count, unit)
 }
@@ -619,7 +619,7 @@ func (e *Engine) tickEffects(count, unit int) {
 			if i < len(r.effTick) && r.effTick[i] != 0 {
 				any = true
 			}
-			if any || i+1 > int(wordAt(e.game, 0x67C)) {
+			if any || i+1 > int(e.game.PartyCount) {
 				break
 			}
 		}

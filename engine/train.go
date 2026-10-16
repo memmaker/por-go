@@ -14,7 +14,7 @@ import (
 // partyExp = es:[game+0x550]: the classes this training hall teaches
 // (a mask that is ANDed with DS:5DE; the party menu only offers Train
 // when it is set).
-func (e *Engine) partyExp() int { return int(wordAt(e.game, 0x550)) }
+func (e *Engine) partyExp() int { return int(e.game.PartyExp) }
 
 // modifyDraw = ovr17:2033 (idx, highlight): the ability line idx of the
 // selected character, or its hit points for idx 6.
@@ -464,7 +464,7 @@ func (e *Engine) AddCharacter() {
 				sel.Text = cut("* "+sel.Text, 0x28)
 				count = 0
 				if len(e.party) == 0 {
-					putWord(e.game, gsPartyCount, 0)
+					e.game.PartyCount = 0
 					e.AddToParty(c) // ovr18:1446
 					e.BuildCharIcon(c, true)
 				} else {
@@ -483,7 +483,7 @@ func (e *Engine) AddCharacter() {
 					if refused {
 						sel.Text = sel.Text[2:] // unmarked again, as in CotAB
 					}
-					if dup == nil && !refused && (!npc && count < 6 || npc && wordAt(e.game, gsPartyCount) < 8) {
+					if dup == nil && !refused && (!npc && count < 6 || npc && e.game.PartyCount < 8) {
 						e.AddToParty(c)
 						e.BuildCharIcon(c, true)
 						if !npc {
@@ -493,7 +493,7 @@ func (e *Engine) AddCharacter() {
 				}
 			}
 		}
-		if key == 'E' || key == 0 || count > 5 || wordAt(e.game, gsPartyCount) > 7 {
+		if key == 'E' || key == 0 || count > 5 || e.game.PartyCount > 7 {
 			break
 		}
 	}

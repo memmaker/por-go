@@ -70,13 +70,13 @@ func (e *Engine) ProgramEight() {
 	page(1, 0, 0)
 	finalAnim(3, 5, 2, slow())
 	page(3, 0, 0)
-	if wordAt(e.game, 0x67C) > 1 {
+	if e.game.PartyCount > 1 {
 		page(4, 0, 0xB)
 	}
-	if wordAt(e.game, 0x67C) > 2 {
+	if e.game.PartyCount > 2 {
 		page(5, 0xD, 9)
 	}
-	if wordAt(e.game, 0x67C) > 3 {
+	if e.game.PartyCount > 3 {
 		page(6, 0, 9)
 	}
 	e.ClearBox(1, 0x11, 0x26, 0x16)
@@ -189,7 +189,7 @@ func (e *Engine) recolourSquare(from, to []byte, v byte, random bool) {
 // copies of the member's items, in reverse order.
 func (e *Engine) DuelSetup(n int) {
 	e.run.f84D4 = 1
-	putWord(e.game, 0x5CC, uint16(int16(int8(n))))
+	e.game.Duel = uint16(int16(int8(n)))
 	sel := e.selected()
 	if sel == nil {
 		return

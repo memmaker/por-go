@@ -401,6 +401,6 @@ func (e *Engine) RemoveSelected(keepCount, freeIcon bool) {
 		e.partySel = 0
 	}
 	if !keepCount {
-		putWord(e.game, gsPartyCount, wordAt(e.game, gsPartyCount)-1)
+		e.game.PartyCount--
 	}
 }

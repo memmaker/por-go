@@ -16,8 +16,6 @@ import (
 const (
 	itemRecSize   = 0x3F
 	affectRecSize = 9
-	gsPartyCount  = 0x67C // game-state word
-	gsSymbolSet   = 0x624
 )
 
 // Item and Affect are the raw list nodes (next pointers live in the slices).
@@ -335,9 +333,9 @@ func (e *Engine) AddMonsterToParty(index int) {
 	e.BuildCharIcon(c, true)
 }
 
-func (e *Engine) partyCount() int { return int(binary.LittleEndian.Uint16(e.game[gsPartyCount:])) }
+func (e *Engine) partyCount() int { return int(e.game.PartyCount) }
 func (e *Engine) setPartyCount(n int) {
-	binary.LittleEndian.PutUint16(e.game[gsPartyCount:], uint16(n))
+	e.game.PartyCount = uint16(n)
 }
 
 // AddToParty = ovr18:1446 (c): append, give the lowest free order 0..7;
@@ -429,9 +427,9 @@ func (e *Engine) loadSlot(key byte) bool {
 	p := 0
 	rd := func(n int) []byte { s := b[p : p+n]; p += n; return s }
 	e.symDAX = "8X8D" + string('0'+rd(1)[0])
-	copy(e.area, rd(0x800))
-	copy(e.game, rd(0x800))
-	copy(e.aux, rd(0x400))
+	setWords(e.area.words()[:], rd(0x800))
+	setWords(e.game.words()[:], rd(0x800))
+	setWords(e.aux[:], rd(0x400))
 	copy(e.ecl, rd(0x1E00))
 	pos := rd(5)
 	e.posX, e.posY, e.facing = int(pos[0]), int(pos[1]), int(pos[2])
@@ -440,9 +438,9 @@ func (e *Engine) loadSlot(key byte) bool {
 	e.beginFlag = rd(1)[0]
 	count := int(rd(1)[0])
 	names := rd(0x148)
-	w := binary.LittleEndian.Uint16(e.area[0x1FE:])
+	w := e.area.ViewFlags
 	e.flag49F6, e.flag49F5 = byte(w>>1), byte(w&1)
-	e.msgDelay = e.area[0x1F8]
+	e.msgDelay = byte(e.area.MsgDelay)
 	e.setPartyCount(0)
 	e.party, e.partySel = nil, 0
 	e.purse = readPurse(b[p:])
@@ -467,22 +465,22 @@ func (e *Engine) loadSlot(key byte) bool {
 		e.BuildCharIcon(c, true)
 	}
 	e.partySel = 0
-	e.symDAX = "8X8D" + string('0'+e.game[gsSymbolSet])
+	e.symDAX = "8X8D" + string('0'+byte(e.game.SymbolSet))
 	if e.viewMode < 2 {
-		e.LoadGeo(int(e.area[0x18A])) // ovr30:10C7
+		e.LoadGeo(int(byte(e.area.Geo))) // ovr30:10C7
 	}
 	if e.viewMode > 1 {
 		e.LoadIconPic("ICON", 0, 0xB) // ovr33:01C8
 	} else {
 		for i := 1; i <= 3; i++ {
-			e.mapPairA[i-1] = int(int16(binary.LittleEndian.Uint16(e.area[0x3F2+2*i:])))
-			e.mapPairB[i-1] = int(int16(binary.LittleEndian.Uint16(e.area[0x3F8+2*i:])))
+			e.mapPairA[i-1] = int(int16(e.area.WallsA[i-1]))
+			e.mapPairB[i-1] = int(int16(e.area.WallsB[i-1]))
 			if e.mapPairA[i-1] >= 0 {
 				e.LoadWalldef(e.mapPairA[i-1]&0xFF, e.mapPairB[i-1]&0xFF) // ovr30:0E08
 			}
 		}
 	}
-	if binary.LittleEndian.Uint16(e.area[0x344:]) != 0 {
+	if e.area.RiverOpen != 0 {
 		e.EndgameHook(0) // ovr19:06B3
 	}
 	e.ClearKeyboard()
@@ -510,16 +508,16 @@ func (e *Engine) saveSlot(key byte) {
 	e.ClearRow24()
 	e.DisplayString(0, 24, 0xA, "Saving...Please Wait")
 	for i := 1; i <= 3; i++ {
-		binary.LittleEndian.PutUint16(e.area[0x3F2+2*i:], uint16(e.mapPairA[i-1]))
-		binary.LittleEndian.PutUint16(e.area[0x3F8+2*i:], uint16(e.mapPairB[i-1]))
+		e.area.WallsA[i-1] = uint16(e.mapPairA[i-1])
+		e.area.WallsB[i-1] = uint16(e.mapPairB[i-1])
 	}
-	binary.LittleEndian.PutUint16(e.area[0x1F8:], uint16(e.msgDelay))
-	binary.LittleEndian.PutUint16(e.area[0x1FE:], uint16(e.flag49F6)*2+uint16(e.flag49F5))
-	binary.LittleEndian.PutUint16(e.game[gsSymbolSet:], uint16(e.symDAX[4]-'0'))
+	e.area.MsgDelay = uint16(e.msgDelay)
+	e.area.ViewFlags = uint16(e.flag49F6)*2 + uint16(e.flag49F5)
+	e.game.SymbolSet = uint16(e.symDAX[4] - '0')
 	b := []byte{e.symDAX[4] - '0'}
-	b = append(b, e.area...)
-	b = append(b, e.game...)
-	b = append(b, e.aux...)
+	b = append(b, wordsBytes(e.area.words()[:])...)
+	b = append(b, wordsBytes(e.game.words()[:])...)
+	b = append(b, wordsBytes(e.aux[:])...)
 	b = append(b, e.ecl...)
 	b = append(b, byte(e.posX), byte(e.posY), byte(e.facing), e.pos3, e.pos4)
 	b = append(b, byte(e.viewMode), e.beginFlag, byte(len(e.party)))

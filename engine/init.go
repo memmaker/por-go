@@ -9,14 +9,12 @@ import (
 // load the always-resident assets. Everything the DOS code zeroed with
 // FillChar is zero-valued here.
 func (e *Engine) Init() {
-	e.game = make([]byte, 0x800)         // DS:49D6
-	e.area = make([]byte, 0x800)         // DS:49D2
-	e.aux = make([]byte, 0x400)          // DS:49DA
-	e.ecl = make([]byte, 0x1E00)         // DS:49DE, ECL code at pc-0x9900
-	e.posX, e.posY, e.facing = 0xF, 1, 6 // DS:6AAD/6AAE/6AAF
-	e.eclPC = 0x9900                     // DS:49ED
-	e.msgDelay = 1                       // DS:49E2
-	e.symDAX = "8X8D1"                   // DS:5376 = 1
+	e.game, e.area, e.aux = gameVars{}, areaVars{}, auxVars{} // DS:49D6, 49D2, 49DA
+	e.ecl = make([]byte, 0x1E00)                              // DS:49DE, ECL code at pc-0x9900
+	e.posX, e.posY, e.facing = 0xF, 1, 6                      // DS:6AAD/6AAE/6AAF
+	e.eclPC = 0x9900                                          // DS:49ED
+	e.msgDelay = 1                                            // DS:49E2
+	e.symDAX = "8X8D1"                                        // DS:5376 = 1
 	e.viewMode, e.prevViewMode = 1, 1
 	e.saved = false
 	e.flag49F5, e.flag49F6 = 1, 1         // DS:49F5/49F6

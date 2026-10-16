@@ -59,17 +59,20 @@ type Engine struct {
 	saved      bool         // DS:557D
 	debug      bool         // DS:470C
 
-	game, area, aux, ecl []byte // DS:49D6, 49D2, 49DA, 49DE records
-	posX, posY, facing   int    // DS:6AAD, 6AAE, 6AAF
-	eclPC                int    // DS:49ED
-	viewMode             int    // DS:49FA (1 = 3D view)
-	prevViewMode         int    // DS:49F9
-	sqrpaci              [2]*dax.Image
-	items                []byte // DS:5582: 16-byte base item records
-	pos3, pos4           byte   // DS:6AB0, 6AB1
-	flag49F5, flag49F6   byte
-	mapPairA, mapPairB   [3]int // DS:6AAE+4i / 6AB0+4i
-	loadingMonster       bool   // DS:557C
+	game               gameVars // DS:49D6 record (vars.go)
+	area               areaVars // DS:49D2
+	aux                auxVars  // DS:49DA
+	ecl                []byte   // DS:49DE
+	posX, posY, facing int      // DS:6AAD, 6AAE, 6AAF
+	eclPC              int      // DS:49ED
+	viewMode           int      // DS:49FA (1 = 3D view)
+	prevViewMode       int      // DS:49F9
+	sqrpaci            [2]*dax.Image
+	items              []byte // DS:5582: 16-byte base item records
+	pos3, pos4         byte   // DS:6AB0, 6AB1
+	flag49F5, flag49F6 byte
+	mapPairA, mapPairB [3]int // DS:6AAE+4i / 6AB0+4i
+	loadingMonster     bool   // DS:557C
 
 	cm             charMgmtState       // ovr17 create/modify/train state
 	es             eclState            // ovr08/ovr04 interpreter state

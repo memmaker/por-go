@@ -479,7 +479,7 @@ func (e *Engine) fxFireball() {
 	} else {
 		lvl = e.casterLevel(int(e.curSpell))
 	}
-	if wordAt(e.area, 0x1CC) == 0 {
+	if e.area.In3D == 0 {
 		e.buildNear(e.tgtX, e.tgtY, 2, 0xFF, 1)
 		for i, n := range e.near.list {
 			e.setTgt(i+1, e.combatant(n.index))

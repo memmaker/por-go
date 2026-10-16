@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"unsafe"
 )
 
 func TestSlotName(t *testing.T) {
@@ -41,14 +42,36 @@ func TestAdoptLettered(t *testing.T) {
 // An F9 save leaves the area block as it was: saveSlot packs the wall slots
 // into area+0x3F4.., and area+0x3FE is the view animation flag.
 func TestSaveToKeepsArea(t *testing.T) {
-	e := &Engine{area: make([]byte, 0x800), game: make([]byte, 0x800), aux: make([]byte, 0x400), ecl: make([]byte, 0x1E00), symDAX: "8X8D1"}
+	e := &Engine{ecl: make([]byte, 0x1E00), symDAX: "8X8D1"}
 	e.Cfg.SaveDir = t.TempDir()
 	e.mapPairB = [3]int{5, 6, 7}
 	e.saveTo("X")
-	if w := wordAt(e.area, 0x3FE); w != 0 {
+	if w := e.area.WallsB[2]; w != 0 {
 		t.Errorf("area+0x3FE = %d after a save, want 0", w)
 	}
 	if _, err := os.Stat(filepath.Join(e.slotRoot(), "X", "SAVGAMA.DAT")); err != nil {
 		t.Error("no save written")
+	}
+}
+
+// The named words sit at the offsets the listings use.
+func TestVarOffsets(t *testing.T) {
+	var a areaVars
+	var g gameVars
+	for _, c := range []struct{ got, want uintptr }{
+		{unsafe.Offsetof(a.MapX), 0x186}, {unsafe.Offsetof(a.Clock), 0x18C}, {unsafe.Offsetof(a.NoMagic), 0x1CA},
+		{unsafe.Offsetof(a.PrevX), 0x1E0}, {unsafe.Offsetof(a.NoCoords), 0x1F6}, {unsafe.Offsetof(a.MarkFlags4), 0x2F8},
+		{unsafe.Offsetof(a.Mark3), 0x318}, {unsafe.Offsetof(a.Mark4Off), 0x33E}, {unsafe.Offsetof(a.RiverOpen), 0x344},
+		{unsafe.Offsetof(a.Boss), 0x366}, {unsafe.Offsetof(a.Mark4), 0x3A4}, {unsafe.Offsetof(a.WallsA), 0x3F4},
+		{unsafe.Offsetof(a.WallsB), 0x3FA}, {unsafe.Offsetof(a.V4B00), 0x400},
+		{unsafe.Offsetof(g.PartyExp), 0x550}, {unsafe.Offsetof(g.MaxDist), 0x580}, {unsafe.Offsetof(g.Morale), 0x58C},
+		{unsafe.Offsetof(g.RestEvery), 0x5A4}, {unsafe.Offsetof(g.LeftMap), 0x5AA}, {unsafe.Offsetof(g.Portrait), 0x5C2},
+		{unsafe.Offsetof(g.Duel), 0x5CC}, {unsafe.Offsetof(g.SymbolSet), 0x624}, {unsafe.Offsetof(g.AttackedAlly), 0x666},
+		{unsafe.Offsetof(g.PartyCount), 0x67C}, {unsafe.Offsetof(g.Shop), 0x6D8}, {unsafe.Offsetof(g.MonsterHit), 0x6E0},
+		{unsafe.Offsetof(g.PartyMove), 0x6E4},
+	} {
+		if c.got != c.want {
+			t.Errorf("field at %#x, want %#x", c.got, c.want)
+		}
 	}
 }

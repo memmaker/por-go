@@ -36,15 +36,15 @@ func skyGround(v byte) byte {
 // Redraw = ovr27:016D: redraw the view window for the current view mode.
 func (e *Engine) Redraw() {
 	mode := e.viewMode
-	if wordAt(e.area, 0x1CC) != 0 {
+	if e.area.In3D != 0 {
 		mode = 1
 	}
 	switch {
 	case mode == 1:
 		e.es.cell = e.MapCell(e.posX, e.posY)
-		sky := wordAt(e.area, 0x1FA)
+		sky := e.area.Sky
 		if e.es.cell > 0x7F {
-			sky = wordAt(e.area, 0x1FC)
+			sky = e.area.SkyInside
 		}
 		s := e.gs.sky
 		s[0] = skyColour[sky]
@@ -54,15 +54,15 @@ func (e *Engine) Redraw() {
 			s[3] = skyGround(e.es.v6F68)
 		}
 		e.SetSkyColours(s[0], s[1], s[2], s[3])
-		if wordAt(e.area, 0x1F6) != 0 {
+		if e.area.NoCoords != 0 {
 			e.gs.overhead = false
 		}
 		e.Draw3DView(e.posX, e.posY, e.viewFacing())
 		e.viewDrawn()
 	case mode >= 2 && mode <= 4:
 		// ovr27:0250/0272: byte locals, signed clamps
-		x := clamp(int(int8(int(viewModeShift[mode])+int(wordAt(e.area, 0x186))-2)), 0, 0x27)
-		y := clamp(int(int8(int(wordAt(e.area, 0x188))-2)), 0, 0x1F)
+		x := clamp(int(int8(int(viewModeShift[mode])+int(e.area.MapX)-2)), 0, 0x27)
+		y := clamp(int(int8(int(e.area.MapY)-2)), 0, 0x1F)
 		e.DrawAreaMap(x, y)
 		e.drawAreaMapParty()
 	}
@@ -127,7 +127,7 @@ func pad2(n int) string {
 func (e *Engine) StatusLine() {
 	x, y := e.posX, e.posY
 	if e.viewMode > 1 {
-		x, y = int(e.area[0x186]), int(e.area[0x188])
+		x, y = int(byte(e.area.MapX)), int(byte(e.area.MapY))
 		if e.viewMode == 3 {
 			x += 0xD
 		}
@@ -136,17 +136,17 @@ func (e *Engine) StatusLine() {
 		}
 		x &= 0xFF
 	}
-	hh := pad2(int(wordAt(e.area, 0x192)))
-	mm := pad2(10*int(wordAt(e.area, 0x190)) + int(wordAt(e.area, 0x18E)))
+	hh := pad2(int(e.area.Clock[3]))
+	mm := pad2(10*int(e.area.Clock[2]) + int(e.area.Clock[1]))
 	s := ""
-	if wordAt(e.area, 0x1F6) == 0 {
+	if e.area.NoCoords == 0 {
 		s = strconv.Itoa(x) + "," + strconv.Itoa(y) + " "
 	}
 	s += facingNames[e.viewFacing()] + " "
 	s += hh + ":" + mm
 	if e.beginFlag == 2 {
 		s += " camping"
-	} else if wordAt(e.game, 0x594)&1 != 0 {
+	} else if e.game.Search&1 != 0 {
 		s += " sweeping"
 	}
 	if len(s) > 0x28 {

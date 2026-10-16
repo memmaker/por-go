@@ -363,5 +363,5 @@ func (e *Engine) LoadGeo(n int) {
 	if len(b) >= geoSize {
 		copy(e.gs.geo[:], b[2:geoSize])
 	}
-	putWord(e.area, 0x18A, uint16(n))
+	e.area.Geo = uint16(n)
 }

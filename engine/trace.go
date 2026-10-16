@@ -134,8 +134,8 @@ func (e *Engine) SetPaletteColor(colour, index int) {
 // (emu.REGIONS): hex of game, area, aux, ecl and each party member.
 func (e *Engine) TraceState() map[string]string {
 	m := map[string]string{
-		"game": hex.EncodeToString(e.game), "area": hex.EncodeToString(e.area),
-		"aux": hex.EncodeToString(e.aux), "ecl": hex.EncodeToString(e.ecl),
+		"game": hex.EncodeToString(wordsBytes(e.game.words()[:])), "area": hex.EncodeToString(wordsBytes(e.area.words()[:])),
+		"aux": hex.EncodeToString(wordsBytes(e.aux[:])), "ecl": hex.EncodeToString(e.ecl),
 	}
 	i := 0
 	for _, c := range e.party {

@@ -21,7 +21,7 @@ func (e *Engine) o14_0000(c *Character) {
 		if int8(cb.Delay) < 1 {
 			cb.Delay = 1
 		}
-		if byte((int(int8(c.Side))+1)&int(wordAt(e.game, 0x596))) != 0 { // only the low byte is tested
+		if byte((int(int8(c.Side))+1)&int(e.game.Surprise)) != 0 { // only the low byte is tested
 			cb.Delay -= 6
 		}
 		if int8(cb.Delay) < 0 || int8(cb.Delay) > 0x14 {
@@ -38,7 +38,7 @@ func (e *Engine) o14_0000(c *Character) {
 func (e *Engine) o14_0123(c *Character) int {
 	v := c.Move
 	if c.Side == 0 {
-		v += byte(wordAt(e.game, 0x6E4))
+		v += byte(e.game.PartyMove)
 	}
 	e.v681D = 1
 	if v < 1 || v > 0x60 {

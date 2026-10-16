@@ -156,7 +156,7 @@ func (e *Engine) ShowEncounter(sprite, pic, dist int, flags *[2]byte) {
 			e.DrawAnimFrame(2)
 		}
 	}
-	face := wordAt(e.game, 0x5C2)
+	face := e.game.Portrait
 	if flags[1] != 0 && uint16(e.es.f84EA) == face {
 		return
 	}
@@ -182,7 +182,7 @@ func (e *Engine) ShowEncounter(sprite, pic, dist int, flags *[2]byte) {
 // the caller asked for animation or area+0x3FE is set.
 func (e *Engine) animateWhileWaiting() {
 	a := &e.pic
-	force := len(e.area) > 0x3FF && wordAt(e.area, 0x3FE) != 0
+	force := *e.area.viewAnim() != 0
 	if !force && !e.animInput || a.cur == 0 || a.cur > len(a.frames) || e.ext.fullMap {
 		return
 	}

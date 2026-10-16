@@ -361,7 +361,7 @@ func (e *Engine) ItemsMenu() bool {
 		}
 		hired := c.Control >= 0x80 && c.Okay != 0 && c.Status != 1
 		menu := "Ready"
-		if c.Okay != 0 && wordAt(e.area, 0x1CA) == 0 &&
+		if c.Okay != 0 && e.area.NoMagic == 0 &&
 			(e.beginFlag == 2 || e.beginFlag == 3 || e.beginFlag == 4 ||
 				e.beginFlag == 5 && c.Combat != nil && c.Combat.CanUse != 0) {
 			menu += " Use"

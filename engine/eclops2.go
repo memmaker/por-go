@@ -163,7 +163,7 @@ func (e *Engine) opEncounterMenu() {
 	hi, lo := e.PartyHpRange()
 	e.FetchArgs(14)
 	e.run.sprite = int(byte(e.ArgValue(1)))
-	putWord(e.game, 0x580, e.ArgValue(2))
+	e.game.MaxDist = e.ArgValue(2)
 	e.run.closeup = int(byte(e.ArgValue(3)))
 	dst := e.ArgAddr(4)
 	var react [5]byte
@@ -176,20 +176,20 @@ func (e *Engine) opEncounterMenu() {
 	}
 	fleeAt := int(byte(e.ArgValue(13)))
 	strength := int(byte(e.ArgValue(14)))
-	putWord(e.game, 0x582, uint16(e.FreeSteps(e.posX, e.posY, e.facing)))
-	if wordAt(e.game, 0x580) < wordAt(e.game, 0x582) {
-		putWord(e.game, 0x582, wordAt(e.game, 0x580))
+	e.game.MonsterDist = uint16(e.FreeSteps(e.posX, e.posY, e.facing))
+	if e.game.MaxDist < e.game.MonsterDist {
+		e.game.MonsterDist = e.game.MaxDist
 	}
 	show := func() {
-		e.ShowEncounter(e.run.sprite, e.run.closeup, int(e.game[0x582]), &e.es.f84C8)
+		e.ShowEncounter(e.run.sprite, e.run.closeup, int(byte(e.game.MonsterDist)), &e.es.f84C8)
 	}
 	show()
-	dist := func() uint16 { return wordAt(e.game, 0x582) }
+	dist := func() uint16 { return e.game.MonsterDist }
 	approach := func() bool {
 		if dist() == 0 {
 			return false
 		}
-		putWord(e.game, 0x582, dist()-1)
+		e.game.MonsterDist = dist() - 1
 		show()
 		return true
 	}
@@ -237,7 +237,7 @@ func (e *Engine) opEncounterMenu() {
 			clear = false
 		}
 		e.DisplayTextBlock(1, 0x11, 0x26, 0x16, 0xA, clear, txt)
-		parlay := dist() == 0 || wordAt(e.area, 0x1CC) == 0
+		parlay := dist() == 0 || e.area.In3D == 0
 		menu := "~COMBAT ~WAIT ~FLEE ~ADVANCE"
 		if parlay {
 			menu = "~COMBAT ~WAIT ~FLEE ~PARLAY"
@@ -388,7 +388,7 @@ func (e *Engine) opDamage() {
 	all := flags&0x40 != 0
 	pick := 0
 	if !all {
-		pick = e.Dice(1, int(e.game[0x67C]))
+		pick = e.Dice(1, int(byte(e.game.PartyCount)))
 	}
 	member := func(k int) *Character { // k is 1-based; the walk stops at the end
 		if k < 1 {
@@ -422,7 +422,7 @@ func (e *Engine) opDamage() {
 		}
 	} else if len(e.party) > 0 {
 		for i := 1; i <= int(flags); i++ {
-			c := member(e.Dice(1, int(e.game[0x67C])))
+			c := member(e.Dice(1, int(byte(e.game.PartyCount))))
 			if e.RollHit(c, int(save)) { // ovr25:0C4F
 				e.HitMessage(c, dmg)
 			}

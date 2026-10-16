@@ -112,7 +112,7 @@ func (e *Engine) canStudy(mode int) bool {
 	msg := ""
 	c := e.selected()
 	switch {
-	case mode == 1 && wordAt(e.area, 0x1CA) > 0:
+	case mode == 1 && e.area.NoMagic > 0:
 		msg = "cannot cast spells in this area"
 	case c.Status == 1 || c.Okay == 0:
 		msg = "is in no condition to "
@@ -364,7 +364,7 @@ func (e *Engine) memorizeCures(c *Character) {
 }
 
 // spellsAllowed: the area allows spells.
-func (e *Engine) spellsAllowed() bool { return wordAt(e.area, 0x1CA) == 0 }
+func (e *Engine) spellsAllowed() bool { return e.area.NoMagic == 0 }
 
 // castCures (extra): every cleric able to cast spends memorized Cure Light
 // Wounds on the most wounded member while someone needs it.
@@ -408,7 +408,7 @@ func healable(c *Character) bool {
 
 // clockMinutes (extra): the time of day in minutes.
 func (e *Engine) clockMinutes() int {
-	return 60*int(wordAt(e.area, 0x192)) + 10*int(wordAt(e.area, 0x190)) + int(wordAt(e.area, 0x18E))
+	return 60*int(e.area.Clock[3]) + 10*int(e.area.Clock[2]) + int(e.area.Clock[1])
 }
 
 // isDay (extra): day runs from 6:00 to 20:00.
@@ -745,7 +745,7 @@ func (e *Engine) magicCommands() string {
 		return ""
 	}
 	m := ""
-	if wordAt(e.area, 0x1CA) == 0 && slices.ContainsFunc(c.Memorized[:], func(v byte) bool { return v > 0 && v < 0x80 }) {
+	if e.area.NoMagic == 0 && slices.ContainsFunc(c.Memorized[:], func(v byte) bool { return v > 0 && v < 0x80 }) {
 		m += "Cast "
 	}
 	caster, mu := false, false
@@ -1207,11 +1207,11 @@ func (e *Engine) Rest(stop func() bool) bool {
 		e.healTick()
 		e.memTick()
 		e.hourTick(&hours)
-		if every := wordAt(e.game, 0x5A4); every > 0 {
+		if every := e.game.RestEvery; every > 0 {
 			e.camp.interval++
 			if e.camp.interval >= int(every) {
 				e.camp.interval = 0
-				if e.Dice(1, 100) <= int(wordAt(e.game, 0x5A6)) {
+				if e.Dice(1, 100) <= int(e.game.RestChance) {
 					e.ClearMessageArea()
 					e.showRest(0)
 					e.DisplayString(1, 0x13, 0xF, "The Party is rudely interrupted!")

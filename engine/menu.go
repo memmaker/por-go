@@ -133,9 +133,7 @@ func (e *Engine) DisplayInput(prompt, menu string, promptColour, normal, highlig
 	}
 	e.ext.sels[menu] = e.menuSel
 	e.pic.last = last
-	if len(e.area) > 0x3FF {
-		putWord(e.area, 0x3FE, 0) // 06D8 (not deferred: a trace run must stop with the original's state)
-	}
+	*e.area.viewAnim() = 0 // 06D8 (not deferred: a trace run must stop with the original's state)
 	return k, x
 }
 

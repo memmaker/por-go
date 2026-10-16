@@ -125,7 +125,7 @@ func (e *Engine) aiCastFromItem(c *Character) bool {
 	var found *Item
 	lvl := 7
 	rounds := e.Dice(1, 7)
-	if c.Combat.CanUse == 0 || e.rv.side[b2i(isParty(c))] == 0 || wordAt(e.area, 0x1CA) != 0 {
+	if c.Combat.CanUse == 0 || e.rv.side[b2i(isParty(c))] == 0 || e.area.NoMagic != 0 {
 		return false
 	}
 	for k := 1; k <= rounds; k++ {
@@ -471,7 +471,7 @@ func (e *Engine) aiFleeCheck(c *Character) bool {
 	}
 	e.v6825 = e.v6E2F
 	e.affectGroup(c, 0x11)
-	t2 := uint16(100 - wordAt(e.game, 0x58C))
+	t2 := uint16(100 - e.game.Morale)
 	if !(uint16(e.v6825) < t2 || e.v6825 == 0 || c.Side == 0) {
 		return r
 	}

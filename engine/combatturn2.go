@@ -329,7 +329,7 @@ func (e *Engine) o14_2998(c, target *Character) bool {
 		return false
 	}
 	e.v6DE2 = 1
-	putWord(e.game, 0x666, 1)
+	e.game.AttackedAlly = 1
 	for _, m := range e.party {
 		if m.Status == 0 && m.Control > 0x7F {
 			m.Side = 1
@@ -571,7 +571,7 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 	// nested ovr14:32E6 and ovr14:3389 work on the caller's locals
 	var list []nearEntry
 	var cur, count, prevX, prevY byte
-	skipAlly := false // extra: N/P pass over allies (hostile spells), while a foe can be aimed at
+	skipAlly := false   // extra: N/P pass over allies (hostile spells), while a foe can be aimed at
 	rebuild := func() { // ovr14:32E6
 		e.buildNear(e.combatX(c), e.combatY(c), 0x7F, 0xFF, e.combatSize(c))
 		list = append([]nearEntry(nil), e.near.list...)

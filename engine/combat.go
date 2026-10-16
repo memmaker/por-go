@@ -17,7 +17,7 @@ func (e *Engine) Combat() {
 		for _, c := range e.party {
 			e.o14_0000(c)
 		}
-		putWord(e.game, 0x596, 0)
+		e.game.Surprise = 0
 		for c := e.nextActor(); c != nil; c = e.nextActor() {
 			e.takeTurn(c)
 		}
@@ -208,7 +208,7 @@ func (e *Engine) combatMenu(c *Character) byte {
 			spells = true
 		}
 	}
-	if spells && ci.CanCast != 0 && wordAt(e.area, 0x1CA) == 0 {
+	if spells && ci.CanCast != 0 && e.area.NoMagic == 0 {
 		m += "Cast "
 	}
 	if int8(c.Levels[clsCleric]) > 0 && ci.TurnUsed == 0 {

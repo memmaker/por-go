@@ -22,17 +22,17 @@ func (e *Engine) DrawAreaMap(x, y int) {
 				set := false
 				switch k {
 				case 3:
-					set = wordAt(e.area, 0x318) != 0xFF
+					set = e.area.Mark3 != 0xFF
 				case 4:
-					set = wordAt(e.area, 0x3A4) != 0 || wordAt(e.area, 0x2F8)&8 != 0 || wordAt(e.area, 0x33E) == 0
+					set = e.area.Mark4 != 0 || e.area.MarkFlags4&8 != 0 || e.area.Mark4Off == 0
 				case 5:
-					set = wordAt(e.area, 0x340)&2 == 0
+					set = e.area.MarkFlags57&2 == 0
 				case 6:
 					set = true
 				case 7:
-					set = wordAt(e.area, 0x340)&1 == 0
+					set = e.area.MarkFlags57&1 == 0
 				case 8, 9:
-					set = wordAt(e.area, 0x366) > 0xFD
+					set = e.area.Boss > 0xFD
 				}
 				if set {
 					icon = byte(ent[2] - 1)
@@ -49,7 +49,7 @@ func (e *Engine) DrawAreaMap(x, y int) {
 // marker square is the party position relative to the shown window, pinned
 // to the border squares; the icon animates through 6 poses (DS:6DDC).
 func (e *Engine) drawAreaMapParty() {
-	v := int8(int(viewModeShift[e.viewMode]) + int(wordAt(e.area, 0x186)))
+	v := int8(int(viewModeShift[e.viewMode]) + int(e.area.MapX))
 	switch {
 	case v < 2:
 	case v < 0x2A:
@@ -60,7 +60,7 @@ func (e *Engine) drawAreaMapParty() {
 		v = 4
 	}
 	var y byte
-	switch w := wordAt(e.area, 0x188); {
+	switch w := e.area.MapY; {
 	case w < 2:
 		y = byte(w)
 	case w < 0x22:

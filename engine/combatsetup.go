@@ -16,9 +16,9 @@ func (e *Engine) combatSetup() {
 	e.clouds = nil
 	e.v5D9A = nil
 	e.bodies = [10]body{}
-	putWord(e.game, 0x666, 0)
-	if wordAt(e.game, 0x58C) > 0x64 {
-		putWord(e.game, 0x58C, 0x64)
+	e.game.AttackedAlly = 0
+	if e.game.Morale > 0x64 {
+		e.game.Morale = 0x64
 	}
 	e.combatMapSetup()
 	e.flushKey()
@@ -68,7 +68,7 @@ func (e *Engine) combatBlocks() {
 	for i, c := range e.party {
 		e.ApplyItems(c) // 00BA:0BB8
 		c.Combat = &CombatInfo{}
-		if i+1 > int(wordAt(e.game, gsPartyCount)) {
+		if i+1 > int(e.game.PartyCount) {
 			c.Combat.Extra = 1
 		}
 		c.Combat.Facing = facingDir[e.facing/2]
@@ -77,7 +77,7 @@ func (e *Engine) combatBlocks() {
 		}
 		m := c.Control & 0x7F
 		if c.Side == 0 && c.Combat.Delay == 1 && (m == 0 || m > 0x66) {
-			c.Control = byte(wordAt(e.game, 0x58C) + 0x80)
+			c.Control = byte(e.game.Morale + 0x80)
 		}
 	}
 }
@@ -275,7 +275,7 @@ func (e *Engine) wildMap() {
 			e.cmap.ground[y][x] = 0x17
 		}
 	}
-	a, b := int(e.area[0x186]), int(e.area[0x188])
+	a, b := int(byte(e.area.MapX)), int(byte(e.area.MapY))
 	switch e.viewMode {
 	case 3:
 		a += 0xD
@@ -329,7 +329,7 @@ func (e *Engine) terrainFlags() byte {
 			break
 		}
 	}
-	if k&0x80 != 0 && wordAt(e.area, 0x366) == 0xFF {
+	if k&0x80 != 0 && e.area.Boss == 0xFF {
 		k = k - 0x80 | 1
 	}
 	return k
@@ -499,7 +499,7 @@ func (e *Engine) placeCombatants() {
 	p := &e.place
 	p.ox[0], p.oy[0] = 0, 0
 	p.dir[0] = byte(e.facing / 2)
-	dist := int(wordAt(e.game, 0x582))
+	dist := int(e.game.MonsterDist)
 	p.ox[1] = int8(dist*dirDX[e.facing] + int(p.ox[0]))
 	p.oy[1] = int8(dist*dirDY[e.facing] + int(p.oy[0]))
 	p.dir[1] = byte((e.facing + 4) % 8 / 2)

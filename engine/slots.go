@@ -166,9 +166,9 @@ func (e *Engine) saveTo(name string) {
 	// saveSlot packs the wall slots into area+0x3F4..0x3FF for the file; the
 	// last word is also the view animation flag (animateWhileWaiting), which
 	// would cycle a stale sprite at the view's corner until the next move
-	keep := slices.Clone(e.area[0x3F4:0x400])
+	keepA, keepB := e.area.WallsA, e.area.WallsB
 	e.inSlot(name, func() { e.saveSlot('A') })
-	copy(e.area[0x3F4:], keep)
+	e.area.WallsA, e.area.WallsB = keepA, keepB
 }
 
 const slotRows = 0x11

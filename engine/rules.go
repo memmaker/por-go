@@ -235,9 +235,9 @@ func (e *Engine) AttackHits(att, def *Character, need int) bool {
 	}
 	e.affectGroup(att, grpAttacker)
 	e.affectGroup(def, grpDefender)
-	adj := int(int8(e.game[0x6E2]))
+	adj := int(int8(byte(e.game.PartyHit)))
 	if att.Side != 0 {
-		adj = int(int8(e.game[0x6E0]))
+		adj = int(int8(byte(e.game.MonsterHit)))
 	}
 	return e.rv.hitRoll >= 0 && int(e.rv.hitRoll)+int(att.THAC0)+adj >= int(byte(need))
 }

@@ -58,7 +58,7 @@ var quickParty = []quickPick{
 
 // QuickStart creates the quickParty members and puts them in the party.
 func (e *Engine) QuickStart() {
-	putWord(e.game, gsPartyCount, 0)
+	e.game.PartyCount = 0
 	for i := range quickParty {
 		q := quickParty[i] // a fresh copy each time
 		e.ext.quick = &q

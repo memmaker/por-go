@@ -82,7 +82,7 @@ func (e *Engine) RunECL(addr int) {
 func (e *Engine) opExit() {
 	if e.es.f84E2 != 0 {
 		e.DrawBoxTitled(1, 1, 0xF, 0xF, 0, 0xF, "")
-		if wordAt(e.area, 0x1CC) != 0 {
+		if e.area.In3D != 0 {
 			e.DrawBoxTitled(3, 3, 0xD, 0xD, 0, 0xF, "")
 		}
 	}
@@ -240,20 +240,20 @@ func (e *Engine) addMonsters(idx, count, icon int) {
 func (e *Engine) opSetupMonster() {
 	e.FetchArgs(3)
 	e.run.sprite = int(byte(e.ArgValue(1)))
-	putWord(e.game, 0x580, e.ArgValue(2))
+	e.game.MaxDist = e.ArgValue(2)
 	e.run.closeup = int(byte(e.ArgValue(3)))
-	putWord(e.game, 0x582, uint16(e.FreeSteps(e.posX, e.posY, e.facing)))
-	if wordAt(e.game, 0x580) < wordAt(e.game, 0x582) {
-		putWord(e.game, 0x582, wordAt(e.game, 0x580))
+	e.game.MonsterDist = uint16(e.FreeSteps(e.posX, e.posY, e.facing))
+	if e.game.MaxDist < e.game.MonsterDist {
+		e.game.MonsterDist = e.game.MaxDist
 	}
-	e.ShowEncounter(e.run.sprite, e.run.closeup, int(e.game[0x582]), &e.es.f84C8)
+	e.ShowEncounter(e.run.sprite, e.run.closeup, int(byte(e.game.MonsterDist)), &e.es.f84C8)
 }
 
 // opApproach = ovr04:0817: the monster comes one step closer.
 func (e *Engine) opApproach() {
-	if d := wordAt(e.game, 0x582); d > 0 {
-		putWord(e.game, 0x582, d-1)
-		e.ShowEncounter(e.run.sprite, e.run.closeup, int(e.game[0x582]), &e.es.f84C8)
+	if d := e.game.MonsterDist; d > 0 {
+		e.game.MonsterDist = d - 1
+		e.ShowEncounter(e.run.sprite, e.run.closeup, int(byte(e.game.MonsterDist)), &e.es.f84C8)
 	}
 	e.eclPC++
 }
@@ -263,7 +263,7 @@ func (e *Engine) opApproach() {
 func (e *Engine) opPicture() {
 	e.FetchArgs(1)
 	v := int(byte(e.ArgValue(1)))
-	if wordAt(e.area, 0x1CC) == 0 && v != 0xFF {
+	if e.area.In3D == 0 && v != 0xFF {
 		e.DrawBoxTitled(3, 3, 0xD, 0xD, 0, 0xF, "")
 	}
 	if v != 0xFF {
@@ -272,7 +272,7 @@ func (e *Engine) opPicture() {
 		}
 		e.es.f84C8[1] = 1
 		e.es.f84E0 = 1
-		if face := wordAt(e.game, 0x5C2); face == 0xFF {
+		if face := e.game.Portrait; face == 0xFF {
 			e.LoadAnimPic("PIC", v, false)
 			e.DrawAnimFirst()
 		} else {
@@ -392,7 +392,7 @@ func (e *Engine) opIf() {
 // opNewECL = ovr04:0BD1 (area): switch to another area's script.
 func (e *Engine) opNewECL() {
 	e.FetchArgs(1)
-	putWord(e.area, 0x1E4, uint16(e.gs.areaKind))
+	e.area.AreaKind = uint16(e.gs.areaKind)
 	v := byte(e.ArgValue(1))
 	e.gs.areaKind = v
 	e.eclFile = "ECL" + e.symDAX[4:] + ".dax" // DS:547C
@@ -415,12 +415,12 @@ func (e *Engine) opLoadFiles() {
 	}
 	if e.es.op == 0x21 {
 		e.run.geoSet = 1
-		if a[1] != 0xFF && a[1] != 0x7F && wordAt(e.area, 0x1CC) != 0 {
-			putWord(e.area, 0x18A, uint16(a[1]))
+		if a[1] != 0xFF && a[1] != 0x7F && e.area.In3D != 0 {
+			e.area.Geo = uint16(a[1])
 			e.LoadGeo(a[1])
-			putWord(e.game, 0x592, 0)
+			e.game.HoldMove = 0
 		}
-		if a[3] != 0xFF && wordAt(e.area, 0x1CC) == 0 {
+		if a[3] != 0xFF && e.area.In3D == 0 {
 			e.LoadBackpacIcons("BACPAC", 0, 0x28) // ovr33:0022
 		}
 	} else {
@@ -428,7 +428,7 @@ func (e *Engine) opLoadFiles() {
 		switch {
 		case a[1] == 0x7F:
 			e.LoadWalldef(0, 1)
-		case wordAt(e.area, 0x1CE) != 0 && wordAt(e.area, 0x1D0) != 0:
+		case e.area.WallSplitA != 0 && e.area.WallSplitB != 0:
 			e.LoadWalldef(a[1], 1)
 			e.LoadWalldef(a[3], 3)
 		default:
@@ -657,23 +657,23 @@ func (e *Engine) opCombat() {
 	e.eclPC++
 	if e.run.f84E7 == 0 && e.run.f84D4 == 0 {
 		switch {
-		case wordAt(e.game, 0x6D8) == 1:
-			putWord(e.game, 0x6D8, 0)
+		case e.game.Shop == 1:
+			e.game.Shop = 0
 			e.Shop() // ovr07:053E
-		case wordAt(e.game, 0x5C4) == 1:
-			putWord(e.game, 0x5C4, 0)
+		case e.game.Temple == 1:
+			e.game.Temple = 0
 			e.Temple() // ovr05:0D09
 		default:
 			e.AfterCombat() // ovr06:1527
 		}
 	} else {
 		d := uint16(e.FreeSteps(e.posX, e.posY, e.facing))
-		if d < wordAt(e.game, 0x582) {
-			putWord(e.game, 0x582, d)
+		if d < e.game.MonsterDist {
+			e.game.MonsterDist = d
 		}
 		e.Combat()      // ovr09:007A
 		e.AfterCombat() // ovr06:1527
-		if wordAt(e.area, 0x1CC) == 0 {
+		if e.area.In3D == 0 {
 			e.LoadBackpacIcons("BACPAC", 0, 0x28)
 			e.LoadIconPic("ICON", 0, 9)
 			e.LoadIconPic("ICON", 1, 0xA)
@@ -686,7 +686,7 @@ func (e *Engine) opCombat() {
 	} else {
 		e.beginFlag = 3
 	}
-	putWord(e.game, 0x594, wordAt(e.game, 0x594)&1)
+	e.game.Search = e.game.Search & 1
 	e.es.f84C8 = [2]byte{}
 	e.es.f84E0 = 0
 	e.DrawMainScreen()
