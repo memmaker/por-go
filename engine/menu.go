@@ -219,7 +219,7 @@ func (e *Engine) displayInput(prompt, menu string, promptColour, normal, highlig
 		}
 		k = upper(k)
 		done := false
-		if k == ' ' {
+		if k == ' ' || k != 0 && strings.IndexByte(e.ext.hiddenKeys, k) >= 0 {
 			done = true
 		} else if isHotkey(k) {
 			for i := 1; i <= len(menu); i++ {

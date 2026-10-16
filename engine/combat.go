@@ -227,7 +227,9 @@ func (e *Engine) combatMenu(c *Character) byte {
 	}
 	m += "Quick Done" // extra: L still opens the Log
 	for {
+		e.ext.hiddenKeys = "L" // extra: the Log, off the bar
 		key, extra := e.DisplayInput("", m, 0xD, 0xA, 0xF, true, false)
+		e.ext.hiddenKeys = ""
 		if extra && !(key == 0x10 || key == 0x13 || key == '-' || key == '2') { // set cs:0626
 			key = 0
 		}
