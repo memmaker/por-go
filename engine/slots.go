@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/gob"
 	"os"
 	"path/filepath"
 	"slices"
@@ -155,15 +156,36 @@ func (e *Engine) SlotIndex(name string) int {
 }
 
 // LoadSlotNamed loads the slot without the screen (cmd/snap).
-func (e *Engine) LoadSlotNamed(name string) (ok bool) {
+func (e *Engine) LoadSlotNamed(name string) bool {
 	e.adoptLettered()
+	return e.loadFrom(name)
+}
+
+// seenFile holds a slot's explored squares (extra: the original keeps none).
+const seenFile = "SEEN.GOB"
+
+// loadFrom loads the slot and its explored squares (none for a slot saved
+// before they were kept).
+func (e *Engine) loadFrom(name string) (ok bool) {
 	e.inSlot(name, func() { ok = e.loadSlot('A') })
-	return ok
+	if !ok {
+		return false
+	}
+	e.ext.seen = nil
+	if f, err := os.Open(filepath.Join(e.slotRoot(), name, seenFile)); err == nil {
+		gob.NewDecoder(f).Decode(&e.ext.seen)
+		f.Close()
+	}
+	return true
 }
 
 func (e *Engine) saveTo(name string) {
 	os.RemoveAll(filepath.Join(e.slotRoot(), name)) // no stale CHRDAT files of a bigger party
 	e.inSlot(name, func() { e.saveSlot('A') })
+	if f, err := os.Create(filepath.Join(e.slotRoot(), name, seenFile)); err == nil {
+		gob.NewEncoder(f).Encode(e.ext.seen)
+		f.Close()
+	}
 }
 
 const slotRows = 0x11
@@ -282,7 +304,7 @@ func (e *Engine) SlotMenu(loadOnly bool) bool {
 				e.combatViewLeave()
 			}
 			ok := false
-			e.inSlot(cur, func() { ok = e.loadSlot('A') })
+			ok = e.loadFrom(cur)
 			if ok && loadOnly {
 				return true
 			}

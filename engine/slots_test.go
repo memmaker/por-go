@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/gob"
 	"os"
 	"path/filepath"
 	"testing"
@@ -73,5 +74,26 @@ func TestVarOffsets(t *testing.T) {
 		if c.got != c.want {
 			t.Errorf("field at %#x, want %#x", c.got, c.want)
 		}
+	}
+}
+
+// The explored squares go with the slot: a load brings back the save's, not
+// what was explored since.
+func TestSeenFollowsSlot(t *testing.T) {
+	e := &Engine{symDAX: "8X8D1"}
+	e.Cfg.SaveDir = t.TempDir()
+	e.ext.seen = map[int]*[256]uint8{3: {5: seenVisited}}
+	e.saveTo("X")
+	b, err := os.ReadFile(filepath.Join(e.slotRoot(), "X", seenFile))
+	if err != nil || len(b) == 0 {
+		t.Fatal("no explored squares saved")
+	}
+	e.ext.seen = map[int]*[256]uint8{3: {5: seenVisited, 6: seenSeen}, 9: {}}
+	f, _ := os.Open(filepath.Join(e.slotRoot(), "X", seenFile))
+	e.ext.seen = nil
+	gob.NewDecoder(f).Decode(&e.ext.seen)
+	f.Close()
+	if len(e.ext.seen) != 1 || e.ext.seen[3][5] != seenVisited || e.ext.seen[3][6] != 0 {
+		t.Errorf("seen after reload = %v", e.ext.seen)
 	}
 }
