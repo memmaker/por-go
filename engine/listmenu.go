@@ -219,6 +219,7 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 	}
 	*index++
 	e.lmMoveCursor(c, false)
+	clicked := false // the 13 came from a click on the line
 	{ // extra (nav.go): a click moves the cursor to the line, a second one is
 		// Enter; a pure picker (no menu words) picks on the first click, and
 		// the line under the pointer is highlighted
@@ -243,6 +244,7 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 			}
 			if i == *index || menu == "" {
 				*index = i
+				clicked = true
 				return 13
 			}
 			move(i)
@@ -282,6 +284,14 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 		key, extra := e.DisplayInput(title, m, promptColour, normal, hi, true, false)
 		e.ext.list, e.ext.picker = false, false
 		e.lmDrawRow(c, *index, false)
+		// extra: Enter picks the highlighted menu word (a click on the line
+		// still takes the first)
+		if key == 13 && !clicked && !extra && menu != "" {
+			if start, _ := menuItems(m); e.menuSel >= 1 && e.menuSel < len(start) {
+				key = m[start[e.menuSel]-1]
+			}
+		}
+		clicked = false
 		if extra {
 			switch key {
 			case 0x47, 0x48: // Home, cursor up

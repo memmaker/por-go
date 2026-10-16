@@ -18,7 +18,7 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 		if len(price) > 0x10 {
 			price = price[:0x10]
 		}
-		const w = 0x25 // columns 1..0x25 inside the frame (the original: 0x1E)
+		const w = 0x24 // columns 2..0x25, one in from the frame (the original: 1..0x1E)
 		line := []byte(strings.Repeat(" ", w))
 		copy(line[w-len(price):], price)
 		copy(line, cut(it.Name(), w-1-len(price))) // extra: the name stops before the price
@@ -26,7 +26,8 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 		list[i].Dim = !e.canUseItem(e.selected(), it) // extra: what the buyer cannot use is grey and passed over
 	}
 	e.DrawBoxTitled(1, 1, 0x26, 0x16, 0, 0xF, "Shop")
-	e.DisplayString(2, 2, 0xE, e.moneyLine())
+	gold := itoa(int(e.purse.gold)) + "g" // extra: on the frame, the g under the prices' last digit
+	e.DisplayString(0x26-len(gold), 0x17, 0xE, gold)
 	if c := e.selected(); len(e.party) > 0 { // extra: who is buying (F1-F8 change it)
 		e.displayName(c, 0x26-len(c.Name()), 2, false)
 	}
@@ -39,7 +40,7 @@ func (e *Engine) shopList(index *int, item **Item) byte {
 		*index %= len(list)
 	}
 	e.ext.buying = true
-	key := e.ListMenu("Items: ", "Buy Look", 0xD, 0xA, 0xF, 1, 4, 0x26, 0x16, list, true, &redraw, index, &sel)
+	key := e.ListMenu("  Items: ", "Buy Look", 0xD, 0xA, 0xF, 2, 4, 0x26, 0x16, list, true, &redraw, index, &sel)
 	e.ext.buying = false
 	*item = nil
 	for i, n := range list {
