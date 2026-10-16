@@ -168,43 +168,64 @@ func (e *Engine) saveTo(name string) {
 
 const slotRows = 0x11
 
-// SlotMenu is the F9 screen: the saves, newest first, and what to do.
-// loadOnly (the party menu's Load) offers no saving and returns true after
-// a load instead of unwinding to adventure.
+// SlotMenu is the F9 screen: "New Slot", then the saves, newest first. The
+// cursor starts on the newest save, the one saved last. Enter saves (on New
+// Slot under a new name, on a save as an overwrite after a Yes); L loads.
+// loadOnly (the party menu's Load) offers no saving, Enter loads there, and
+// it returns true after a load instead of unwinding to adventure.
 func (e *Engine) SlotMenu(loadOnly bool) bool {
 	defer e.modalOn()()
 	restore := e.saveScreen()
 	defer restore()
 	canSave := !loadOnly && e.ext.inGame && len(e.party) > 0 && e.beginFlag != 5
-	sel, top := 0, 0
+	first := 0 // the row of the first save
+	if canSave {
+		first = 1
+	}
+	sel, top := first, 0
+	type key struct {
+		label string
+		k     uint16
+	}
+	footer := []key{{"L=load", 'L'}, {"D=delete", 'D'}, {"Esc=back", 27}}
+	switch {
+	case canSave:
+		footer = append([]key{{"Enter=save", 13}}, footer...)
+	case loadOnly:
+		footer = append([]key{{"Enter=load", 13}}, footer[1:]...)
+	}
 	for {
 		list := e.slots()
-		sel = min(max(sel, 0), max(len(list)-1, 0))
+		rows := len(list) + first
+		sel = min(max(sel, 0), max(rows-1, 0))
 		top = min(max(top, sel-slotRows+1), sel)
 		e.DrawBoxTitled(1, 1, 0x26, 0x17, 0, 0xF, "Saved Games")
 		e.ClearCells(2, 2, 0x25, 0x17)
-		if len(list) == 0 {
+		if rows == 0 {
 			e.DisplayString(3, 3, 0xA, "No saved games yet")
 		}
-		for i := top; i < len(list) && i < top+slotRows; i++ {
+		for i := top; i < rows && i < top+slotRows; i++ {
 			col := 0xA
 			if i == sel {
 				col = 0xF
 				e.DisplayString(2, 3+i-top, 0xE, ">")
 			}
-			e.DisplayString(3, 3+i-top, col, cut(list[i].name, 0x15))
-			e.DisplayString(0x19, 3+i-top, 0x7, list[i].at.Format("Jan 02 15:04"))
+			if i < first {
+				e.DisplayString(3, 3+i-top, col, "New Slot")
+				continue
+			}
+			e.DisplayString(3, 3+i-top, col, cut(list[i-first].name, 0x15))
+			e.DisplayString(0x19, 3+i-top, 0x7, list[i-first].at.Format("Jan 02 15:04"))
 		}
-		if canSave {
-			e.DisplayString(2, 0x15, 0xE, "S=save new  O=overwrite")
+		if !canSave && !loadOnly {
+			e.DisplayString(2, 0x15, 0xE, "No saving now")
 		}
-		e.DisplayString(2, 0x16, 0xE, "Enter=load  D=delete  Esc=back")
-		// extra (nav.go): a click selects a line, a second one loads; the
+		// extra (nav.go): a click selects a line, a second one is Enter; the
 		// keys in the footer are clicked by their words
 		mark := e.regionMark()
 		e.addRegion(region{x0: 2, y0: 3, x1: 0x25, y1: 3 + slotRows - 1, click: func(_, cy int) uint16 {
 			i := top + cy - 3
-			if i >= len(list) {
+			if i >= rows {
 				return 0
 			}
 			if i == sel {
@@ -213,20 +234,21 @@ func (e *Engine) SlotMenu(loadOnly bool) bool {
 			sel = i
 			return keyNone
 		}})
-		for _, b := range []struct {
-			x, y, w int
-			k       uint16
-		}{{2, 0x15, 10, 'S'}, {0xE, 0x15, 11, 'O'}, {2, 0x16, 10, 13}, {0xE, 0x16, 8, 'D'}, {0x18, 0x16, 8, 27}} {
-			if b.y == 0x15 && !canSave {
-				continue
-			}
-			e.addRegion(region{x0: b.x, y0: b.y, x1: b.x + b.w - 1, y1: b.y, click: func(int, int) uint16 { return b.k }})
+		x, gap := 2, 0x24
+		for _, f := range footer {
+			gap -= len(f.label)
+		}
+		gap /= len(footer) - 1 // spread over the row inside the frame
+		for _, f := range footer {
+			e.DisplayString(x, 0x16, 0xE, f.label)
+			e.addRegion(region{x0: x, y0: 0x16, x1: x + len(f.label) - 1, y1: 0x16, click: func(int, int) uint16 { return f.k }})
+			x += len(f.label) + gap
 		}
 		k := e.ReadKey()
 		e.regionCut(mark)
-		var cur string
-		if sel < len(list) {
-			cur = list[sel].name
+		cur := ""
+		if sel >= first && sel < rows {
+			cur = list[sel-first].name
 		}
 		switch {
 		case k == 27 || k == KeyF9:
@@ -235,27 +257,27 @@ func (e *Engine) SlotMenu(loadOnly bool) bool {
 			sel--
 		case k == 0x5000:
 			sel++
-		case (k == 's' || k == 'S') && canSave:
+		case k == 13 && canSave && cur == "": // New Slot
 			name := slotName(e.InputString("Save as: ", 0xA, 0x14))
 			if name == "" {
 				continue
 			}
 			if slices.ContainsFunc(list, func(s slot) bool { return s.name == name }) &&
-				e.YesNo(0xE, 0xA, 0xF, "Overwrite "+name+"? ") != 'Y' {
+				e.YesNo(0xE, 0xA, 0xF, cut("Overwrite "+name+"? ", 0x28)) != 'Y' {
 				continue
 			}
 			e.saveTo(name)
-			sel = 0
-		case (k == 'o' || k == 'O') && canSave && cur != "":
+			sel = first
+		case k == 13 && canSave:
 			if e.YesNo(0xE, 0xA, 0xF, cut("Overwrite "+cur+"? ", 0x28)) == 'Y' {
 				e.saveTo(cur)
-				sel = 0
+				sel = first
 			}
 		case (k == 'd' || k == 'D') && cur != "":
 			if e.YesNo(0xE, 0xA, 0xF, cut("Delete "+cur+"? ", 0x28)) == 'Y' {
 				os.RemoveAll(filepath.Join(e.slotRoot(), cur))
 			}
-		case (k == 13 || k == 'l' || k == 'L') && cur != "":
+		case (k == 'l' || k == 'L' || k == 13 && loadOnly) && cur != "":
 			if e.beginFlag == 5 {
 				e.combatViewLeave()
 			}
