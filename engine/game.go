@@ -194,7 +194,7 @@ func (e *Engine) CommandInput() byte {
 		}
 		for done := false; !done; {
 			e.ext.inCommand = true
-			k, extra := e.DisplayInput("", e.commandBar("Cast View Encamp sWeep Search"), 0xD, 0xA, 0xF, true, false)
+			k, extra := e.DisplayInput("", e.commandBar("Cast Inv View Encamp sWeep Search"), 0xD, 0xA, 0xF, true, false)
 			e.ext.inCommand = false
 			key = k
 			if !extra {
@@ -230,7 +230,7 @@ func (e *Engine) CommandInput() byte {
 // commandBar3D = the 3D view's command bar (DS:04B6) without Area: the
 // minimap (Tab, extras.go) shows all Area showed.
 func (e *Engine) commandBar3D() string {
-	return "Cast View Encamp sWeep Search"
+	return "Cast Inv View Encamp sWeep Search"
 }
 
 // command handles a letter from the command bar (the original's Area is
@@ -240,6 +240,13 @@ func (e *Engine) command(k byte, view3D bool) bool {
 	case 'C':
 		if !view3D || e.selected().Status == 0 {
 			e.CastMenu() // ovr16:04A1
+		}
+	case 'I': // extra: straight to the inventory
+		if len(e.selected().Items) == 0 {
+			e.BottomMessage("No items")
+		} else {
+			e.ext.toItems = true
+			e.ViewCharacter()
 		}
 	case 'V':
 		e.ViewCharacter() // ovr20:0AB3

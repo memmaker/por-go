@@ -271,7 +271,7 @@ func (e *Engine) extraKey(k byte) bool {
 // viewKey: F1..F8 (n = 0..7) on the command bar or in a menu with View
 // select member n and open their inventory (View, starting on Items). On
 // the View page or in the inventory they switch to member n (Exit, then
-// View again). Not in combat, where View is the fighter's.
+// View again), staying on the page they were on. Not in combat, where View is the fighter's.
 func (e *Engine) viewKey(n int) uint16 {
 	if n >= len(e.party) || e.beginFlag == 5 || e.ext.menu == 0 {
 		return 0
@@ -284,7 +284,7 @@ func (e *Engine) viewKey(n int) uint16 {
 			}
 			return 0
 		}
-		e.partySel, e.ext.toItems = n, true
+		e.partySel, e.ext.toItems = n, e.ext.items // the same page for member n
 		e.ext.switchTo = e.ext.items
 		e.ext.later = append(e.ext.later, 'V')
 		return 'E'

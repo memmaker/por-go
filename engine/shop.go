@@ -127,9 +127,14 @@ func (e *Engine) Shop() {
 	for _, it := range e.run.treasure {
 		e.ItemName(nil, it, 0, 0, false, false)
 	}
+	const menu = "Browse Appraise Identify Exit" // extra: Buy renamed Browse, no View, Id spelled out
+	if e.ext.sels == nil {
+		e.ext.sels = map[string]int{}
+	}
+	e.ext.sels[menu] = 1 // extra: a new visit starts on Browse, not where the last one left
 	for leave := false; !leave; {
 		e.shopMoney()
-		key, _ := e.DisplayInput("", "Browse Appraise Identify Exit", 0xD, 0xA, 0xF, true, false) // extra: Buy renamed Browse, no View, Id spelled out
+		key, _ := e.DisplayInput("", menu, 0xD, 0xA, 0xF, true, false)
 		appraised := false
 		switch key {
 		case 'B':
