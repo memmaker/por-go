@@ -62,7 +62,9 @@ func (e *Engine) chooseSpellTarget(spell, silent, allowGround int, t *aimTarget)
 	sel := e.selected()
 	found := false
 	if silent == 0 {
+		e.ext.enemiesOnly = spellTable[spell&0xFF][7] == 0 // extra: a hostile spell cycles through foes only
 		e.o14_3558(sel, e.o23_0729(spell), 0, allowGround, &found, t)
+		e.ext.enemiesOnly = false
 		sel.Combat.Target = t.c
 	} else if e.spellData(spell, 8) == 0 {
 		t.c = sel
@@ -569,10 +571,17 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 	// nested ovr14:32E6 and ovr14:3389 work on the caller's locals
 	var list []nearEntry
 	var cur, count, prevX, prevY byte
+	skipAlly := false // extra: N/P pass over allies (hostile spells), while a foe can be aimed at
 	rebuild := func() { // ovr14:32E6
 		e.buildNear(e.combatX(c), e.combatY(c), 0x7F, 0xFF, e.combatSize(c))
 		list = append([]nearEntry(nil), e.near.list...)
 		count = byte(len(list))
+		skipAlly = false
+		for _, n := range list {
+			if f := e.combatant(n.index); e.ext.enemiesOnly && f != nil && f.Side != c.Side && e.o14_1085(c, f) {
+				skipAlly = true
+			}
+		}
 	}
 	step := func(by byte, show bool) *Character { // ovr14:3389
 		ent := func(i byte) nearEntry {
@@ -609,7 +618,7 @@ func (e *Engine) o14_3558(c *Character, rangeArg, showRange, allowGround int, fo
 	by = 1
 	key := byte(' ')
 	for !*found && !(key == 0 || key == 'E') {
-		if !e.o14_1085(c, cand) {
+		if !e.o14_1085(c, cand) || skipAlly && cand.Side == c.Side {
 			cand = step(by, false)
 			continue
 		}

@@ -96,27 +96,29 @@ type extras struct {
 	aoe       int                 // aoe.go: radius+1 of the spell being aimed, 0 none
 
 	// nav.go: keys and mouse
-	ahead    []uint16       // translated keys not yet read
-	nav      navCtx         // the waiting menu
-	regions  []region       // clickable parts of the screen
-	mouseAt  int            // cell under the pointer + 1 at the last poll
-	jump     *[2]int8       // aimManual: a clicked square for the cursor
-	raw      string         // the screen reads the arrows itself; its hint line
-	typing   bool           // InputString is waiting
-	modal    int            // help or overview shown: any key closes
-	picker   bool           // the list has no menu words: a click picks (listmenu.go)
-	floor    int            // regions below belong to the screen under the modal one
-	viewing  bool           // the View page's own menu is waiting
-	items    bool           // the inventory's item list is waiting
-	toItems  bool           // the next View opens on the inventory (F1-F6)
-	toSheet  bool           // P left the inventory for the View page
-	switchTo bool           // F1-F6 left the inventory for another member
-	buying   bool           // the shop's Buy list is waiting: F1-F6 change the buyer
-	campBar  bool           // a camp menu bar is waiting: F1-F6 change the member
-	later    []uint16       // keys handed to the game one at a time (Engine.ReadKey)
-	sels     map[string]int // the highlighted item each menu was left with
-	selSet   bool           // the caller set the highlight (YesNo): keep it
-	skip     bool           // a key finished the text being printed: no more slow text until input is read
+	ahead       []uint16                // translated keys not yet read
+	nav         navCtx                  // the waiting menu
+	regions     []region                // clickable parts of the screen
+	mouseAt     int                     // cell under the pointer + 1 at the last poll
+	jump        *[2]int8                // aimManual: a clicked square for the cursor
+	raw         string                  // the screen reads the arrows itself; its hint line
+	typing      bool                    // InputString is waiting
+	modal       int                     // help or overview shown: any key closes
+	enemiesOnly bool                    // aiming a hostile spell: Next/Prev skip allies (combatturn2.go)
+	learned     map[*Character][21]byte // the spells each caster held before using some (camp.go noteSpells)
+	picker      bool                    // the list has no menu words: a click picks (listmenu.go)
+	floor       int                     // regions below belong to the screen under the modal one
+	viewing     bool                    // the View page's own menu is waiting
+	items       bool                    // the inventory's item list is waiting
+	toItems     bool                    // the next View opens on the inventory (F1-F6)
+	toSheet     bool                    // P left the inventory for the View page
+	switchTo    bool                    // F1-F6 left the inventory for another member
+	buying      bool                    // the shop's Buy list is waiting: F1-F6 change the buyer
+	campBar     bool                    // a camp menu bar is waiting: F1-F6 change the member
+	later       []uint16                // keys handed to the game one at a time (Engine.ReadKey)
+	sels        map[string]int          // the highlighted item each menu was left with
+	selSet      bool                    // the caller set the highlight (YesNo): keep it
+	skip        bool                    // a key finished the text being printed: no more slow text until input is read
 
 	// fullmap.go
 	labels  map[int]map[int]mapLabel // per area: square -> label

@@ -30,3 +30,19 @@ func TestRestoreSpells(t *testing.T) {
 		t.Fatalf("got %x, want %x", got[:5], want[:5])
 	}
 }
+
+// A cast spell is remembered and comes back as one to memorize again.
+func TestRelearnUsedSpells(t *testing.T) {
+	e := &Engine{}
+	c := &Character{}
+	c.Memorized[0], c.Memorized[1] = 3, 3 // two Cure Light Wounds
+	e.party = []*Character{c}
+	e.forgetSpell(3)
+	if c.Memorized[0] != 0 || c.Memorized[1] != 3 {
+		t.Fatalf("cast: %v", c.Memorized[:2])
+	}
+	r := restoreSpells(e.ext.learned[c], c.Memorized)
+	if r[0]|r[1] != 3|0x80 || r[0]&r[1] != 3 { // one kept, one to memorize
+		t.Errorf("relearn: %#x %#x, want 0x3 and 0x83", r[0], r[1])
+	}
+}

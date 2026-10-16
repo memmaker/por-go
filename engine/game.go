@@ -521,6 +521,7 @@ func (e *Engine) knock() bool {
 	if c == nil {
 		return false
 	}
+	e.noteSpells(c)
 	c.Memorized[spellSlot(c, 0x1F)] = 0
 	return true
 }

@@ -270,6 +270,44 @@ func (e *Engine) o17_4235(c *Character, mask int) int {
 // (DS:409B table) allows it and which this hall teaches (game +0x550),
 // for 1000 gp. Race level limits apply; a mage level gained offers a
 // new spell for the book.
+// levelBlocked: the race's level limit stops class i at level lv.
+func levelBlocked(race, str byte, i int, lv byte) bool {
+	// Level limits of the races.
+	skip := false
+	switch race {
+	case 1:
+		skip = i == 2 && (lv == 8 && str == 0x11 || lv == 7 && str < 0x11)
+	case 2:
+		skip = i == 2 && (lv == 7 || lv == 6 && str == 0x11 || lv == 5 && str < 0x11)
+	case 3:
+		skip = i == 2 && (lv == 6 || lv == 5 && str < 0x12)
+	case 4:
+		if i == 0 && lv == 5 {
+			skip = true
+		} else if i == 2 {
+			skip = lv == 8 || lv == 7 && str == 0x11 || lv == 6 && str < 0x11
+		}
+	case 5:
+		skip = i == 2 && (lv == 6 || lv == 5 && str == 0x11 || lv == 4 && str < 0x11)
+	}
+	return skip
+}
+
+// levelReady (extra): c has the experience for a level in one of its
+// classes; the roster shows the name in purple.
+func levelReady(c *Character) bool {
+	for i := 0; i <= 7; i++ {
+		lv := c.Levels[i]
+		if int8(lv) <= 0 || levelBlocked(c.Race, c.Stats[statStr], i, lv) {
+			continue
+		}
+		if need := xpTable[i][int8(lv+1)]; need > 0 && need <= int32(c.Exp) {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Engine) TrainCharacter() {
 	c := e.selected()
 	if c.Status != 0 && !e.debug {
@@ -290,24 +328,7 @@ func (e *Engine) TrainCharacter() {
 			continue
 		}
 		have += classMask(i)
-		// Level limits of the races.
-		skip := false
-		switch race {
-		case 1:
-			skip = i == 2 && (lv == 8 && str == 0x11 || lv == 7 && str < 0x11)
-		case 2:
-			skip = i == 2 && (lv == 7 || lv == 6 && str == 0x11 || lv == 5 && str < 0x11)
-		case 3:
-			skip = i == 2 && (lv == 6 || lv == 5 && str < 0x12)
-		case 4:
-			if i == 0 && lv == 5 {
-				skip = true
-			} else if i == 2 {
-				skip = lv == 8 || lv == 7 && str == 0x11 || lv == 6 && str < 0x11
-			}
-		case 5:
-			skip = i == 2 && (lv == 6 || lv == 5 && str == 0x11 || lv == 4 && str < 0x11)
-		}
+		skip := levelBlocked(race, str, i, lv)
 		if skip {
 			continue
 		}

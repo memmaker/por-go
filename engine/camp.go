@@ -315,6 +315,7 @@ func (e *Engine) healParty() (interrupted bool) {
 			c.Memorized = restoreSpells(m, c.Memorized)
 		} else {
 			c.Memorized = m // exactly the spells of before
+			e.setLearned(c, m)
 		}
 	}
 	if !interrupted && e.healMinutes() > 0 {
@@ -445,11 +446,44 @@ func (e *Engine) sortSpells() {
 	}
 }
 
+// noteSpells (extra): before c first uses a spell, the spells it holds are
+// remembered, so that Memorize can offer to learn the used ones again.
+func (e *Engine) noteSpells(c *Character) {
+	if _, ok := e.ext.learned[c]; !ok {
+		e.setLearned(c, c.Memorized)
+	}
+}
+
+func (e *Engine) setLearned(c *Character, m [21]byte) {
+	if e.ext.learned == nil {
+		e.ext.learned = map[*Character][21]byte{}
+	}
+	e.ext.learned[c] = m
+}
+
+// relearnSpells (extra): offer to memorize again the spells c used since
+// they were learned, when nothing else is waiting to be memorized.
+func (e *Engine) relearnSpells(c *Character) {
+	was, ok := e.ext.learned[c]
+	if !ok || slices.ContainsFunc(c.Memorized[:], func(v byte) bool { return v > 0x7F }) {
+		return
+	}
+	r := restoreSpells(was, c.Memorized)
+	if !slices.ContainsFunc(r[:], func(v byte) bool { return v > 0x7F }) {
+		return // nothing used
+	}
+	if e.YesNo(0xE, 0xA, 0xF, "Relearn the spells used? ") == 'Y' {
+		c.Memorized = r
+		e.sortSpells()
+	}
+}
+
 // memorizeMenu = ovr16:090A.
 func (e *Engine) memorizeMenu() {
 	if !e.canStudy(2) {
 		return
 	}
+	e.relearnSpells(e.selected())
 	done := false
 	index := -1
 	var any bool
@@ -1040,6 +1074,9 @@ func (e *Engine) memorizeOne(c *Character, check *bool) int {
 			continue
 		}
 		c.Memorized[i] -= 0x80
+		if !slices.ContainsFunc(c.Memorized[:], func(v byte) bool { return v > 0x7F }) {
+			e.setLearned(c, c.Memorized) // extra: the full set, to relearn (memorizeMenu)
+		}
 		e.showRest(0)
 		e.o23_331A(c, "has memorized", int(c.Memorized[i]))
 		*check = true
